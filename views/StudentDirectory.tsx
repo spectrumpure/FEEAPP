@@ -123,7 +123,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     fatherMobile: '',
     address: '',
     course: 'B.E' as CourseType,
-    department: DEPARTMENTS[4].name,
+    department: DEPARTMENTS[0].name,
     specialization: 'General',
     section: 'A',
     admissionCategory: 'TSMFC',
@@ -132,10 +132,14 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     currentYear: 1
   });
 
-  const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.hallTicketNumber.includes(searchTerm)
-  );
+  const [departmentFilter, setDepartmentFilter] = useState('');
+
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      s.hallTicketNumber.includes(searchTerm);
+    const matchesDept = !departmentFilter || s.department === departmentFilter;
+    return matchesSearch && matchesDept;
+  });
 
   const resetForm = () => {
     setFormData({
@@ -149,7 +153,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       fatherMobile: '',
       address: '',
       course: 'B.E',
-      department: DEPARTMENTS[4].name,
+      department: DEPARTMENTS[0].name,
       specialization: 'General',
       section: 'A',
       admissionCategory: 'TSMFC',
@@ -668,15 +672,25 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search by Roll No or Name..." 
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all shadow-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex flex-1 items-center gap-3 max-w-2xl">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search by Roll No or Name..." 
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all shadow-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all shadow-sm min-w-[200px]"
+          >
+            <option value="">All Departments</option>
+            {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+          </select>
         </div>
         <div className="flex items-center space-x-3">
           <button 

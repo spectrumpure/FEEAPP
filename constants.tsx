@@ -2,12 +2,20 @@
 import { Department, Student } from './types';
 
 export const DEPARTMENTS: Department[] = [
-  { id: '1', name: 'Computer Science & Engineering', code: 'CSE', specializations: ['General', 'AI', 'DS', 'AI & ML'] },
-  { id: '2', name: 'Electronics & Communication Engineering', code: 'ECE', specializations: ['General'] },
-  { id: '3', name: 'Electrical & Electronics Engineering', code: 'EEE', specializations: ['General'] },
-  { id: '4', name: 'Mechanical Engineering', code: 'MECH', specializations: ['General', 'CAD/CAM'] },
-  { id: '5', name: 'Civil Engineering', code: 'CIVIL', specializations: ['General', 'Structures'] },
-  { id: '6', name: 'Production Engineering', code: 'PROD', specializations: ['General'] },
+  { id: '1', name: 'B.E(Computer Science Engineering)', code: 'CSE', courseType: 'B.E', duration: 4, specializations: ['General'] },
+  { id: '2', name: 'B.E(Electrical& Electronics Engineering)', code: 'EEE', courseType: 'B.E', duration: 4, specializations: ['General'] },
+  { id: '3', name: 'B.E(Civil engineering)', code: 'CIVIL', courseType: 'B.E', duration: 4, specializations: ['General'] },
+  { id: '4', name: 'B.E(Mechanical Engineering)', code: 'MECH', courseType: 'B.E', duration: 4, specializations: ['General'] },
+  { id: '5', name: 'B.E(Information Technology)', code: 'IT', courseType: 'B.E', duration: 4, specializations: ['General'] },
+  { id: '6', name: 'B.E(Production Engineering)', code: 'PROD', courseType: 'B.E', duration: 4, specializations: ['General'] },
+  { id: '7', name: 'B.E(Electronics & Communication Engineering)', code: 'ECE', courseType: 'B.E', duration: 4, specializations: ['General'] },
+  { id: '8', name: 'B.E(Computer Science(AI))', code: 'CS-AI', courseType: 'B.E', duration: 4, specializations: ['General'] },
+  { id: '9', name: 'B.E(Computer Science(DS))', code: 'CS-DS', courseType: 'B.E', duration: 4, specializations: ['General'] },
+  { id: '10', name: 'B.E(Computer Science(AI&ML))', code: 'CS-AIML', courseType: 'B.E', duration: 4, specializations: ['General'] },
+  { id: '11', name: 'M.E (CAD/CAM)', code: 'ME-CADCAM', courseType: 'M.E', duration: 2, specializations: ['General'] },
+  { id: '12', name: 'M.E(CSE)', code: 'ME-CSE', courseType: 'M.E', duration: 2, specializations: ['General'] },
+  { id: '13', name: 'M.E(Structures)', code: 'ME-STRUCT', courseType: 'M.E', duration: 2, specializations: ['General'] },
+  { id: '14', name: 'M.E(VLSI)', code: 'ME-VLSI', courseType: 'M.E', duration: 2, specializations: ['General'] },
 ];
 
 export const COURSES = ['B.E', 'M.E'] as const;
@@ -58,7 +66,7 @@ const generateStudentData = (data: any): Student => {
     fatherMobile: data.fMob,
     address: data.addr,
     course: 'B.E',
-    department: 'Civil Engineering',
+    department: 'B.E(Civil engineering)',
     specialization: 'General',
     section: 'A',
     admissionCategory: data.mode,

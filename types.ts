@@ -17,6 +17,8 @@ export interface Department {
   id: string;
   name: string;
   code: string;
+  courseType: CourseType;
+  duration: number;
   specializations: string[];
 }
 
