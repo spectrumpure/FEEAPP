@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../store';
 import { FeeLockerConfig } from '../types';
 import { DEPARTMENTS } from '../constants';
@@ -13,7 +13,8 @@ import {
   Settings,
   XCircle,
   Save,
-  Lock
+  Lock,
+  Search
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -42,6 +43,27 @@ export const Dashboard: React.FC = () => {
   const { students, transactions, feeLockerConfig, updateFeeLockerConfig } = useApp();
   const [showLockerConfig, setShowLockerConfig] = useState(false);
   const [editConfig, setEditConfig] = useState<FeeLockerConfig>(feeLockerConfig);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showResults, setShowResults] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const searchResults = searchTerm.trim().length >= 2
+    ? students.filter(s =>
+        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.hallTicketNumber.toLowerCase().includes(searchTerm.toLowerCase())
+      ).slice(0, 8)
+    : [];
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowResults(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const totalStudents = students.length;
   const pendingApprovals = transactions.filter(t => t.status === 'PENDING').length;
@@ -113,6 +135,49 @@ export const Dashboard: React.FC = () => {
             <p className="text-blue-300/70 text-[10px] mt-0.5 font-medium uppercase tracking-wider">Sultan-Ul-Uloom Education Society | Fee Management System</p>
           </div>
         </div>
+      </div>
+
+      <div ref={searchRef} className="relative">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search by Roll No or Name..." 
+            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all text-sm shadow-sm"
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setShowResults(true); }}
+            onFocus={() => setShowResults(true)}
+          />
+        </div>
+        {showResults && searchTerm.trim().length >= 2 && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
+            {searchResults.length > 0 ? (
+              searchResults.map(s => {
+                const totalTarget = s.feeLockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
+                const totalPaid = s.feeLockers.reduce((sum, l) => {
+                  return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
+                }, 0);
+                const pending = totalTarget - totalPaid;
+                return (
+                  <div key={s.id} className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-slate-100 last:border-b-0 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-slate-800 text-sm">{s.name}</p>
+                        <p className="text-xs text-slate-500">{s.rollNumber} | {s.department}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-medium text-green-600">Paid: {formatCurrency(totalPaid)}</p>
+                        {pending > 0 && <p className="text-xs font-medium text-red-500">Due: {formatCurrency(pending)}</p>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="px-4 py-6 text-center text-slate-400 text-sm">No students found</div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
