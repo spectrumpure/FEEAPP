@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../store';
+import * as XLSX from 'xlsx';
 import { 
   CreditCard, 
   Search, 
@@ -102,41 +103,90 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
     setFormData({ ...formData, amount: '', challanNumber: '' });
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const normalizeDate = (val: string): string => {
+    if (!val || val === '0') return '';
+    const dotMatch = val.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (dotMatch) return `${dotMatch[3]}-${dotMatch[2].padStart(2, '0')}-${dotMatch[1].padStart(2, '0')}`;
+    const slashMatch = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashMatch) return `${slashMatch[3]}-${slashMatch[2].padStart(2, '0')}-${slashMatch[1].padStart(2, '0')}`;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    return '';
+  };
+
+  const computeFY = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    return month >= 4 ? `${year}-${(year + 1).toString().slice(-2)}` : `${year - 1}-${year.toString().slice(-2)}`;
+  };
+
+  const parseFileToRows = (file: File): Promise<string[][]> => {
+    return new Promise((resolve, reject) => {
+      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          if (isExcel) {
+            const data = new Uint8Array(event.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+            resolve(rows.filter(r => r.some(c => String(c).trim() !== '')));
+          } else {
+            const text = event.target?.result as string;
+            const lines = text.split(/\r?\n/).filter(row => row.trim() !== '');
+            const rows = lines.map(line => {
+              const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
+              return cols.map(c => c.replace(/^"|"$/g, '').trim());
+            });
+            resolve(rows);
+          }
+        } catch (err) { reject(err); }
+      };
+      reader.onerror = reject;
+      if (isExcel) reader.readAsArrayBuffer(file);
+      else reader.readAsText(file);
+    });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
-    const reader = new FileReader();
 
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const rows = text.split(/\r?\n/).filter(row => row.trim() !== "");
-      const dataRows = rows.slice(1);
-      
+    try {
+      const allRows = await parseFileToRows(file);
+      const dataRows = allRows.slice(1);
       const newStudentsToSync: Student[] = [];
 
       dataRows.forEach(row => {
-        const cols = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-        const cleanCols = cols.map(c => c.replace(/^"|"$/g, '').trim());
-
+        const cleanCols = row.map(c => String(c).trim());
         if (cleanCols.length < 13) return;
 
         const htnValue = cleanCols[0];
+        const mode = cleanCols[5].toUpperCase();
+        const admYear = String(cleanCols[6] || '2025');
+        const admYearNum = parseInt(admYear) || 2025;
+        const acYear = `${admYearNum}-${(admYearNum + 1).toString().slice(-2)}`;
+
         const studentData: Student = {
           hallTicketNumber: htnValue,
-          name: cleanCols[1],
-          fatherName: cleanCols[2],
+          name: cleanCols[1].toUpperCase(),
+          fatherName: cleanCols[2].toUpperCase(),
           sex: cleanCols[3],
           department: cleanCols[4],
-          admissionCategory: cleanCols[5],
-          admissionYear: cleanCols[6],
-          batch: cleanCols[7],
-          dob: cleanCols[8],
+          admissionCategory: mode,
+          admissionYear: admYear,
+          batch: cleanCols[7] || `${admYear}-${(admYearNum + 4).toString().slice(-2)}`,
+          dob: normalizeDate(cleanCols[8]),
           mobile: cleanCols[9],
           fatherMobile: cleanCols[10],
           address: cleanCols[11],
-          motherName: cleanCols[12],
+          motherName: cleanCols[12].toUpperCase(),
           course: 'B.E',
           specialization: 'General',
           section: 'A',
@@ -146,42 +196,44 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
 
         const locker: YearLocker = {
           year: 1,
-          tuitionTarget: studentData.admissionCategory === 'MANAGEMENT QUOTA' ? 125000 : 100000,
+          tuitionTarget: mode.includes('MANAGEMENT') ? 125000 : 100000,
           universityTarget: 12650,
           otherTarget: 0,
           transactions: []
         };
 
-        // All transactions from bulk upload are set to PENDING
         const tuiAmount = parseFloat(cleanCols[15]) || 0;
-        if (tuiAmount > 0) {
+        const tuiDate = normalizeDate(cleanCols[14]);
+        if (tuiAmount > 0 && tuiDate) {
+          const fy = computeFY(tuiDate) || acYear;
           locker.transactions.push({
             id: `tx-tui-${htnValue}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             studentHTN: htnValue,
             feeType: 'Tuition',
             amount: tuiAmount,
             challanNumber: cleanCols[13],
-            paymentMode: (cleanCols[16] as any) || 'Challan',
-            paymentDate: cleanCols[14],
-            academicYear: '2023-24',
-            financialYear: '2023-24',
+            paymentMode: (['Online', 'Challan', 'DD', 'Cash', 'UPI'].includes(cleanCols[16]) ? cleanCols[16] : 'Challan') as any,
+            paymentDate: tuiDate,
+            academicYear: acYear,
+            financialYear: fy,
             status: 'PENDING'
           });
         }
 
-        const univRaw = cleanCols[19] || "0";
-        const univAmount = parseFloat(univRaw) || 0;
-        if (univAmount > 0) {
+        const univAmount = parseFloat(cleanCols[19] || '0') || 0;
+        const univDate = normalizeDate(cleanCols[18]);
+        if (univAmount > 0 && univDate) {
+          const fy = computeFY(univDate) || acYear;
           locker.transactions.push({
             id: `tx-uni-${htnValue}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             studentHTN: htnValue,
             feeType: 'University',
             amount: univAmount,
             challanNumber: cleanCols[17],
-            paymentMode: (cleanCols[16] as any) || 'Challan',
-            paymentDate: cleanCols[18],
-            academicYear: '2023-24',
-            financialYear: '2023-24',
+            paymentMode: (['Online', 'Challan', 'DD', 'Cash', 'UPI'].includes(cleanCols[16]) ? cleanCols[16] : 'Challan') as any,
+            paymentDate: univDate,
+            academicYear: acYear,
+            financialYear: fy,
             status: 'PENDING'
           });
         }
@@ -194,12 +246,12 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
         bulkAddStudents(newStudentsToSync);
         alert(`Success: Processed ${newStudentsToSync.length} student records. All associated transactions have been sent to the Accountant's Approvals queue.`);
       }
+    } catch {
+      alert('Error: Failed to parse file. Please check the format.');
+    }
 
-      setIsUploading(false);
-      if (e.target) e.target.value = '';
-    };
-
-    reader.readAsText(file);
+    setIsUploading(false);
+    if (e.target) e.target.value = '';
   };
 
   return (
@@ -494,7 +546,7 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
                     <Upload size={16} />
                     <span>Select Master Ledger</span>
                   </label>
-                  <input type="file" className="hidden" id="bulk-csv-upload" accept=".csv" onChange={handleFileUpload} />
+                  <input type="file" className="hidden" id="bulk-csv-upload" accept=".csv,.xlsx,.xls" onChange={handleFileUpload} />
                 </div>
               </div>
             )}

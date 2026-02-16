@@ -21,5 +21,10 @@ A centralized college fee management and governance system built with React, Typ
 - **Build**: `npm run build` (outputs to `dist/`)
 - **Deployment**: Static site deployment from `dist/` directory
 
+## Dependencies
+- **xlsx**: For parsing Excel (.xlsx/.xls) files in the browser for bulk uploads
+
 ## Recent Changes
+- 2026-02-16: Added three bulk upload options to Student Directory page (combined student+fee, student-only, fee-only) with Excel/CSV support matching college template format
+- 2026-02-16: Updated FeeEntry bulk upload to support XLSX files with proper date normalization (DD.MM.YYYY format)
 - 2026-02-16: Initial Replit setup - configured Vite for port 5000 with allowedHosts, added .gitignore
