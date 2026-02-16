@@ -111,7 +111,7 @@ export const Certificates: React.FC = () => {
     height: 148.5mm;
     padding: 12mm 18mm 10mm 18mm;
     position: relative;
-    border-bottom: 1px dashed #999;
+    border: 2px solid #000;
     overflow: hidden;
   }
   .header { text-align: center; margin-bottom: 6mm; }
@@ -154,18 +154,14 @@ export const Certificates: React.FC = () => {
   </div>
   <div class="body-text">
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This is to certify that <span class="underline">${s.name}</span>
-    ${parentPrefix}, Mr. <span class="underline">${s.fatherName}</span>
+    ${parentPrefix}, Mr. <span class="underline">${s.fatherName}</span><br/>
     (Roll No: <span class="underline">${s.hallTicketNumber}</span>) is/was a bonafide student of ${s.course} ${getYearText(s.currentYear, s.course)} Year, Br. (<span class="underline">${dept}</span>) in this college in the Academic year ${bcAcademicYear}.
   </div>
   <div class="conduct">${pronoun} bears ${bcConduct} Conduct.</div>
   <div class="signatures">
     <div class="sig-block">Clerk</div>
     <div class="sig-block">
-      <div>PRINCIPAL</div>
-      <div style="font-size:8pt;margin-top:1mm;color:#555;">Muffakham Jah College Of</div>
-      <div style="font-size:8pt;color:#555;">Engineering & Technology</div>
-      <div style="font-size:8pt;color:#555;">Banjara Hills, Road No. 3,</div>
-      <div style="font-size:8pt;color:#555;">HYDERABAD-500 034.(T.S.)</div>
+      <div style="font-weight:bold; font-size:12pt;">PRINCIPAL</div>
     </div>
   </div>
 </div>
