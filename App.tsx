@@ -11,17 +11,76 @@ import { Reports } from './views/Reports';
 import { Approvals } from './views/Approvals';
 import { Certificates } from './views/Certificates';
 import { DefaulterList } from './views/DefaulterList';
-import { GraduationCap, Wallet, ShieldCheck, ClipboardCheck } from 'lucide-react';
+import { GraduationCap, Wallet, ShieldCheck, ClipboardCheck, Eye, EyeOff, Lock, KeyRound, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
   const { login } = useApp();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetUsername, setResetUsername] = useState('');
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
-  const roles = [
-    { id: UserRole.ADMIN, title: 'Administrator', icon: <ShieldCheck size={32} />, color: 'bg-indigo-600', desc: 'System configuration & user management' },
-    { id: UserRole.ACCOUNTANT, title: 'Accountant', icon: <Wallet size={32} />, color: 'bg-blue-600', desc: 'Fee entries, uploads & approvals' },
-    { id: UserRole.PRINCIPAL, title: 'Principal', icon: <GraduationCap size={32} />, color: 'bg-emerald-600', desc: 'Financial reports & dashboard oversight' },
-    { id: UserRole.EXAM_CELL, title: 'Exam Cell', icon: <ClipboardCheck size={32} />, color: 'bg-amber-600', desc: 'Defaulter checks & fee clearance' },
-  ];
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      setError('Please enter both username and password');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    const result = await login(username.trim(), password);
+    setLoading(false);
+    if (!result.success) {
+      setError(result.error || 'Login failed');
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetSuccess('');
+    if (!resetUsername.trim() || !currentPwd || !newPwd || !confirmPwd) {
+      setResetError('Please fill in all fields');
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      setResetError('New passwords do not match');
+      return;
+    }
+    if (newPwd.length < 8) {
+      setResetError('New password must be at least 8 characters');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: resetUsername.trim(), currentPassword: currentPwd, newPassword: newPwd }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResetError(data.error || 'Reset failed');
+      } else {
+        setResetSuccess('Password changed successfully! You can now login with your new password.');
+        setCurrentPwd('');
+        setNewPwd('');
+        setConfirmPwd('');
+      }
+    } catch {
+      setResetError('Connection error. Please try again.');
+    }
+    setResetLoading(false);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -40,25 +99,168 @@ const LoginPage: React.FC = () => {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 -mt-6">
-        <p className="text-slate-500 mb-8 text-base font-medium">Centralized College Fee Management & Governance System</p>
+        <p className="text-slate-500 mb-6 text-base font-medium">Centralized College Fee Management & Governance System</p>
 
-        <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {roles.map((role) => (
-            <button
-              key={role.id}
-              onClick={() => login(role.id)}
-              className="bg-white group p-8 rounded-3xl border border-slate-200 text-left hover:border-blue-400 hover:shadow-2xl hover:shadow-blue-50 transition-all duration-300 transform hover:-translate-y-1"
-            >
-              <div className={`w-14 h-14 ${role.color} text-white rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                {role.icon}
+        {!showResetPassword ? (
+          <div className="w-full max-w-md">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-lg p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-[#1a365d] rounded-2xl flex items-center justify-center">
+                  <Lock size={22} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">Sign In</h2>
+                  <p className="text-sm text-slate-400">Enter your credentials to continue</p>
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-slate-800">{role.title}</h3>
-              <p className="text-sm text-slate-400 mt-2 leading-relaxed">{role.desc}</p>
-            </button>
-          ))}
-        </div>
 
-        <div className="mt-12 text-center text-slate-400 text-sm font-medium">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Username</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); setError(''); }}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                    placeholder="Enter username"
+                    autoComplete="username"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Password</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                      className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                      placeholder="Enter password"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-2.5 rounded-xl border border-red-100">
+                    <AlertCircle size={16} />
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3.5 bg-[#1a365d] text-white rounded-xl font-bold text-sm hover:bg-[#2c5282] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-blue-100"
+                >
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </button>
+              </form>
+
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => { setShowResetPassword(true); setError(''); }}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline transition-colors"
+                >
+                  Forgot / Reset Password?
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full max-w-md">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-lg p-8">
+              <button
+                onClick={() => { setShowResetPassword(false); setResetError(''); setResetSuccess(''); }}
+                className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 font-medium mb-4 transition-colors"
+              >
+                <ArrowLeft size={16} /> Back to Login
+              </button>
+
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center">
+                  <KeyRound size={22} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">Reset Password</h2>
+                  <p className="text-sm text-slate-400">Enter current password to set a new one</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Username</label>
+                  <input
+                    type="text"
+                    value={resetUsername}
+                    onChange={(e) => { setResetUsername(e.target.value); setResetError(''); setResetSuccess(''); }}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                    placeholder="Enter username"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Current Password</label>
+                  <input
+                    type="password"
+                    value={currentPwd}
+                    onChange={(e) => { setCurrentPwd(e.target.value); setResetError(''); setResetSuccess(''); }}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                    placeholder="Enter current password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">New Password</label>
+                  <input
+                    type="password"
+                    value={newPwd}
+                    onChange={(e) => { setNewPwd(e.target.value); setResetError(''); setResetSuccess(''); }}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                    placeholder="Min 8 characters"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={confirmPwd}
+                    onChange={(e) => { setConfirmPwd(e.target.value); setResetError(''); setResetSuccess(''); }}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                    placeholder="Re-enter new password"
+                  />
+                </div>
+
+                {resetError && (
+                  <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-2.5 rounded-xl border border-red-100">
+                    <AlertCircle size={16} />
+                    {resetError}
+                  </div>
+                )}
+                {resetSuccess && (
+                  <div className="flex items-center gap-2 text-green-700 text-sm bg-green-50 px-4 py-2.5 rounded-xl border border-green-100">
+                    <CheckCircle size={16} />
+                    {resetSuccess}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full py-3.5 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-amber-100"
+                >
+                  {resetLoading ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-8 text-center text-slate-400 text-sm font-medium">
           &copy; {new Date().getFullYear()} MJCET Fee Management System. All Rights Reserved.
         </div>
       </div>

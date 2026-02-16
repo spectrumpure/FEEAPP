@@ -1,9 +1,9 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../store';
 import { DEPARTMENTS } from '../constants';
-import { Search, ChevronDown, ChevronRight, CheckCircle2, XCircle, Clock, FileText, IndianRupee, Printer, Download, Share2, Calendar, User } from 'lucide-react';
-import { Student, YearLocker } from '../types';
+import { Search, ChevronDown, ChevronRight, CheckCircle2, XCircle, Clock, FileText, IndianRupee, Printer, Download, Share2, Calendar, User, StickyNote } from 'lucide-react';
+import { Student, YearLocker, StudentRemark } from '../types';
 
 const YearSummaryCard: React.FC<{ locker: YearLocker }> = ({ locker }) => {
   const approvedTxs = locker.transactions.filter(t => t.status === 'APPROVED');
@@ -98,6 +98,23 @@ const YearSummaryCard: React.FC<{ locker: YearLocker }> = ({ locker }) => {
 
 export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
   const { getFeeTargets } = useApp();
+  const [remarks, setRemarks] = useState<StudentRemark[]>([]);
+
+  useEffect(() => {
+    const loadRemarks = async () => {
+      try {
+        const res = await fetch(`/api/remarks/${encodeURIComponent(student.hallTicketNumber)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setRemarks(data);
+        }
+      } catch (err) {
+        console.error('Failed to load remarks:', err);
+      }
+    };
+    loadRemarks();
+  }, [student.hallTicketNumber]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -210,6 +227,28 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
             });
           })()}
         </div>
+
+        {remarks.length > 0 && (
+          <div className="bg-white rounded-3xl border border-amber-200 shadow-sm overflow-hidden print:border-amber-300">
+            <div className="p-5 border-b border-amber-100 bg-amber-50 print:bg-amber-50">
+              <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center">
+                <StickyNote size={14} className="mr-2 text-amber-500" />
+                Admin Remarks / Notes
+              </h4>
+            </div>
+            <div className="p-5 space-y-3">
+              {remarks.map(r => (
+                <div key={r.id} className="flex items-start gap-3 bg-amber-50/50 border border-amber-100 rounded-xl px-4 py-3">
+                  <StickyNote size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-slate-700">{r.remark}</p>
+                    <p className="text-[10px] text-slate-400 mt-1">By {r.addedBy} on {new Date(r.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Master Ledger List */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden print:border-slate-300">

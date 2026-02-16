@@ -1,7 +1,116 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import pool from './db.js';
 
 const router = Router();
+
+router.post('/api/auth/login', async (req: Request, res: Response) => {
+  const { username, password } = req.body;
+  try {
+    const result = await pool.query('SELECT * FROM app_users WHERE username = $1', [username]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+    const user = result.rows[0];
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, username: user.username });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+  const { username, currentPassword, newPassword } = req.body;
+  try {
+    const result = await pool.query('SELECT * FROM app_users WHERE username = $1', [username]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+    const valid = await bcrypt.compare(currentPassword, result.rows[0].password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    }
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE app_users SET password = $1, updated_at = NOW() WHERE username = $2', [hash, username]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/api/auth/users', async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query('SELECT id, username, name, email, role FROM app_users ORDER BY id');
+    res.json(result.rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/api/auth/admin-reset-password', async (req: Request, res: Response) => {
+  const { userId, newPassword } = req.body;
+  try {
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    }
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE app_users SET password = $1, updated_at = NOW() WHERE id = $2', [hash, userId]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/api/remarks/:htn', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, student_htn, remark, added_by, created_at FROM student_remarks WHERE student_htn = $1 ORDER BY created_at DESC',
+      [req.params.htn]
+    );
+    res.json(result.rows.map(r => ({
+      id: r.id,
+      studentHTN: r.student_htn,
+      remark: r.remark,
+      addedBy: r.added_by,
+      createdAt: r.created_at,
+    })));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/remarks', async (req: Request, res: Response) => {
+  const { studentHTN, remark, addedBy } = req.body;
+  try {
+    const studentCheck = await pool.query('SELECT hall_ticket_number FROM students WHERE hall_ticket_number = $1', [studentHTN]);
+    if (studentCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found with this roll number' });
+    }
+    const result = await pool.query(
+      'INSERT INTO student_remarks (student_htn, remark, added_by) VALUES ($1, $2, $3) RETURNING id, student_htn, remark, added_by, created_at',
+      [studentHTN, remark, addedBy]
+    );
+    const r = result.rows[0];
+    res.json({ id: r.id, studentHTN: r.student_htn, remark: r.remark, addedBy: r.added_by, createdAt: r.created_at });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/api/remarks/:id', async (req: Request, res: Response) => {
+  try {
+    await pool.query('DELETE FROM student_remarks WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 function mapStudentRow(row: any) {
   return {

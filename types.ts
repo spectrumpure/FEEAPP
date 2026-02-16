@@ -7,10 +7,19 @@ export enum UserRole {
 }
 
 export interface User {
-  id: string;
+  id: string | number;
   name: string;
   email: string;
   role: UserRole;
+  username?: string;
+}
+
+export interface StudentRemark {
+  id: number;
+  studentHTN: string;
+  remark: string;
+  addedBy: string;
+  createdAt: string;
 }
 
 export interface Department {

@@ -9,7 +9,7 @@ interface AppState {
   departments: Department[];
   transactions: FeeTransaction[];
   templates: CertificateTemplate[];
-  login: (role: UserRole) => void;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   addStudent: (student: Student) => void;
   updateStudent: (student: Student) => void;
@@ -102,14 +102,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const login = (role: UserRole) => {
-    const userMap: Record<UserRole, User> = {
-      [UserRole.ADMIN]: { id: 'admin-1', name: 'System Admin', email: 'admin@college.edu', role: UserRole.ADMIN },
-      [UserRole.ACCOUNTANT]: { id: 'acc-1', name: 'Head Accountant', email: 'finance@college.edu', role: UserRole.ACCOUNTANT },
-      [UserRole.PRINCIPAL]: { id: 'prin-1', name: 'Dr. Principal', email: 'principal@college.edu', role: UserRole.PRINCIPAL },
-      [UserRole.EXAM_CELL]: { id: 'exam-1', name: 'Exam Controller', email: 'exam@college.edu', role: UserRole.EXAM_CELL },
-    };
-    setCurrentUser(userMap[role]);
+  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        return { success: false, error: data.error || 'Login failed' };
+      }
+      const user = await res.json();
+      setCurrentUser({ id: user.id, name: user.name, email: user.email, role: user.role as UserRole, username: user.username });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: 'Connection error. Please try again.' };
+    }
   };
 
   const logout = () => setCurrentUser(null);

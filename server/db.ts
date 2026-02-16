@@ -1,4 +1,5 @@
 import pg from 'pg';
+import bcrypt from 'bcryptjs';
 const { Pool } = pg;
 
 const pool = new Pool({
@@ -65,10 +66,49 @@ export async function initDB() {
         config JSONB NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS app_users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password VARCHAR(200) NOT NULL,
+        name VARCHAR(200) NOT NULL,
+        email VARCHAR(200) DEFAULT '',
+        role VARCHAR(20) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS student_remarks (
+        id SERIAL PRIMARY KEY,
+        student_htn VARCHAR(50) NOT NULL REFERENCES students(hall_ticket_number) ON DELETE CASCADE,
+        remark TEXT NOT NULL,
+        added_by VARCHAR(200) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
       CREATE INDEX IF NOT EXISTS idx_year_lockers_student ON year_lockers(student_htn);
       CREATE INDEX IF NOT EXISTS idx_fee_transactions_student ON fee_transactions(student_htn);
       CREATE INDEX IF NOT EXISTS idx_fee_transactions_status ON fee_transactions(status);
+      CREATE INDEX IF NOT EXISTS idx_student_remarks_htn ON student_remarks(student_htn);
     `);
+
+    const usersExist = await client.query('SELECT COUNT(*) FROM app_users');
+    if (parseInt(usersExist.rows[0].count) === 0) {
+      const defaultUsers = [
+        { username: 'admin', password: 'Mjcet@Admin#2026', name: 'System Admin', email: 'admin@mjcet.ac.in', role: 'ADMIN' },
+        { username: 'accountant', password: 'Mjcet@Acc#2026', name: 'Head Accountant', email: 'finance@mjcet.ac.in', role: 'ACCOUNTANT' },
+        { username: 'principal', password: 'Mjcet@Prin#2026', name: 'Dr. Principal', email: 'principal@mjcet.ac.in', role: 'PRINCIPAL' },
+        { username: 'examcell', password: 'Mjcet@Exam#2026', name: 'Exam Controller', email: 'exam@mjcet.ac.in', role: 'EXAM_CELL' },
+      ];
+      for (const u of defaultUsers) {
+        const hash = await bcrypt.hash(u.password, 10);
+        await client.query(
+          'INSERT INTO app_users (username, password, name, email, role) VALUES ($1, $2, $3, $4, $5)',
+          [u.username, hash, u.name, u.email, u.role]
+        );
+      }
+      console.log('Default users created with hashed passwords');
+    }
+
     console.log('Database tables initialized successfully');
   } finally {
     client.release();

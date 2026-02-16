@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../store';
-import { FeeLockerConfig } from '../types';
+import { FeeLockerConfig, StudentRemark, UserRole } from '../types';
 import { DEPARTMENTS } from '../constants';
 import { 
   Users, 
@@ -17,7 +17,12 @@ import {
   Search,
   X,
   FileText,
-  Download
+  Download,
+  MessageSquarePlus,
+  StickyNote,
+  Trash2,
+  Send,
+  AlertCircle
 } from 'lucide-react';
 import { Student } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -44,13 +49,84 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string, 
 );
 
 export const Dashboard: React.FC = () => {
-  const { students, transactions, feeLockerConfig, updateFeeLockerConfig } = useApp();
+  const { students, transactions, feeLockerConfig, updateFeeLockerConfig, currentUser } = useApp();
   const [showLockerConfig, setShowLockerConfig] = useState(false);
   const [editConfig, setEditConfig] = useState<FeeLockerConfig>(feeLockerConfig);
   const [searchTerm, setSearchTerm] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  const [remarkHTN, setRemarkHTN] = useState('');
+  const [remarkText, setRemarkText] = useState('');
+  const [remarkError, setRemarkError] = useState('');
+  const [remarkSuccess, setRemarkSuccess] = useState('');
+  const [remarkLoading, setRemarkLoading] = useState(false);
+  const [remarkStudentName, setRemarkStudentName] = useState('');
+
+  const [studentRemarks, setStudentRemarks] = useState<StudentRemark[]>([]);
+  const [remarksLoading, setRemarksLoading] = useState(false);
+
+  const isAdmin = currentUser?.role === UserRole.ADMIN;
+
+  const loadRemarks = async (htn: string) => {
+    setRemarksLoading(true);
+    try {
+      const res = await fetch(`/api/remarks/${encodeURIComponent(htn)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setStudentRemarks(data);
+      }
+    } catch (err) {
+      console.error('Failed to load remarks:', err);
+    }
+    setRemarksLoading(false);
+  };
+
+  const handleRemarkHTNChange = (val: string) => {
+    setRemarkHTN(val);
+    setRemarkError('');
+    setRemarkSuccess('');
+    const found = students.find(s => s.hallTicketNumber.toLowerCase() === val.toLowerCase());
+    setRemarkStudentName(found ? found.name : '');
+  };
+
+  const handleAddRemark = async () => {
+    if (!remarkHTN.trim()) { setRemarkError('Please enter the student roll number'); return; }
+    if (!remarkText.trim()) { setRemarkError('Please enter a remark/note'); return; }
+    setRemarkError('');
+    setRemarkSuccess('');
+    setRemarkLoading(true);
+    try {
+      const res = await fetch('/api/remarks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentHTN: remarkHTN.trim(), remark: remarkText.trim(), addedBy: currentUser?.name || 'Admin' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setRemarkError(data.error || 'Failed to add remark');
+      } else {
+        setRemarkSuccess('Remark added successfully');
+        setRemarkText('');
+        if (selectedStudent && selectedStudent.hallTicketNumber === remarkHTN.trim()) {
+          loadRemarks(remarkHTN.trim());
+        }
+      }
+    } catch {
+      setRemarkError('Connection error');
+    }
+    setRemarkLoading(false);
+  };
+
+  const handleDeleteRemark = async (id: number) => {
+    try {
+      await fetch(`/api/remarks/${id}`, { method: 'DELETE' });
+      setStudentRemarks(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      console.error('Failed to delete remark:', err);
+    }
+  };
 
   const searchResults = searchTerm.trim().length >= 2
     ? students.filter(s => {
@@ -166,7 +242,7 @@ export const Dashboard: React.FC = () => {
                 const pending = totalTarget - totalPaid;
                 return (
                   <div key={s.hallTicketNumber} className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-slate-100 last:border-b-0 transition-colors"
-                    onClick={() => { setSelectedStudent(s); setShowResults(false); setSearchTerm(''); }}>
+                    onClick={() => { setSelectedStudent(s); setShowResults(false); setSearchTerm(''); loadRemarks(s.hallTicketNumber); }}>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-semibold text-slate-800 text-sm">{s.name}</p>
@@ -298,6 +374,34 @@ export const Dashboard: React.FC = () => {
                   );
                 })}
               </div>
+
+              {studentRemarks.length > 0 && (
+                <div className="mt-6 border-t border-slate-100 pt-4">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <StickyNote size={14} className="text-amber-500" />
+                    Admin Remarks / Notes
+                  </h4>
+                  <div className="space-y-2">
+                    {studentRemarks.map(r => (
+                      <div key={r.id} className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                        <StickyNote size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-slate-700">{r.remark}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">By {r.addedBy} on {new Date(r.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                        </div>
+                        {isAdmin && (
+                          <button onClick={() => handleDeleteRemark(r.id)} className="text-red-400 hover:text-red-600 transition-colors shrink-0">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {remarksLoading && (
+                <div className="mt-4 text-center text-slate-400 text-xs">Loading remarks...</div>
+              )}
             </div>
           </div>
         );
@@ -461,6 +565,70 @@ export const Dashboard: React.FC = () => {
           )}
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center space-x-3 mb-5">
+            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
+              <MessageSquarePlus size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Student Remarks / Notes</h3>
+              <p className="text-sm text-slate-400">Add a remark or note for any student using their roll number</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Student Roll Number / HTN</label>
+              <input
+                type="text"
+                value={remarkHTN}
+                onChange={(e) => handleRemarkHTNChange(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 transition-all"
+                placeholder="e.g. 24011A0501"
+              />
+              {remarkStudentName && (
+                <p className="text-xs text-green-600 mt-1 font-medium">Student: {remarkStudentName}</p>
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Remark / Note</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={remarkText}
+                  onChange={(e) => { setRemarkText(e.target.value); setRemarkError(''); setRemarkSuccess(''); }}
+                  className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 transition-all"
+                  placeholder="Enter remark or note for this student..."
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddRemark(); }}
+                />
+                <button
+                  onClick={handleAddRemark}
+                  disabled={remarkLoading}
+                  className="px-5 py-3 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-colors disabled:opacity-60 flex items-center gap-2 shadow-sm"
+                >
+                  <Send size={16} />
+                  {remarkLoading ? 'Adding...' : 'Add'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {remarkError && (
+            <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-2.5 rounded-xl border border-red-100 mb-3">
+              <AlertCircle size={16} />
+              {remarkError}
+            </div>
+          )}
+          {remarkSuccess && (
+            <div className="flex items-center gap-2 text-green-700 text-sm bg-green-50 px-4 py-2.5 rounded-xl border border-green-100 mb-3">
+              <StickyNote size={16} />
+              {remarkSuccess}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between mb-4">

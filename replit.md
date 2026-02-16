@@ -11,6 +11,7 @@ A centralized college fee management and governance system built with React, Typ
 - **Styling**: Tailwind CSS (via CDN)
 - **Charts**: Recharts
 - **Icons**: Lucide React
+- **Auth**: bcryptjs for password hashing
 - **Entry Point**: `server/index.ts` (Express) -> Vite middleware -> `index.tsx` -> `App.tsx`
 
 ## Project Structure
@@ -25,8 +26,23 @@ A centralized college fee management and governance system built with React, Typ
 - **year_lockers** - Year-wise fee targets per student (FK to students)
 - **fee_transactions** - All fee payments/transactions (FK to students)
 - **fee_locker_config** - Fee configuration (JSONB, single row)
+- **app_users** - User accounts with hashed passwords and roles
+- **student_remarks** - Admin remarks/notes for students (FK to students)
+
+## User Credentials (Default)
+- admin / Mjcet@Admin#2026 (Administrator)
+- accountant / Mjcet@Acc#2026 (Accountant)
+- principal / Mjcet@Prin#2026 (Principal)
+- examcell / Mjcet@Exam#2026 (Exam Cell)
 
 ## API Endpoints
+- `POST /api/auth/login` - Authenticate user with username/password
+- `POST /api/auth/reset-password` - Reset password (requires current password)
+- `GET /api/auth/users` - List all users (admin)
+- `PUT /api/auth/admin-reset-password` - Admin reset user password
+- `GET /api/remarks/:htn` - Get remarks for a student
+- `POST /api/remarks` - Add remark for a student
+- `DELETE /api/remarks/:id` - Delete a remark
 - `GET /api/bootstrap` - Load all students, transactions, config at once
 - `POST /api/students` - Add/upsert single student with lockers and transactions
 - `POST /api/students/bulk` - Bulk add/upsert students
@@ -47,11 +63,13 @@ A centralized college fee management and governance system built with React, Typ
 ## Dependencies
 - **express**: Backend HTTP server
 - **pg**: PostgreSQL client
+- **bcryptjs**: Password hashing
 - **tsx**: TypeScript execution for server
 - **xlsx**: For parsing Excel (.xlsx/.xls) files in the browser for bulk uploads
 
 ## Recent Changes
-- 2026-02-16: Connected PostgreSQL database - migrated from localStorage to server-backed persistence with Express API, 4 database tables (students, year_lockers, fee_transactions, fee_locker_config)
+- 2026-02-16: Added password-based authentication with bcrypt hashing, login form with username/password, reset password page, admin remarks/notes for students displayed in fee summary
+- 2026-02-16: Connected PostgreSQL database - migrated from localStorage to server-backed persistence with Express API, 6 database tables
 - 2026-02-16: Added department-wise Fee Defaulter List for Exam Cell role with collapsible department sections, search, and year-wise status badges
 - 2026-02-16: Restricted Exam Cell to only see Defaulter List (no Dashboard, Reports, etc.)
 - 2026-02-16: Added college campus photo to login page hero banner
