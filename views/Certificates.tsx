@@ -99,69 +99,83 @@ export const Certificates: React.FC = () => {
     const pronoun = isFemale ? 'She' : 'He';
     const parentPrefix = isFemale ? 'D/o' : 'S/o';
 
+    const yearRoman = ['I', 'I - II', 'I - III', 'I - IV'][duration - 1] || `I - ${duration}`;
+
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>Bonafide Certificate - ${s.name}</title>
 <style>
-  @page { size: A4 portrait; margin: 0; }
+  @page { size: 210mm 148.5mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Times New Roman', Times, serif; width: 210mm; }
   .certificate-page {
     width: 210mm;
     height: 148.5mm;
-    padding: 12mm 18mm 10mm 18mm;
+    padding: 8mm;
     position: relative;
-    border: 2px solid #000;
     overflow: hidden;
   }
-  .header { text-align: center; margin-bottom: 6mm; }
-  .header-flex { display: flex; align-items: flex-start; justify-content: center; gap: 8mm; }
-  .logo { width: 20mm; height: 20mm; object-fit: contain; }
-  .college-info { text-align: center; }
-  .college-name { font-size: 16pt; font-weight: bold; color: #1a1a1a; letter-spacing: 0.5px; }
+  .double-border {
+    border: 3px double #000;
+    padding: 8mm 14mm 8mm 14mm;
+    height: 100%;
+    position: relative;
+  }
+  .header { display: flex; align-items: flex-start; gap: 6mm; margin-bottom: 4mm; }
+  .logo { width: 24mm; height: 24mm; object-fit: contain; flex-shrink: 0; }
+  .college-info { text-align: center; flex: 1; }
+  .college-name-1 { font-size: 18pt; font-weight: bold; color: #000; letter-spacing: 1px; }
+  .college-name-2 { font-size: 14pt; font-weight: bold; color: #000; letter-spacing: 0.5px; }
   .college-sub { font-size: 10pt; margin-top: 1mm; color: #333; }
-  .society-name { font-size: 9pt; color: #555; margin-top: 0.5mm; font-weight: 600; }
-  .address-line { font-size: 9pt; color: #444; margin-top: 1mm; }
-  .title { text-align: center; font-size: 14pt; font-weight: bold; text-decoration: underline; margin: 5mm 0 4mm; }
-  .sno-date { display: flex; justify-content: space-between; font-size: 10pt; margin-bottom: 4mm; }
-  .body-text { font-size: 11pt; line-height: 2; text-align: justify; margin-bottom: 4mm; }
+  .society-name { font-size: 10pt; color: #000; margin-top: 0.5mm; font-weight: bold; }
+  .address-line { font-size: 9pt; color: #333; margin-top: 1mm; }
+  .title { text-align: center; font-size: 15pt; font-weight: bold; text-decoration: underline; margin: 4mm 0 3mm; font-style: italic; }
+  .sno-date { display: flex; justify-content: space-between; font-size: 11pt; margin-bottom: 3mm; }
+  .body-text { font-size: 12pt; line-height: 2.2; text-align: left; margin-bottom: 2mm; }
   .body-text .underline { text-decoration: underline; font-weight: bold; }
-  .conduct { font-size: 11pt; line-height: 2; }
-  .signatures { display: flex; justify-content: space-between; margin-top: 10mm; font-size: 10pt; }
-  .sig-block { text-align: center; }
+  .conduct { font-size: 12pt; line-height: 2; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 11pt; align-items: flex-end; }
+  .sig-left { text-align: left; }
+  .sig-right { text-align: center; }
   @media print {
     body { margin: 0; }
-    .certificate-page { page-break-after: always; border-bottom: none; }
+    .certificate-page { page-break-after: always; }
   }
 </style></head><body>
 <div class="certificate-page">
-  <div class="header">
-    <div class="header-flex">
+  <div class="double-border">
+    <div class="header">
       <img src="${COLLEGE.logo}" class="logo" alt="Logo" />
       <div class="college-info">
-        <div class="college-name">MUFFAKHAM JAH</div>
-        <div class="college-name" style="font-size:13pt;">COLLEGE OF ENGINEERING & TECHNOLOGY</div>
+        <div class="college-name-1">MUFFAKHAM JAH</div>
+        <div class="college-name-2">COLLEGE OF ENGINEERING & TECHNOLOGY</div>
         <div class="college-sub">${COLLEGE.affiliation}</div>
-        <div class="society-name">${COLLEGE.societyLine}</div>
-        <div class="address-line">${COLLEGE.address}</div>
+        <div class="society-name">(SULTAN-UL-ULOOM EDUCATION SOCIETY)</div>
+        <div class="address-line">'Mount Pleasant' 8-2-249, Road No. 3,</div>
+        <div class="address-line" style="margin-top:0;">Banjara Hills, Hyderabad - 500 034, (T.S.)</div>
       </div>
     </div>
-  </div>
-  <div class="title">Bonafide/Conduct Certificate</div>
-  <div class="sno-date">
-    <span>S.No: ${sno}</span>
-    <span>Date: ${bcDate}</span>
-  </div>
-  <div class="body-text">
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This is to certify that <span class="underline">${s.name}</span>
-    ${parentPrefix}, Mr. <span class="underline">${s.fatherName}</span><br/>
-    (Roll No: <span class="underline">${s.hallTicketNumber}</span>) is/was a bonafide student of ${s.course} ${getYearText(s.currentYear, s.course)} Year, Br. (<span class="underline">${dept}</span>) in this college in the Academic year ${bcAcademicYear}.
-  </div>
-  <div class="conduct">${pronoun} bears ${bcConduct} Conduct.</div>
-  <div class="signatures">
-    <div class="sig-block">Clerk</div>
-    <div class="sig-block">
-      <div style="font-weight:bold; font-size:12pt;">PRINCIPAL</div>
+    <div class="title">Bonafide/Conduct Certificate</div>
+    <div class="sno-date">
+      <span>S.No: ${sno}</span>
+      <span>Date : ${bcDate}</span>
+    </div>
+    <div class="body-text">
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This is to certify that &nbsp;<span class="underline">&nbsp;${s.name}&nbsp;</span><br/>
+      S/o. D/o. Mr. <span class="underline">&nbsp;${s.fatherName}&nbsp;</span><br/>
+      (Roll No : <span class="underline">&nbsp;${s.hallTicketNumber}&nbsp;</span> ) is/was a bonafide student of &nbsp;${s.course} Year, Br. (&nbsp;<span class="underline">&nbsp;${yearRoman}&nbsp;</span>&nbsp;,<br/>
+      <span class="underline">&nbsp;${dept}&nbsp;</span> ) in this college in the Academic year &nbsp;<span class="underline">&nbsp;${bcAcademicYear}&nbsp;</span>.
+    </div>
+    <div class="conduct">${pronoun} bears &nbsp;${bcConduct} Conduct.</div>
+    <div class="signatures">
+      <div class="sig-left">Clerk</div>
+      <div class="sig-right">
+        <div style="font-weight:bold; font-size:12pt;">PRINCIPAL</div>
+        <div style="font-size:8pt; margin-top:1mm; color:#333;">Muffakham Jah College Of</div>
+        <div style="font-size:8pt; color:#333;">Engineering & Technology</div>
+        <div style="font-size:8pt; color:#333;">Banjara Hills, Road No. 3,</div>
+        <div style="font-size:8pt; color:#333;">HYDERABAD-500 034.(T.S.)</div>
+      </div>
     </div>
   </div>
 </div>
