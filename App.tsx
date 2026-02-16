@@ -23,18 +23,25 @@ const LoginPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-4xl">
-        <div className="text-center mb-12">
-          <img src="/mjcet-logo.png" alt="MJCET" className="w-20 h-20 object-contain mx-auto mb-4" />
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">MJCET FEE APP</h1>
-          <p className="text-slate-600 font-semibold text-sm mt-1">Muffakham Jah College of Engineering & Technology</p>
-          <p className="text-slate-400 mt-1 text-xs">Autonomous & Accredited by NAAC with A+ and NBA</p>
-          <p className="text-slate-400 text-xs">Affiliated to Osmania University & Approved by AICTE</p>
-          <p className="text-slate-500 mt-3 text-base">Centralized College Fee Management & Governance System</p>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <div className="relative w-full h-56 md:h-72 overflow-hidden">
+        <img src="/mjcet-college.png" alt="MJCET Campus" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a365d]/70 via-[#1a365d]/50 to-slate-50"></div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center text-white">
+            <img src="/mjcet-logo.png" alt="MJCET" className="w-16 h-16 object-contain mx-auto mb-3 bg-white/15 rounded-xl p-1.5" />
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight drop-shadow-lg">MJCET FEE APP</h1>
+            <p className="font-semibold text-sm mt-1 text-white/90">Muffakham Jah College of Engineering & Technology</p>
+            <p className="text-white/70 mt-1 text-xs">Autonomous & Accredited by NAAC with A+ and NBA</p>
+            <p className="text-white/70 text-xs">Affiliated to Osmania University & Approved by AICTE</p>
+          </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 -mt-6">
+        <p className="text-slate-500 mb-8 text-base font-medium">Centralized College Fee Management & Governance System</p>
+
+        <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {roles.map((role) => (
             <button
               key={role.id}
@@ -50,7 +57,7 @@ const LoginPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="mt-16 text-center text-slate-400 text-sm font-medium">
+        <div className="mt-12 text-center text-slate-400 text-sm font-medium">
           &copy; {new Date().getFullYear()} MJCET Fee Management System. All Rights Reserved.
         </div>
       </div>
