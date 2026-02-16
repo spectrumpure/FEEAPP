@@ -17,7 +17,9 @@ async function startServer() {
 
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
-  if (process.env.NODE_ENV === 'production') {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.REPL_DEPLOYMENT === '1';
+
+  if (isProduction) {
     app.use(express.static(path.join(__dirname, '..', 'dist')));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
