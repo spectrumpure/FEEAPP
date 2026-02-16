@@ -116,7 +116,8 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
       paymentDate: formData.paymentDate,
       academicYear: formData.academicYear,
       financialYear: formData.financialYear,
-      status: 'PENDING'
+      status: 'PENDING',
+      targetYear: formData.selectedYear
     };
 
     addTransaction(newTx);

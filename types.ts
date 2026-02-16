@@ -41,6 +41,7 @@ export interface FeeTransaction {
   status: PaymentStatus;
   approvedBy?: string;
   approvalDate?: string;
+  targetYear?: number;
 }
 
 export interface YearLocker {

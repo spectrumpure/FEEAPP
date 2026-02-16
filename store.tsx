@@ -131,13 +131,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStudents(prev => prev.map(s => {
       if (s.hallTicketNumber === tx.studentHTN) {
         const updatedLockers = [...s.feeLockers];
-        const lockerIndex = updatedLockers.findIndex(l => l.year === s.currentYear);
-        if (lockerIndex > -1) {
-          // Check if tx already exists in locker
-          const txExists = updatedLockers[lockerIndex].transactions.some(t => t.id === tx.id);
-          if (!txExists) {
-            updatedLockers[lockerIndex].transactions = [...updatedLockers[lockerIndex].transactions, tx];
-          }
+        const year = tx.targetYear || s.currentYear;
+        let lockerIndex = updatedLockers.findIndex(l => l.year === year);
+        if (lockerIndex === -1) {
+          const mode = s.admissionCategory || '';
+          updatedLockers.push({
+            year,
+            tuitionTarget: mode.includes('MANAGEMENT') ? 125000 : 100000,
+            universityTarget: 12650,
+            otherTarget: 0,
+            transactions: []
+          });
+          lockerIndex = updatedLockers.length - 1;
+        }
+        const txExists = updatedLockers[lockerIndex].transactions.some(t => t.id === tx.id);
+        if (!txExists) {
+          updatedLockers[lockerIndex].transactions = [...updatedLockers[lockerIndex].transactions, tx];
         }
         return { ...s, feeLockers: updatedLockers };
       }
@@ -158,12 +167,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const updatedLockers = [...s.feeLockers];
       studentTxs.forEach(tx => {
-        const lockerIndex = updatedLockers.findIndex(l => l.year === s.currentYear);
-        if (lockerIndex > -1) {
-           const txExists = updatedLockers[lockerIndex].transactions.some(t => t.id === tx.id);
-           if (!txExists) {
-             updatedLockers[lockerIndex].transactions = [...updatedLockers[lockerIndex].transactions, tx];
-           }
+        const year = tx.targetYear || s.currentYear;
+        let lockerIndex = updatedLockers.findIndex(l => l.year === year);
+        if (lockerIndex === -1) {
+          const mode = s.admissionCategory || '';
+          updatedLockers.push({
+            year,
+            tuitionTarget: mode.includes('MANAGEMENT') ? 125000 : 100000,
+            universityTarget: 12650,
+            otherTarget: 0,
+            transactions: []
+          });
+          lockerIndex = updatedLockers.length - 1;
+        }
+        const txExists = updatedLockers[lockerIndex].transactions.some(t => t.id === tx.id);
+        if (!txExists) {
+          updatedLockers[lockerIndex].transactions = [...updatedLockers[lockerIndex].transactions, tx];
         }
       });
       return { ...s, feeLockers: updatedLockers };
