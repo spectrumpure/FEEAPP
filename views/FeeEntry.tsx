@@ -17,6 +17,7 @@ import {
   Info
 } from 'lucide-react';
 import { FeeType, PaymentMode, FeeTransaction, Student, YearLocker } from '../types';
+import { DEPARTMENTS } from '../constants';
 
 interface FeeEntryProps {
   preSelectedHTN?: string | null;
@@ -48,11 +49,24 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
     challanNumber: '',
     paymentMode: 'Online' as PaymentMode,
     paymentDate: new Date().toISOString().split('T')[0],
-    academicYear: '2023-24',
+    selectedYear: 1,
+    academicYear: '2025-26',
     financialYear: calculateFY(new Date().toISOString().split('T')[0])
   });
 
-  // Automatically update Financial Year when Payment Date changes
+  const getMaxYears = (student: Student | null): number => {
+    if (!student) return 4;
+    const dept = DEPARTMENTS.find(d => d.name === student.department);
+    if (dept) return dept.duration;
+    return student.course === 'M.E' ? 2 : 4;
+  };
+
+  const computeAcademicYear = (admissionYear: string, yearNum: number): string => {
+    const baseYear = parseInt(admissionYear) || 2025;
+    const startYear = baseYear + (yearNum - 1);
+    return `${startYear}-${(startYear + 1).toString().slice(-2)}`;
+  };
+
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
@@ -60,21 +74,32 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
     }));
   }, [formData.paymentDate]);
 
-  // Handle pre-selection from directory
+  useEffect(() => {
+    if (selectedStudent) {
+      const acYear = computeAcademicYear(selectedStudent.admissionYear, formData.selectedYear);
+      setFormData(prev => ({ ...prev, academicYear: acYear }));
+    }
+  }, [formData.selectedYear, selectedStudent]);
+
   useEffect(() => {
     if (preSelectedHTN) {
       const student = students.find(s => s.hallTicketNumber === preSelectedHTN);
       if (student) {
         setSelectedStudent(student);
         setHtn(preSelectedHTN);
+        setFormData(prev => ({ ...prev, selectedYear: student.currentYear }));
       }
     }
   }, [preSelectedHTN, students]);
 
   const handleSearch = () => {
     const student = students.find(s => s.hallTicketNumber === htn.trim());
-    if (student) setSelectedStudent(student);
-    else alert("Student not found! Please ensure the Roll Number is correct.");
+    if (student) {
+      setSelectedStudent(student);
+      setFormData(prev => ({ ...prev, selectedYear: student.currentYear }));
+    } else {
+      alert("Student not found! Please ensure the Roll Number is correct.");
+    }
   };
 
   const handleManualSubmit = (e: React.FormEvent) => {
@@ -360,25 +385,44 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
                     <h3 className="text-lg font-bold text-slate-800">Payment Collection Form</h3>
                   </div>
 
-                  {/* Student Academic Context Fields */}
-                  <div className="grid grid-cols-2 gap-6 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 border-dashed">
+                  <div className="grid grid-cols-3 gap-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 border-dashed">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Year of Admission</label>
-                      <input 
-                        type="text" 
-                        readOnly
-                        className="w-full bg-white/50 border border-blue-100 rounded-xl px-4 py-2 text-sm font-bold text-blue-800 cursor-not-allowed"
-                        value={selectedStudent.admissionYear}
-                      />
+                      <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Year</label>
+                      <select
+                        className="w-full bg-white border border-blue-200 rounded-xl px-4 py-2.5 text-sm font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-200"
+                        value={formData.selectedYear}
+                        onChange={(e) => setFormData({...formData, selectedYear: parseInt(e.target.value)})}
+                      >
+                        {Array.from({ length: getMaxYears(selectedStudent) }, (_, i) => i + 1).map(yr => (
+                          <option key={yr} value={yr}>
+                            {yr === 1 ? '1st' : yr === 2 ? '2nd' : yr === 3 ? '3rd' : `${yr}th`} Year
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[8px] text-blue-400 font-medium">
+                        {selectedStudent.course === 'M.E' || selectedStudent.department.startsWith('M.E') ? 'M.E (2 years)' : 'B.E (4 years)'}
+                      </p>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Student Batch</label>
+                      <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Academic Year</label>
                       <input 
                         type="text" 
                         readOnly
-                        className="w-full bg-white/50 border border-blue-100 rounded-xl px-4 py-2 text-sm font-bold text-blue-800 cursor-not-allowed"
+                        className="w-full bg-slate-100 border border-blue-100 rounded-xl px-4 py-2.5 text-sm font-bold text-blue-800 cursor-not-allowed"
+                        value={formData.academicYear}
+                        title="Auto-calculated from admission year and selected year"
+                      />
+                      <p className="text-[8px] text-blue-400 font-medium">Auto-calculated</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Batch</label>
+                      <input 
+                        type="text" 
+                        readOnly
+                        className="w-full bg-slate-100 border border-blue-100 rounded-xl px-4 py-2.5 text-sm font-bold text-blue-800 cursor-not-allowed"
                         value={selectedStudent.batch}
                       />
+                      <p className="text-[8px] text-blue-400 font-medium">Adm. Year: {selectedStudent.admissionYear}</p>
                     </div>
                   </div>
 
@@ -449,13 +493,18 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Academic Year</label>
-                      <input 
-                        type="text"
-                        required
-                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[10px] font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
-                        value={formData.academicYear}
-                        onChange={(e) => setFormData({...formData, academicYear: e.target.value})}
-                      />
+                      <div className="relative">
+                        <input 
+                          type="text"
+                          readOnly
+                          className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-[10px] font-black text-blue-600 outline-none cursor-help"
+                          value={formData.academicYear}
+                          title="Auto-calculated based on year selection"
+                        />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                          <Info size={12} className="text-blue-300" />
+                        </div>
+                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fin. Year</label>
