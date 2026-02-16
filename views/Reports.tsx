@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../store';
 import { DEPARTMENTS } from '../constants';
 import {
@@ -10,9 +10,12 @@ import {
   Users,
   AlertTriangle,
   Layers,
-  ChevronDown,
   ContactRound,
-  IndianRupee
+  IndianRupee,
+  Filter,
+  Printer,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react';
 import { Student } from '../types';
 
@@ -74,6 +77,10 @@ ${tableHtml}
   setTimeout(() => win.print(), 500);
 };
 
+const thClass = "px-4 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider";
+const tdClass = "px-4 py-3 text-sm";
+const selectClass = "bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all cursor-pointer";
+
 export const Reports: React.FC = () => {
   const { students, transactions, getFeeTargets } = useApp();
   const [activeTab, setActiveTab] = useState<ReportTab>('dept_summary');
@@ -81,13 +88,13 @@ export const Reports: React.FC = () => {
   const [deptFilter, setDeptFilter] = useState<string>('all');
   const [batchFilter, setBatchFilter] = useState<string>('all');
 
-  const tabs: { id: ReportTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} /> },
-    { id: 'financial_year', label: 'Financial Year', icon: <Calendar size={16} /> },
-    { id: 'batch_wise', label: 'Batch Wise', icon: <Layers size={16} /> },
-    { id: 'student_master', label: 'Student Master Fee List', icon: <IndianRupee size={16} /> },
-    { id: 'student_info', label: 'Student Master List', icon: <ContactRound size={16} /> },
-    { id: 'defaulters', label: 'Fee Defaulters', icon: <AlertTriangle size={16} /> },
+  const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
+    { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} />, desc: 'Revenue by department' },
+    { id: 'financial_year', label: 'Financial Year', icon: <Calendar size={16} />, desc: 'Year-on-year breakdown' },
+    { id: 'batch_wise', label: 'Batch Wise', icon: <Layers size={16} />, desc: 'Batch fee analysis' },
+    { id: 'student_master', label: 'Fee List', icon: <IndianRupee size={16} />, desc: 'Student fee details' },
+    { id: 'student_info', label: 'Student List', icon: <ContactRound size={16} />, desc: 'Personal details' },
+    { id: 'defaulters', label: 'Defaulters', icon: <AlertTriangle size={16} />, desc: 'Outstanding dues' },
   ];
 
   const allBatches = Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort();
@@ -98,7 +105,6 @@ export const Reports: React.FC = () => {
     return DEPARTMENTS.map(dept => {
       const deptStudents = students.filter(s => s.department === dept.name);
       const count = deptStudents.length;
-
       let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
       deptStudents.forEach(s => {
         const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
@@ -116,15 +122,10 @@ export const Reports: React.FC = () => {
           });
         });
       });
-
       return {
-        department: dept.name,
-        code: dept.code,
-        courseType: dept.courseType,
-        count,
-        tTarget, uTarget, tPaid, uPaid,
-        totalReceived: tPaid + uPaid,
-        totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
+        department: dept.name, code: dept.code, courseType: dept.courseType,
+        count, tTarget, uTarget, tPaid, uPaid,
+        totalReceived: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
       };
     });
   };
@@ -141,9 +142,7 @@ export const Reports: React.FC = () => {
       else grouped[fy].other += t.amount;
     });
     return Object.entries(grouped).map(([fy, data]) => ({
-      financialYear: fy,
-      ...data,
-      total: data.tuition + data.university + data.other,
+      financialYear: fy, ...data, total: data.tuition + data.university + data.other,
     })).sort((a, b) => a.financialYear.localeCompare(b.financialYear));
   };
 
@@ -202,13 +201,10 @@ export const Reports: React.FC = () => {
   const getDefaultersData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     const filterDept = deptFilter === 'all' ? null : deptFilter;
-
     return students.filter(s => {
       if (filterDept && s.department !== filterDept) return false;
       const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
-      if (lockers.length === 0 && filterYear) {
-        return true;
-      }
+      if (lockers.length === 0 && filterYear) return true;
       const totalTarget = lockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
       const totalPaid = lockers.reduce((sum, l) =>
         sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((s2, t) => s2 + t.amount, 0), 0);
@@ -236,10 +232,9 @@ export const Reports: React.FC = () => {
       uTarget: acc.uTarget + d.uTarget, uPaid: acc.uPaid + d.uPaid,
       totalReceived: acc.totalReceived + d.totalReceived, totalBalance: acc.totalBalance + d.totalBalance,
     }), { count: 0, tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalReceived: 0, totalBalance: 0 });
-
     const rows = data.map(d => `<tr>
       <td class="font-bold">${d.courseType}(${d.code})</td>
-      <td class="text-center">${d.count} students</td>
+      <td class="text-center">${d.count}</td>
       <td class="text-right">${formatCurrency(d.tTarget)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(d.tPaid)}</td>
       <td class="text-right">${formatCurrency(d.uTarget)}</td>
@@ -247,7 +242,6 @@ export const Reports: React.FC = () => {
       <td class="text-right text-green font-bold">${formatCurrency(d.totalReceived)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(d.totalBalance)}</td>
     </tr>`).join('');
-
     const html = `<table><thead><tr>
       <th>Department</th><th class="text-center">Students</th>
       <th class="text-right">T.Target</th><th class="text-right">T.Paid</th>
@@ -255,7 +249,7 @@ export const Reports: React.FC = () => {
       <th class="text-right">Total Received</th><th class="text-right">Total Balance</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row">
-      <td>GRAND TOTAL</td><td class="text-center">${total.count} students</td>
+      <td>GRAND TOTAL</td><td class="text-center">${total.count}</td>
       <td class="text-right">${formatCurrency(total.tTarget)}</td><td class="text-right">${formatCurrency(total.tPaid)}</td>
       <td class="text-right">${formatCurrency(total.uTarget)}</td><td class="text-right">${formatCurrency(total.uPaid)}</td>
       <td class="text-right">${formatCurrency(total.totalReceived)}</td><td class="text-right">${formatCurrency(total.totalBalance)}</td>
@@ -269,7 +263,6 @@ export const Reports: React.FC = () => {
       tuition: acc.tuition + d.tuition, university: acc.university + d.university,
       other: acc.other + d.other, count: acc.count + d.count, total: acc.total + d.total,
     }), { tuition: 0, university: 0, other: 0, count: 0, total: 0 });
-
     const rows = data.map(d => `<tr>
       <td class="font-bold">${d.financialYear}</td>
       <td class="text-center">${d.count}</td>
@@ -278,7 +271,6 @@ export const Reports: React.FC = () => {
       <td class="text-right">${formatCurrency(d.other)}</td>
       <td class="text-right font-bold text-green">${formatCurrency(d.total)}</td>
     </tr>`).join('');
-
     const html = `<table><thead><tr>
       <th>Financial Year</th><th class="text-center">Transactions</th>
       <th class="text-right">Tuition</th><th class="text-right">University</th>
@@ -297,7 +289,6 @@ export const Reports: React.FC = () => {
       count: acc.count + d.count, totalTarget: acc.totalTarget + d.totalTarget,
       totalPaid: acc.totalPaid + d.totalPaid, balance: acc.balance + d.balance,
     }), { count: 0, totalTarget: 0, totalPaid: 0, balance: 0 });
-
     const rows = data.map(d => `<tr>
       <td class="font-bold">${d.batch}</td>
       <td class="text-center">${d.count}</td>
@@ -305,7 +296,6 @@ export const Reports: React.FC = () => {
       <td class="text-right text-green font-bold">${formatCurrency(d.totalPaid)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(d.balance)}</td>
     </tr>`).join('');
-
     const html = `<table><thead><tr>
       <th>Batch</th><th class="text-center">Students</th>
       <th class="text-right">Total Target</th><th class="text-right">Total Paid</th><th class="text-right">Balance</th>
@@ -324,7 +314,6 @@ export const Reports: React.FC = () => {
       uTarget: acc.uTarget + s.uTarget, uPaid: acc.uPaid + s.uPaid, uBalance: acc.uBalance + s.uBalance,
       totalPaid: acc.totalPaid + s.totalPaid, totalBalance: acc.totalBalance + s.totalBalance,
     }), { tTarget: 0, tPaid: 0, tBalance: 0, uTarget: 0, uPaid: 0, uBalance: 0, totalPaid: 0, totalBalance: 0 });
-
     const rows = data.map((s, i) => `<tr>
       <td class="text-center">${i + 1}</td>
       <td class="font-bold" style="font-size:9px">${s.hallTicketNumber}</td>
@@ -339,7 +328,6 @@ export const Reports: React.FC = () => {
       <td class="text-right text-green font-bold">${formatCurrency(s.totalPaid)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(s.totalBalance)}</td>
     </tr>`).join('');
-
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th>
       <th class="text-center">Dept</th>
@@ -374,7 +362,6 @@ export const Reports: React.FC = () => {
       <td>${s.fatherMobile}</td>
       <td style="font-size:7px;max-width:120px">${s.address}</td>
     </tr>`).join('');
-
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th><th>Father Name</th><th>Mother Name</th>
       <th class="text-center">Sex</th><th class="text-center">DOB</th>
@@ -390,7 +377,6 @@ export const Reports: React.FC = () => {
     const totals = data.reduce((acc, s) => ({
       totalTarget: acc.totalTarget + s.totalTarget, totalPaid: acc.totalPaid + s.totalPaid, balance: acc.balance + s.balance,
     }), { totalTarget: 0, totalPaid: 0, balance: 0 });
-
     const rows = data.map((s, i) => `<tr>
       <td class="text-center">${i + 1}</td>
       <td class="font-bold" style="font-size:9px">${s.hallTicketNumber}</td>
@@ -401,7 +387,6 @@ export const Reports: React.FC = () => {
       <td class="text-right text-green">${formatCurrency(s.totalPaid)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(s.balance)}</td>
     </tr>`).join('');
-
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th>
       <th class="text-center">Dept</th><th class="text-center">Year</th>
@@ -424,6 +409,45 @@ export const Reports: React.FC = () => {
     defaulters: handleExportDefaulters,
   };
 
+  const EmptyState = ({ message }: { message: string }) => (
+    <tr>
+      <td colSpan={20} className="px-4 py-16 text-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+            <FileText size={20} className="text-slate-300" />
+          </div>
+          <p className="text-sm text-slate-400">{message}</p>
+        </div>
+      </td>
+    </tr>
+  );
+
+  const FilterBar = ({ children, count, countLabel }: { children: React.ReactNode; count?: number; countLabel?: string }) => (
+    <div className="flex items-end gap-4 mb-5 flex-wrap px-1">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 self-end pb-2">
+        <Filter size={13} />
+        <span>Filters</span>
+      </div>
+      {children}
+      {count !== undefined && (
+        <div className="ml-auto">
+          <span className="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg">
+            {count} {countLabel || 'records'}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+
+  const SelectFilter = ({ label, value, onChange, children }: { label: string; value: string; onChange: (v: string) => void; children: React.ReactNode }) => (
+    <div>
+      <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider block mb-1.5">{label}</label>
+      <select value={value} onChange={e => onChange(e.target.value)} className={selectClass}>
+        {children}
+      </select>
+    </div>
+  );
+
   const renderDeptSummary = () => {
     const data = getDeptSummaryData();
     const total = data.reduce((acc, d) => ({
@@ -434,53 +458,51 @@ export const Reports: React.FC = () => {
 
     return (
       <div>
-        <div className="flex items-center space-x-3 mb-6">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Year Filter</label>
-          <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
-            className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
+        <FilterBar>
+          <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
             <option value="all">All Years</option>
             <option value="1">1st Year</option>
             <option value="2">2nd Year</option>
             <option value="3">3rd Year</option>
             <option value="4">4th Year</option>
-          </select>
-        </div>
-        <div className="overflow-x-auto">
+          </SelectFilter>
+        </FilterBar>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b-2 border-slate-200">
-                <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">Department</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Students</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">T.Target</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">T.Paid</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">U.Target</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">U.Paid</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Total Received</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Total Balance</th>
+              <tr className="bg-slate-50/80">
+                <th className={thClass}>Department</th>
+                <th className={`${thClass} text-center`}>Students</th>
+                <th className={`${thClass} text-right`}>T.Target</th>
+                <th className={`${thClass} text-right`}>T.Paid</th>
+                <th className={`${thClass} text-right`}>U.Target</th>
+                <th className={`${thClass} text-right`}>U.Paid</th>
+                <th className={`${thClass} text-right`}>Total Received</th>
+                <th className={`${thClass} text-right`}>Total Balance</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {data.map(d => (
-                <tr key={d.code} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-sm font-bold text-slate-800">{d.courseType}({d.code})</td>
-                  <td className="px-4 py-3 text-sm text-slate-500 text-center">{d.count} students</td>
-                  <td className="px-4 py-3 text-sm text-slate-600 text-right">{formatCurrency(d.tTarget)}</td>
-                  <td className="px-4 py-3 text-sm font-bold text-red-600 text-right">{formatCurrency(d.tPaid)}</td>
-                  <td className="px-4 py-3 text-sm text-slate-600 text-right">{formatCurrency(d.uTarget)}</td>
-                  <td className="px-4 py-3 text-sm font-bold text-blue-600 text-right">{formatCurrency(d.uPaid)}</td>
-                  <td className="px-4 py-3 text-sm font-bold text-green-600 text-right">{formatCurrency(d.totalReceived)}</td>
-                  <td className="px-4 py-3 text-sm font-bold text-red-600 text-right">{formatCurrency(d.totalBalance)}</td>
+            <tbody>
+              {data.map((d, i) => (
+                <tr key={d.code} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <td className={`${tdClass} font-semibold text-slate-800`}>{d.courseType}({d.code})</td>
+                  <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
+                  <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tTarget)}</td>
+                  <td className={`${tdClass} font-semibold text-amber-600 text-right`}>{formatCurrency(d.tPaid)}</td>
+                  <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.uTarget)}</td>
+                  <td className={`${tdClass} font-semibold text-blue-600 text-right`}>{formatCurrency(d.uPaid)}</td>
+                  <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.totalReceived)}</td>
+                  <td className={`${tdClass} font-semibold text-right ${d.totalBalance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(d.totalBalance)}</td>
                 </tr>
               ))}
-              <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
-                <td className="px-4 py-3 text-sm text-slate-800">GRAND TOTAL</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-center">{total.count} students</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(total.tTarget)}</td>
-                <td className="px-4 py-3 text-sm text-red-700 text-right">{formatCurrency(total.tPaid)}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(total.uTarget)}</td>
-                <td className="px-4 py-3 text-sm text-blue-700 text-right">{formatCurrency(total.uPaid)}</td>
-                <td className="px-4 py-3 text-sm text-green-700 text-right">{formatCurrency(total.totalReceived)}</td>
-                <td className="px-4 py-3 text-sm text-red-700 text-right">{formatCurrency(total.totalBalance)}</td>
+              <tr className="bg-[#1a365d] text-white">
+                <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.count}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.tTarget)}</td>
+                <td className={`${tdClass} font-bold text-right text-amber-200`}>{formatCurrency(total.tPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.uTarget)}</td>
+                <td className={`${tdClass} font-bold text-right text-blue-200`}>{formatCurrency(total.uPaid)}</td>
+                <td className={`${tdClass} font-bold text-right text-emerald-200`}>{formatCurrency(total.totalReceived)}</td>
+                <td className={`${tdClass} font-bold text-right text-red-200`}>{formatCurrency(total.totalBalance)}</td>
               </tr>
             </tbody>
           </table>
@@ -497,40 +519,38 @@ export const Reports: React.FC = () => {
     }), { tuition: 0, university: 0, other: 0, count: 0, total: 0 });
 
     return (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b-2 border-slate-200">
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">Financial Year</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Transactions</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Tuition Collected</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">University Collected</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Other</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Total</th>
+            <tr className="bg-slate-50/80">
+              <th className={thClass}>Financial Year</th>
+              <th className={`${thClass} text-center`}>Transactions</th>
+              <th className={`${thClass} text-right`}>Tuition Collected</th>
+              <th className={`${thClass} text-right`}>University Collected</th>
+              <th className={`${thClass} text-right`}>Other</th>
+              <th className={`${thClass} text-right`}>Total</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
-            {data.map(d => (
-              <tr key={d.financialYear} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-4 py-3 text-sm font-bold text-slate-800">{d.financialYear}</td>
-                <td className="px-4 py-3 text-sm text-slate-500 text-center">{d.count}</td>
-                <td className="px-4 py-3 text-sm text-slate-600 text-right">{formatCurrency(d.tuition)}</td>
-                <td className="px-4 py-3 text-sm text-slate-600 text-right">{formatCurrency(d.university)}</td>
-                <td className="px-4 py-3 text-sm text-slate-600 text-right">{formatCurrency(d.other)}</td>
-                <td className="px-4 py-3 text-sm font-bold text-green-600 text-right">{formatCurrency(d.total)}</td>
+          <tbody>
+            {data.length === 0 && <EmptyState message="No approved transactions found." />}
+            {data.map((d, i) => (
+              <tr key={d.financialYear} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                <td className={`${tdClass} font-semibold text-slate-800`}>{d.financialYear}</td>
+                <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
+                <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tuition)}</td>
+                <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.university)}</td>
+                <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.other)}</td>
+                <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.total)}</td>
               </tr>
             ))}
-            {data.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-400 italic text-xs">No approved transactions found.</td></tr>
-            )}
             {data.length > 0 && (
-              <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
-                <td className="px-4 py-3 text-sm text-slate-800">GRAND TOTAL</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-center">{total.count}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(total.tuition)}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(total.university)}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(total.other)}</td>
-                <td className="px-4 py-3 text-sm text-green-700 text-right">{formatCurrency(total.total)}</td>
+              <tr className="bg-[#1a365d] text-white">
+                <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.count}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.tuition)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.university)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.other)}</td>
+                <td className={`${tdClass} font-bold text-right text-emerald-200`}>{formatCurrency(total.total)}</td>
               </tr>
             )}
           </tbody>
@@ -547,42 +567,50 @@ export const Reports: React.FC = () => {
     }), { count: 0, totalTarget: 0, totalPaid: 0, balance: 0 });
 
     return (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b-2 border-slate-200">
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">Batch</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Students</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Total Target</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Total Paid</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Balance</th>
-              <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Collection %</th>
+            <tr className="bg-slate-50/80">
+              <th className={thClass}>Batch</th>
+              <th className={`${thClass} text-center`}>Students</th>
+              <th className={`${thClass} text-right`}>Total Target</th>
+              <th className={`${thClass} text-right`}>Total Paid</th>
+              <th className={`${thClass} text-right`}>Balance</th>
+              <th className={`${thClass} text-right`}>Collection %</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
-            {data.map(d => (
-              <tr key={d.batch} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-4 py-3 text-sm font-bold text-slate-800">{d.batch}</td>
-                <td className="px-4 py-3 text-sm text-slate-500 text-center">{d.count}</td>
-                <td className="px-4 py-3 text-sm text-slate-600 text-right">{formatCurrency(d.totalTarget)}</td>
-                <td className="px-4 py-3 text-sm font-bold text-green-600 text-right">{formatCurrency(d.totalPaid)}</td>
-                <td className="px-4 py-3 text-sm font-bold text-red-600 text-right">{formatCurrency(d.balance)}</td>
-                <td className="px-4 py-3 text-right">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${d.totalTarget > 0 ? (d.totalPaid / d.totalTarget >= 0.8 ? 'bg-green-50 text-green-600' : d.totalPaid / d.totalTarget >= 0.5 ? 'bg-yellow-50 text-yellow-600' : 'bg-red-50 text-red-600') : 'bg-slate-50 text-slate-400'}`}>
-                    {d.totalTarget > 0 ? `${((d.totalPaid / d.totalTarget) * 100).toFixed(1)}%` : '0%'}
-                  </span>
-                </td>
-              </tr>
-            ))}
+          <tbody>
+            {data.map((d, i) => {
+              const pct = d.totalTarget > 0 ? (d.totalPaid / d.totalTarget) * 100 : 0;
+              return (
+                <tr key={d.batch} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <td className={`${tdClass} font-semibold text-slate-800`}>{d.batch}</td>
+                  <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
+                  <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.totalTarget)}</td>
+                  <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.totalPaid)}</td>
+                  <td className={`${tdClass} font-semibold text-right ${d.balance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(d.balance)}</td>
+                  <td className={`${tdClass} text-right`}>
+                    <div className="flex items-center justify-end gap-2">
+                      <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${pct >= 80 ? 'bg-emerald-400' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                      </div>
+                      <span className={`text-xs font-semibold ${pct >= 80 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+                        {pct.toFixed(1)}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
             {data.length > 0 && (
-              <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
-                <td className="px-4 py-3 text-sm text-slate-800">GRAND TOTAL</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-center">{total.count}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(total.totalTarget)}</td>
-                <td className="px-4 py-3 text-sm text-green-700 text-right">{formatCurrency(total.totalPaid)}</td>
-                <td className="px-4 py-3 text-sm text-red-700 text-right">{formatCurrency(total.balance)}</td>
-                <td className="px-4 py-3 text-sm text-right">
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">
+              <tr className="bg-[#1a365d] text-white">
+                <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.count}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.totalTarget)}</td>
+                <td className={`${tdClass} font-bold text-right text-emerald-200`}>{formatCurrency(total.totalPaid)}</td>
+                <td className={`${tdClass} font-bold text-right text-red-200`}>{formatCurrency(total.balance)}</td>
+                <td className={`${tdClass} font-bold text-right`}>
+                  <span className="text-xs bg-white/20 px-2 py-0.5 rounded">
                     {total.totalTarget > 0 ? `${((total.totalPaid / total.totalTarget) * 100).toFixed(1)}%` : '0%'}
                   </span>
                 </td>
@@ -604,87 +632,70 @@ export const Reports: React.FC = () => {
 
     return (
       <div>
-        <div className="flex items-center space-x-4 mb-6 flex-wrap gap-y-3">
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
-            <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="all">All Departments</option>
-              {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Batch</label>
-            <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="all">All Batches</option>
-              {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Year</label>
-            <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="all">All Years</option>
-              <option value="1">1st Year</option>
-              <option value="2">2nd Year</option>
-              <option value="3">3rd Year</option>
-              <option value="4">4th Year</option>
-            </select>
-          </div>
-          <div className="ml-auto self-end">
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-2 rounded-xl">{data.length} students</span>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <FilterBar count={data.length} countLabel="students">
+          <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
+            <option value="all">All Departments</option>
+            {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+          </SelectFilter>
+          <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
+            <option value="all">All Batches</option>
+            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+          </SelectFilter>
+          <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
+            <option value="all">All Years</option>
+            <option value="1">1st Year</option>
+            <option value="2">2nd Year</option>
+            <option value="3">3rd Year</option>
+            <option value="4">4th Year</option>
+          </SelectFilter>
+        </FilterBar>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="bg-slate-50 border-b-2 border-slate-200">
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center w-10">S.No</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Hall Ticket</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Student Name</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Dept</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">T.Target</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">T.Paid</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">T.Balance</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">U.Target</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">U.Paid</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">U.Balance</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Total Paid</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Total Balance</th>
+              <tr className="bg-slate-50/80">
+                <th className={`${thClass} text-center w-10`}>S.No</th>
+                <th className={thClass}>Hall Ticket</th>
+                <th className={thClass}>Name</th>
+                <th className={`${thClass} text-center`}>Dept</th>
+                <th className={`${thClass} text-right`}>T.Target</th>
+                <th className={`${thClass} text-right`}>T.Paid</th>
+                <th className={`${thClass} text-right`}>T.Bal</th>
+                <th className={`${thClass} text-right`}>U.Target</th>
+                <th className={`${thClass} text-right`}>U.Paid</th>
+                <th className={`${thClass} text-right`}>U.Bal</th>
+                <th className={`${thClass} text-right`}>Total Paid</th>
+                <th className={`${thClass} text-right`}>Total Bal</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
+              {data.length === 0 && <EmptyState message="No students match the selected filters." />}
               {data.map((s, i) => (
-                <tr key={s.hallTicketNumber} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-2 py-2 text-xs text-slate-400 text-center">{i + 1}</td>
-                  <td className="px-2 py-2 text-[11px] font-mono font-bold text-slate-700">{s.hallTicketNumber}</td>
-                  <td className="px-2 py-2 text-[11px] font-bold text-slate-800">{s.name}</td>
-                  <td className="px-2 py-2 text-[10px] text-slate-600 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
-                  <td className="px-2 py-2 text-[11px] text-slate-600 text-right">{formatCurrency(s.tTarget)}</td>
-                  <td className="px-2 py-2 text-[11px] font-bold text-green-600 text-right">{formatCurrency(s.tPaid)}</td>
-                  <td className="px-2 py-2 text-[11px] font-bold text-red-600 text-right">{formatCurrency(s.tBalance)}</td>
-                  <td className="px-2 py-2 text-[11px] text-slate-600 text-right">{formatCurrency(s.uTarget)}</td>
-                  <td className="px-2 py-2 text-[11px] font-bold text-blue-600 text-right">{formatCurrency(s.uPaid)}</td>
-                  <td className="px-2 py-2 text-[11px] font-bold text-red-600 text-right">{formatCurrency(s.uBalance)}</td>
-                  <td className="px-2 py-2 text-[11px] font-bold text-green-600 text-right">{formatCurrency(s.totalPaid)}</td>
-                  <td className="px-2 py-2 text-[11px] font-bold text-red-600 text-right">{formatCurrency(s.totalBalance)}</td>
+                <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <td className="px-3 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
+                  <td className="px-3 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-slate-800">{s.name}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-600 text-right">{formatCurrency(s.tTarget)}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-emerald-600 text-right">{formatCurrency(s.tPaid)}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-right" style={{ color: s.tBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(s.tBalance)}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-600 text-right">{formatCurrency(s.uTarget)}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-blue-600 text-right">{formatCurrency(s.uPaid)}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-right" style={{ color: s.uBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(s.uBalance)}</td>
+                  <td className="px-3 py-2.5 text-xs font-bold text-emerald-600 text-right">{formatCurrency(s.totalPaid)}</td>
+                  <td className="px-3 py-2.5 text-xs font-bold text-right" style={{ color: s.totalBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(s.totalBalance)}</td>
                 </tr>
               ))}
-              {data.length === 0 && (
-                <tr><td colSpan={12} className="px-4 py-12 text-center text-slate-400 italic text-xs">No students match the selected filters.</td></tr>
-              )}
               {data.length > 0 && (
-                <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
-                  <td colSpan={4} className="px-2 py-3 text-[11px] text-slate-800 text-right">GRAND TOTAL ({data.length} students)</td>
-                  <td className="px-2 py-3 text-[11px] text-slate-700 text-right">{formatCurrency(totals.tTarget)}</td>
-                  <td className="px-2 py-3 text-[11px] text-green-700 text-right">{formatCurrency(totals.tPaid)}</td>
-                  <td className="px-2 py-3 text-[11px] text-red-700 text-right">{formatCurrency(totals.tBalance)}</td>
-                  <td className="px-2 py-3 text-[11px] text-slate-700 text-right">{formatCurrency(totals.uTarget)}</td>
-                  <td className="px-2 py-3 text-[11px] text-blue-700 text-right">{formatCurrency(totals.uPaid)}</td>
-                  <td className="px-2 py-3 text-[11px] text-red-700 text-right">{formatCurrency(totals.uBalance)}</td>
-                  <td className="px-2 py-3 text-[11px] text-green-700 text-right">{formatCurrency(totals.totalPaid)}</td>
-                  <td className="px-2 py-3 text-[11px] text-red-700 text-right">{formatCurrency(totals.totalBalance)}</td>
+                <tr className="bg-[#1a365d] text-white">
+                  <td colSpan={4} className="px-3 py-3 text-xs font-bold text-right">GRAND TOTAL ({data.length} students)</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right">{formatCurrency(totals.tTarget)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(totals.tPaid)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(totals.tBalance)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right">{formatCurrency(totals.uTarget)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right text-blue-200">{formatCurrency(totals.uPaid)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(totals.uBalance)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(totals.totalPaid)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(totals.totalBalance)}</td>
                 </tr>
               )}
             </tbody>
@@ -698,71 +709,58 @@ export const Reports: React.FC = () => {
     const data = getStudentInfoData();
     return (
       <div>
-        <div className="flex items-center space-x-4 mb-6 flex-wrap gap-y-3">
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
-            <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="all">All Departments</option>
-              {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Batch</label>
-            <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="all">All Batches</option>
-              {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-          </div>
-          <div className="ml-auto self-end">
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-2 rounded-xl">{data.length} students</span>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <FilterBar count={data.length} countLabel="students">
+          <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
+            <option value="all">All Departments</option>
+            {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+          </SelectFilter>
+          <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
+            <option value="all">All Batches</option>
+            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+          </SelectFilter>
+        </FilterBar>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="bg-slate-50 border-b-2 border-slate-200">
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center w-10">S.No</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Hall Ticket</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Student Name</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Father Name</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Mother Name</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Sex</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">DOB</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Dept</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Batch</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Admission</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Mobile</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Father Mobile</th>
-                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Address</th>
+              <tr className="bg-slate-50/80">
+                <th className={`${thClass} text-center w-10`}>S.No</th>
+                <th className={thClass}>Hall Ticket</th>
+                <th className={thClass}>Name</th>
+                <th className={thClass}>Father</th>
+                <th className={thClass}>Mother</th>
+                <th className={`${thClass} text-center`}>Sex</th>
+                <th className={`${thClass} text-center`}>DOB</th>
+                <th className={`${thClass} text-center`}>Dept</th>
+                <th className={`${thClass} text-center`}>Batch</th>
+                <th className={`${thClass} text-center`}>Category</th>
+                <th className={thClass}>Mobile</th>
+                <th className={thClass}>Father Mobile</th>
+                <th className={thClass}>Address</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
+              {data.length === 0 && <EmptyState message="No students match the selected filters." />}
               {data.map((s, i) => (
-                <tr key={s.hallTicketNumber} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-2 py-2 text-xs text-slate-400 text-center">{i + 1}</td>
-                  <td className="px-2 py-2 text-[10px] font-mono font-bold text-slate-700">{s.hallTicketNumber}</td>
-                  <td className="px-2 py-2 text-[11px] font-bold text-slate-800">{s.name}</td>
-                  <td className="px-2 py-2 text-[10px] text-slate-500">{s.fatherName}</td>
-                  <td className="px-2 py-2 text-[10px] text-slate-500">{s.motherName}</td>
-                  <td className="px-2 py-2 text-[10px] text-slate-500 text-center">{s.sex}</td>
-                  <td className="px-2 py-2 text-[10px] text-slate-500 text-center">{s.dob}</td>
-                  <td className="px-2 py-2 text-[10px] text-slate-600 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
-                  <td className="px-2 py-2 text-[10px] text-slate-500 text-center">{s.batch}</td>
-                  <td className="px-2 py-2 text-center">
-                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${s.admissionCategory.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
+                <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <td className="px-3 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
+                  <td className="px-3 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-slate-800">{s.name}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500">{s.fatherName}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500">{s.motherName}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.sex}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.dob}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-600 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.batch}</td>
+                  <td className="px-3 py-2.5 text-center">
+                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded ${s.admissionCategory.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
                       {s.admissionCategory}
                     </span>
                   </td>
-                  <td className="px-2 py-2 text-[10px] text-slate-500">{s.mobile}</td>
-                  <td className="px-2 py-2 text-[10px] text-slate-500">{s.fatherMobile}</td>
-                  <td className="px-2 py-2 text-[9px] text-slate-400 max-w-[150px] truncate" title={s.address}>{s.address}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500">{s.mobile}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500">{s.fatherMobile}</td>
+                  <td className="px-3 py-2.5 text-[10px] text-slate-400 max-w-[140px] truncate" title={s.address}>{s.address}</td>
                 </tr>
               ))}
-              {data.length === 0 && (
-                <tr><td colSpan={13} className="px-4 py-12 text-center text-slate-400 italic text-xs">No students match the selected filters.</td></tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -778,67 +776,60 @@ export const Reports: React.FC = () => {
 
     return (
       <div>
-        <div className="flex items-center space-x-4 mb-6">
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
-            <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="all">All Departments</option>
-              {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Year</label>
-            <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="all">All Years</option>
-              <option value="1">1st Year</option>
-              <option value="2">2nd Year</option>
-              <option value="3">3rd Year</option>
-              <option value="4">4th Year</option>
-            </select>
-          </div>
-          <div className="ml-auto self-end flex items-center space-x-4">
-            <span className="text-xs font-bold text-red-500 bg-red-50 px-3 py-2 rounded-xl">{data.length} defaulters</span>
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-2 rounded-xl">Outstanding: {formatCurrency(totals.balance)}</span>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
+        <FilterBar count={data.length} countLabel="defaulters">
+          <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
+            <option value="all">All Departments</option>
+            {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+          </SelectFilter>
+          <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
+            <option value="all">All Years</option>
+            <option value="1">1st Year</option>
+            <option value="2">2nd Year</option>
+            <option value="3">3rd Year</option>
+            <option value="4">4th Year</option>
+          </SelectFilter>
+          {data.length > 0 && (
+            <div className="ml-2 self-end pb-0.5">
+              <span className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+                Outstanding: {formatCurrency(totals.balance)}
+              </span>
+            </div>
+          )}
+        </FilterBar>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b-2 border-slate-200">
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center w-12">S.No</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">Hall Ticket</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">Student Name</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Dept</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Year</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Target</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Paid</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Balance Due</th>
+              <tr className="bg-slate-50/80">
+                <th className={`${thClass} text-center w-12`}>S.No</th>
+                <th className={thClass}>Hall Ticket</th>
+                <th className={thClass}>Student Name</th>
+                <th className={`${thClass} text-center`}>Dept</th>
+                <th className={`${thClass} text-center`}>Year</th>
+                <th className={`${thClass} text-right`}>Target</th>
+                <th className={`${thClass} text-right`}>Paid</th>
+                <th className={`${thClass} text-right`}>Balance Due</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
+              {data.length === 0 && <EmptyState message="No fee defaulters found." />}
               {data.map((s, i) => (
-                <tr key={s.hallTicketNumber} className="hover:bg-red-50/30 transition-colors">
-                  <td className="px-3 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
-                  <td className="px-3 py-2.5 text-xs font-mono font-bold text-slate-700">{s.hallTicketNumber}</td>
-                  <td className="px-3 py-2.5 text-xs font-bold text-slate-800">{s.name}</td>
-                  <td className="px-3 py-2.5 text-[11px] text-slate-600 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
-                  <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.currentYear}</td>
-                  <td className="px-3 py-2.5 text-xs text-slate-600 text-right">{formatCurrency(s.totalTarget)}</td>
-                  <td className="px-3 py-2.5 text-xs font-bold text-green-600 text-right">{formatCurrency(s.totalPaid)}</td>
-                  <td className="px-3 py-2.5 text-sm font-bold text-red-600 text-right">{formatCurrency(s.balance)}</td>
+                <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-red-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <td className="px-4 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
+                  <td className="px-4 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
+                  <td className="px-4 py-2.5 text-sm font-semibold text-slate-800">{s.name}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{s.currentYear}</td>
+                  <td className="px-4 py-2.5 text-sm text-slate-600 text-right">{formatCurrency(s.totalTarget)}</td>
+                  <td className="px-4 py-2.5 text-sm font-semibold text-emerald-600 text-right">{formatCurrency(s.totalPaid)}</td>
+                  <td className="px-4 py-2.5 text-sm font-bold text-red-500 text-right">{formatCurrency(s.balance)}</td>
                 </tr>
               ))}
-              {data.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-400 italic text-xs">No defaulters found for the selected filters.</td></tr>
-              )}
               {data.length > 0 && (
-                <tr className="bg-red-50 font-bold border-t-2 border-red-200">
-                  <td colSpan={5} className="px-3 py-3 text-sm text-red-800 text-right">GRAND TOTAL ({data.length} defaulters)</td>
-                  <td className="px-3 py-3 text-sm text-slate-700 text-right">{formatCurrency(totals.totalTarget)}</td>
-                  <td className="px-3 py-3 text-sm font-bold text-green-700 text-right">{formatCurrency(totals.totalPaid)}</td>
-                  <td className="px-3 py-3 text-sm font-bold text-red-700 text-right">{formatCurrency(totals.balance)}</td>
+                <tr className="bg-[#1a365d] text-white">
+                  <td colSpan={5} className={`${tdClass} font-bold text-right`}>GRAND TOTAL ({data.length} defaulters)</td>
+                  <td className={`${tdClass} font-bold text-right`}>{formatCurrency(totals.totalTarget)}</td>
+                  <td className={`${tdClass} font-bold text-right text-emerald-200`}>{formatCurrency(totals.totalPaid)}</td>
+                  <td className={`${tdClass} font-bold text-right text-red-200`}>{formatCurrency(totals.balance)}</td>
                 </tr>
               )}
             </tbody>
@@ -858,50 +849,72 @@ export const Reports: React.FC = () => {
   };
 
   const reportTitles: Record<ReportTab, { title: string; subtitle: string }> = {
-    dept_summary: { title: 'DEPT SUMMARY SUMMARY', subtitle: 'INSTITUTIONAL REVENUE ANALYSIS' },
-    financial_year: { title: 'FINANCIAL YEAR WISE', subtitle: 'YEAR-ON-YEAR COLLECTION BREAKDOWN' },
-    batch_wise: { title: 'BATCH WISE REPORT', subtitle: 'ADMISSION BATCH FEE ANALYSIS' },
-    student_master: { title: 'STUDENT MASTER FEE LIST', subtitle: 'YEAR WISE FEE DETAILS PER STUDENT' },
-    student_info: { title: 'STUDENT MASTER LIST', subtitle: 'COMPLETE STUDENT PERSONAL DETAILS' },
-    defaulters: { title: 'FEE DEFAULTERS', subtitle: 'DEPARTMENT & YEAR WISE OUTSTANDING' },
+    dept_summary: { title: 'Department Summary', subtitle: 'Institutional revenue analysis across all departments' },
+    financial_year: { title: 'Financial Year Wise', subtitle: 'Year-on-year fee collection breakdown' },
+    batch_wise: { title: 'Batch Wise Report', subtitle: 'Admission batch fee analysis & collection rate' },
+    student_master: { title: 'Student Master Fee List', subtitle: 'Year wise fee details per student' },
+    student_info: { title: 'Student Master List', subtitle: 'Complete student personal information directory' },
+    defaulters: { title: 'Fee Defaulters', subtitle: 'Department & year wise outstanding balance' },
   };
 
+  const activeReport = reportTitles[activeTab];
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+    <div className="space-y-5">
+      <div className="bg-gradient-to-r from-[#1a365d] to-[#2c5282] rounded-xl p-5 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+              <BarChart3 size={22} />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight">Reports & Analytics</h1>
+              <p className="text-blue-200 text-xs mt-0.5">Generate, filter and export institutional fee reports</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-blue-200 text-xs">
+            <TrendingUp size={14} />
+            <span>{students.length} students | {transactions.filter(t => t.status === 'APPROVED').length} transactions</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-6 gap-2">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); setYearFilter('all'); setDeptFilter('all'); setBatchFilter('all'); }}
-            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-all border ${
               activeTab === tab.id
-                ? 'bg-[#2c5282] text-white shadow-md'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                ? 'bg-[#1a365d] text-white border-[#1a365d] shadow-md shadow-blue-900/20'
+                : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
             }`}
           >
-            {tab.icon}
-            <span>{tab.label}</span>
+            <div className={`p-1.5 rounded-lg ${activeTab === tab.id ? 'bg-white/15' : 'bg-slate-100'}`}>
+              {tab.icon}
+            </div>
+            <span className="text-[11px] font-semibold leading-tight">{tab.label}</span>
           </button>
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-[#2c5282]/10 text-[#2c5282] rounded-xl">
-              <FileText size={20} />
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 text-[#2c5282] rounded-lg">
+              <FileText size={18} />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{reportTitles[activeTab].title}</h3>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">{reportTitles[activeTab].subtitle}</p>
+              <h3 className="text-sm font-bold text-slate-800">{activeReport.title}</h3>
+              <p className="text-xs text-slate-400 mt-0.5">{activeReport.subtitle}</p>
             </div>
           </div>
           <button
             onClick={exportHandlers[activeTab]}
-            className="flex items-center space-x-2 px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-colors shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg font-semibold text-sm hover:bg-emerald-600 transition-colors shadow-sm"
           >
-            <Download size={16} />
-            <span>EXPORT PDF REPORT</span>
+            <Printer size={15} />
+            <span>Export PDF</span>
           </button>
         </div>
         <div className="p-5">
