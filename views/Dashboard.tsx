@@ -14,8 +14,12 @@ import {
   XCircle,
   Save,
   Lock,
-  Search
+  Search,
+  X,
+  FileText,
+  Download
 } from 'lucide-react';
+import { Student } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string, subValue: string, trend?: 'up' | 'down', color: string }> = ({ 
@@ -45,6 +49,7 @@ export const Dashboard: React.FC = () => {
   const [editConfig, setEditConfig] = useState<FeeLockerConfig>(feeLockerConfig);
   const [searchTerm, setSearchTerm] = useState('');
   const [showResults, setShowResults] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const searchResults = searchTerm.trim().length >= 2
@@ -160,11 +165,12 @@ export const Dashboard: React.FC = () => {
                 }, 0);
                 const pending = totalTarget - totalPaid;
                 return (
-                  <div key={s.id} className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-slate-100 last:border-b-0 transition-colors">
+                  <div key={s.hallTicketNumber} className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-slate-100 last:border-b-0 transition-colors"
+                    onClick={() => { setSelectedStudent(s); setShowResults(false); setSearchTerm(''); }}>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-semibold text-slate-800 text-sm">{s.name}</p>
-                        <p className="text-xs text-slate-500">{s.rollNumber} | {s.department}</p>
+                        <p className="text-xs text-slate-500">{s.hallTicketNumber} | {s.department}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-medium text-green-600">Paid: {formatCurrency(totalPaid)}</p>
@@ -180,6 +186,122 @@ export const Dashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {selectedStudent && (() => {
+        const s = selectedStudent;
+        const lifetimePaid = s.feeLockers.reduce((sum, l) => {
+          return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
+        }, 0);
+        const lifetimeTarget = s.feeLockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
+        const dept = DEPARTMENTS.find(d => d.name === s.department);
+        const lockerStatus = (locker: typeof s.feeLockers[0]) => {
+          const paid = locker.transactions.filter(t => t.status === 'APPROVED').reduce((sum, t) => sum + t.amount, 0);
+          const target = locker.tuitionTarget + locker.universityTarget;
+          if (target === 0) return 'PENDING';
+          if (paid >= target) return 'PAID';
+          if (paid > 0) return 'PARTIAL';
+          return 'PENDING';
+        };
+        const statusColor = (st: string) => {
+          if (st === 'PAID') return 'text-green-600 bg-green-50';
+          if (st === 'PARTIAL') return 'text-orange-600 bg-orange-50';
+          return 'text-slate-500 bg-slate-100';
+        };
+        const yearColors = ['bg-blue-600', 'bg-indigo-600', 'bg-purple-600', 'bg-violet-600'];
+        return (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-[#1a365d] via-[#2c5282] to-[#2b6cb0] p-6 text-white relative">
+              <button onClick={() => setSelectedStudent(null)} className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-white/20 text-xs font-bold px-2 py-0.5 rounded">{s.admissionCategory || 'TSMFC'}</span>
+                    <span className="text-blue-200 text-xs">ADM YEAR: {s.admissionYear}</span>
+                  </div>
+                  <h2 className="text-2xl font-bold tracking-tight">{s.name}</h2>
+                  <div className="flex items-center gap-2 mt-2 text-blue-200 text-sm flex-wrap">
+                    <FileText size={14} />
+                    <span>HTN: {s.hallTicketNumber}</span>
+                    <span className="text-blue-300/50">|</span>
+                    <span>{s.department}</span>
+                    <span className="text-blue-300/50">|</span>
+                    <span>{s.course}</span>
+                  </div>
+                  <div className="flex gap-6 mt-2 text-xs text-blue-200/80">
+                    <span><strong className="text-blue-100">FATHER:</strong> {s.fatherName}</span>
+                    <span><strong className="text-blue-100">BATCH:</strong> {s.batch}</span>
+                  </div>
+                </div>
+                <div className="text-right bg-white/10 rounded-xl p-4 min-w-[180px]">
+                  <p className="text-blue-200 text-xs uppercase tracking-wider mb-1">Lifetime Collection</p>
+                  <p className="text-3xl font-bold">{formatCurrency(lifetimePaid)}</p>
+                  <p className="text-blue-200/80 text-xs mt-1">of {formatCurrency(lifetimeTarget)} Total Target</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {s.feeLockers.map((locker, idx) => {
+                  const tuitionPaid = locker.transactions.filter(t => t.status === 'APPROVED' && t.feeType === 'Tuition').reduce((sum, t) => sum + t.amount, 0);
+                  const universityPaid = locker.transactions.filter(t => t.status === 'APPROVED' && t.feeType === 'University').reduce((sum, t) => sum + t.amount, 0);
+                  const totalPaid = locker.transactions.filter(t => t.status === 'APPROVED').reduce((sum, t) => sum + t.amount, 0);
+                  const totalTarget = locker.tuitionTarget + locker.universityTarget;
+                  const balanceDue = Math.max(0, totalTarget - totalPaid);
+                  const progress = totalTarget > 0 ? Math.round((totalPaid / totalTarget) * 100) : 0;
+                  const status = lockerStatus(locker);
+                  const lastTxn = [...locker.transactions].filter(t => t.status === 'APPROVED').sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0];
+                  return (
+                    <div key={locker.year} className="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-9 h-9 ${yearColors[idx] || 'bg-blue-600'} rounded-lg flex items-center justify-center text-white text-xs font-bold`}>
+                            Y{locker.year}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">Year {locker.year}</p>
+                            <p className="text-[10px] text-slate-400">Locker: {formatCurrency(totalTarget)}</p>
+                          </div>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${statusColor(status)}`}>{status}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Tuition</p>
+                          <p className="text-sm font-bold text-slate-800">{formatCurrency(tuitionPaid)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">University</p>
+                          <p className="text-sm font-bold text-slate-800">{formatCurrency(universityPaid)}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-3 pt-3 border-t border-slate-100">
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Balance Due</p>
+                          <p className={`text-sm font-bold ${balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(balanceDue)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Progress</p>
+                          <p className="text-sm font-bold text-slate-800">{progress}%</p>
+                        </div>
+                      </div>
+                      <div className="pt-3 border-t border-slate-100">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Last Record</p>
+                        {lastTxn ? (
+                          <p className="text-xs text-slate-600 mt-0.5">{lastTxn.feeType} - {formatCurrency(lastTxn.amount)}</p>
+                        ) : (
+                          <p className="text-xs text-slate-400 mt-0.5 italic">No activity</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard 
