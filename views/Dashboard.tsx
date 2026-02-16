@@ -48,11 +48,12 @@ export const Dashboard: React.FC = () => {
   const searchRef = useRef<HTMLDivElement>(null);
 
   const searchResults = searchTerm.trim().length >= 2
-    ? students.filter(s =>
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.hallTicketNumber.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 8)
+    ? students.filter(s => {
+        const term = searchTerm.toLowerCase();
+        return (s.name || '').toLowerCase().includes(term) ||
+          (s.rollNumber || '').toLowerCase().includes(term) ||
+          (s.hallTicketNumber || '').toLowerCase().includes(term);
+      }).slice(0, 8)
     : [];
 
   useEffect(() => {
