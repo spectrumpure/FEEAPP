@@ -151,8 +151,8 @@ export const Layout: React.FC<{ children: React.ReactNode, activeView: string, o
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto h-screen relative">
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex items-center justify-between no-print">
+      <main className="flex-1 overflow-y-auto h-screen relative bg-[#f0f4f8]">
+        <header className="sticky top-0 z-30 bg-[#f0f4f8]/90 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex items-center justify-between no-print">
           <h2 className="text-xl font-bold text-slate-800 capitalize">
             {activeView.replace('-', ' ')}
           </h2>
