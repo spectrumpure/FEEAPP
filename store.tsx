@@ -35,7 +35,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [students, setStudents] = useState<Student[]>(() => {
     const saved = localStorage.getItem('ef_students');
-    return saved ? JSON.parse(saved) : INITIAL_STUDENTS;
+    if (saved) {
+      const deptMigration: Record<string, string> = {
+        'Computer Science & Engineering': 'B.E(Computer Science Engineering)',
+        'Electronics & Communication Engineering': 'B.E(Electronics & Communication Engineering)',
+        'Electrical & Electronics Engineering': 'B.E(Electrical& Electronics Engineering)',
+        'Mechanical Engineering': 'B.E(Mechanical Engineering)',
+        'Civil Engineering': 'B.E(Civil engineering)',
+        'Production Engineering': 'B.E(Production Engineering)',
+      };
+      const parsed = JSON.parse(saved) as Student[];
+      return parsed.map(s => ({
+        ...s,
+        department: deptMigration[s.department] || s.department,
+      }));
+    }
+    return INITIAL_STUDENTS;
   });
 
   const [departments, setDepartments] = useState<Department[]>(DEPARTMENTS);
