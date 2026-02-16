@@ -25,6 +25,7 @@ A centralized college fee management and governance system built with React, Typ
 - **xlsx**: For parsing Excel (.xlsx/.xls) files in the browser for bulk uploads
 
 ## Recent Changes
+- 2026-02-16: Redesigned Student Directory with MJCET branded header (logo + college name), collapsible bulk upload section, dedicated S.No/Department columns, father's name display, INR currency formatting, student count summary bar, navy blue (#1a365d/#2c5282) color scheme
 - 2026-02-16: Updated department list to match college template (10 B.E 4-year + 4 M.E 2-year departments), added courseType/duration to Department type, added department filter to Student Directory
 - 2026-02-16: Added three bulk upload options to Student Directory page (combined student+fee, student-only, fee-only) with Excel/CSV support matching college template format
 - 2026-02-16: Updated FeeEntry bulk upload to support XLSX files with proper date normalization (DD.MM.YYYY format)
