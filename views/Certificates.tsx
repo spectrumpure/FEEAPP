@@ -126,7 +126,7 @@ export const Certificates: React.FC = () => {
   .college-info { text-align: center; flex: 1; }
   .college-name-1 { font-size: 18pt; font-weight: bold; color: #000; letter-spacing: 1px; }
   .college-name-2 { font-size: 14pt; font-weight: bold; color: #000; letter-spacing: 0.5px; }
-  .college-sub { font-size: 10pt; margin-top: 1mm; color: #333; }
+  .accred { font-size: 9pt; color: #2b6cb0; margin-top: 0.5mm; font-weight: 600; }
   .society-name { font-size: 10pt; color: #000; margin-top: 0.5mm; font-weight: bold; }
   .address-line { font-size: 9pt; color: #333; margin-top: 1mm; }
   .title { text-align: center; font-size: 15pt; font-weight: bold; text-decoration: underline; margin: 4mm 0 3mm; }
@@ -147,7 +147,8 @@ export const Certificates: React.FC = () => {
       <div class="college-info">
         <div class="college-name-1">MUFFAKHAM JAH</div>
         <div class="college-name-2">COLLEGE OF ENGINEERING & TECHNOLOGY</div>
-        <div class="college-sub">${COLLEGE.affiliation}</div>
+        <div class="accred">Autonomous & Accredited by NAAC with A+ and NBA</div>
+        <div class="accred">Affiliated to Osmania University & Approved by AICTE</div>
         <div class="society-name">(SULTAN-UL-ULOOM EDUCATION SOCIETY)</div>
         <div class="address-line">'Mount Pleasant' 8-2-249, Road No. 3,</div>
         <div class="address-line" style="margin-top:0;">Banjara Hills, Hyderabad - 500 034, (T.S.)</div>
@@ -194,7 +195,8 @@ export const Certificates: React.FC = () => {
   <div class="header">
     <div class="college-name">MUFFAKHAM JAH</div>
     <div class="college-name sub">COLLEGE OF ENGINEERING & TECHNOLOGY</div>
-    <div class="affil">(Affiliated to Osmania University)</div>
+    <div class="accred">Autonomous & Accredited by NAAC with A+ and NBA</div>
+    <div class="accred">Affiliated to Osmania University & Approved by AICTE</div>
     <div class="society">(Sultan-ul-uloom Education Society)</div>
     <div class="address">${COLLEGE.address}</div>
   </div>
@@ -257,7 +259,7 @@ export const Certificates: React.FC = () => {
   .header { text-align: center; margin-bottom: 3mm; }
   .college-name { font-size: 18pt; font-weight: bold; color: #1a1a1a; }
   .college-name.sub { font-size: 14pt; }
-  .affil { font-size: 10pt; color: #333; margin-top: 1mm; }
+  .accred { font-size: 9pt; color: #2b6cb0; margin-top: 0.5mm; font-weight: 600; }
   .society { font-size: 10pt; color: #555; font-weight: 600; margin-top: 0.5mm; }
   .address { font-size: 10pt; color: #444; margin-top: 1mm; }
   .logo-center { text-align: center; margin: 5mm 0; }

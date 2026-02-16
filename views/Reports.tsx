@@ -29,7 +29,8 @@ const COLLEGE_HEADER = {
   society: "SULTAN-UL-ULOOM EDUCATION SOCIETY",
   name: "MUFFAKHAM JAH COLLEGE OF ENGINEERING AND TECHNOLOGY",
   address: "Road No.3, Banjara Hills, Hyderabad - 500034, Telangana, India",
-  accreditation: "Accredited by NAAC with 'A' Grade | Affiliated to Osmania University",
+  accreditation1: "Autonomous & Accredited by NAAC with A+ and NBA",
+  accreditation2: "Affiliated to Osmania University & Approved by AICTE",
 };
 
 const exportPDF = (title: string, tableHtml: string) => {
@@ -44,7 +45,7 @@ const exportPDF = (title: string, tableHtml: string) => {
   .header .society { font-size: 10px; font-weight: 600; color: #4a5568; letter-spacing: 2px; text-transform: uppercase; }
   .header .college { font-size: 16px; font-weight: 800; color: #1a365d; margin: 4px 0; }
   .header .address { font-size: 9px; color: #718096; }
-  .header .accreditation { font-size: 8px; color: #a0aec0; margin-top: 2px; }
+  .header .accreditation { font-size: 8px; color: #2b6cb0; margin-top: 2px; font-weight: 600; }
   .report-title { text-align: center; font-size: 13px; font-weight: 700; color: #2c5282; text-transform: uppercase; letter-spacing: 1.5px; margin: 16px 0 12px; }
   .report-meta { text-align: center; font-size: 9px; color: #a0aec0; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 10px; }
@@ -66,7 +67,8 @@ const exportPDF = (title: string, tableHtml: string) => {
   <div class="society">${COLLEGE_HEADER.society}</div>
   <div class="college">${COLLEGE_HEADER.name}</div>
   <div class="address">${COLLEGE_HEADER.address}</div>
-  <div class="accreditation">${COLLEGE_HEADER.accreditation}</div>
+  <div class="accreditation">${COLLEGE_HEADER.accreditation1}</div>
+  <div class="accreditation">${COLLEGE_HEADER.accreditation2}</div>
 </div>
 <div class="report-title">${title}</div>
 <div class="report-meta">Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })} | EduFee Enterprise</div>
