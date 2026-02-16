@@ -133,6 +133,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   });
 
   const [departmentFilter, setDepartmentFilter] = useState('');
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -536,149 +537,47 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <input type="file" ref={studentFileRef} accept=".csv,.xlsx,.xls" className="hidden" onChange={handleBulkStudentUpload} />
       <input type="file" ref={feeFileRef} accept=".csv,.xlsx,.xls" className="hidden" onChange={handleBulkFeeUpload} />
       <input type="file" ref={combinedFileRef} accept=".csv,.xlsx,.xls" className="hidden" onChange={handleCombinedUpload} />
 
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-5 shadow-lg">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="p-2 bg-white/20 rounded-xl">
-            <Layers size={20} className="text-white" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-white">Combined Bulk Upload</h3>
-            <p className="text-[10px] text-blue-100 font-medium">Import students + fee entries together from the master Excel/CSV template</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={downloadCombinedTemplate}
-            className="flex items-center space-x-1.5 px-4 py-2 bg-white/20 backdrop-blur border border-white/30 rounded-xl text-xs font-bold text-white hover:bg-white/30 transition-colors"
-          >
-            <Download size={14} />
-            <span>Template</span>
-          </button>
-          <button
-            onClick={() => combinedFileRef.current?.click()}
-            disabled={isUploadingCombined}
-            className="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 bg-white text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-50 transition-colors shadow-md disabled:opacity-50"
-          >
-            {isUploadingCombined ? (
-              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Upload size={14} />
-            )}
-            <span>{isUploadingCombined ? 'Processing...' : 'Upload Excel / CSV'}</span>
-          </button>
-        </div>
-        {combinedUploadResult && (
-          <div className={`mt-3 p-3 rounded-xl text-xs font-bold ${combinedUploadResult.errors.length > 0 ? 'bg-amber-50 border border-amber-100' : 'bg-white/90 border border-white/50'}`}>
-            {(combinedUploadResult.students > 0 || combinedUploadResult.transactions > 0) && (
-              <p className="text-blue-800">
-                {combinedUploadResult.students > 0 && `${combinedUploadResult.students} student(s) imported.`}
-                {combinedUploadResult.students > 0 && combinedUploadResult.transactions > 0 && ' '}
-                {combinedUploadResult.transactions > 0 && `${combinedUploadResult.transactions} transaction(s) added (pending approval).`}
-              </p>
-            )}
-            {combinedUploadResult.students === 0 && combinedUploadResult.transactions === 0 && <p className="text-amber-700">No records were imported.</p>}
-            {combinedUploadResult.errors.length > 0 && (
-              <div className="mt-2 space-y-0.5 max-h-24 overflow-y-auto">
-                {combinedUploadResult.errors.map((err, i) => (
-                  <p key={i} className="text-[10px] text-amber-600 flex items-start space-x-1">
-                    <AlertTriangle size={10} className="shrink-0 mt-0.5" />
-                    <span>{err}</span>
-                  </p>
-                ))}
-              </div>
-            )}
-            <button onClick={() => setCombinedUploadResult(null)} className="mt-2 text-[10px] text-white/60 hover:text-white underline">Dismiss</button>
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-                <UserPlus size={20} />
-              </div>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-gradient-to-r from-[#1a365d] to-[#2c5282] px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <img src="/mjcet-logo.png" alt="MJCET Logo" className="w-14 h-14 rounded-full bg-white p-1 shadow-md object-contain" />
               <div>
-                <h3 className="text-sm font-bold text-slate-800">Bulk Student Upload</h3>
-                <p className="text-[10px] text-slate-400 font-medium">Import students only (no fee data)</p>
+                <h1 className="text-lg font-bold text-white tracking-wide">Muffakham Jah College of Engineering and Technology</h1>
+                <p className="text-[11px] text-blue-200 font-medium mt-0.5">Autonomous - Affiliated to Osmania University | NAAC A+ Accredited</p>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center space-x-2 bg-white/10 backdrop-blur rounded-xl px-4 py-2 border border-white/20">
+              <Users size={16} className="text-blue-200" />
+              <div>
+                <p className="text-[10px] text-blue-200 font-medium">Total Students</p>
+                <p className="text-lg font-bold text-white leading-none">{students.length}</p>
               </div>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={downloadStudentTemplate}
-              className="flex items-center space-x-1.5 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
-            >
-              <Download size={14} />
-              <span>Template</span>
-            </button>
-            <button
-              onClick={() => studentFileRef.current?.click()}
-              disabled={isUploadingStudents}
-              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-100 disabled:opacity-50"
-            >
-              {isUploadingStudents ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Upload size={14} />
-              )}
-              <span>{isUploadingStudents ? 'Processing...' : 'Upload CSV / Excel'}</span>
-            </button>
-          </div>
-          {renderUploadResult(studentUploadResult, () => setStudentUploadResult(null))}
         </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                <CreditCard size={20} />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-800">Bulk Fee Entry</h3>
-                <p className="text-[10px] text-slate-400 font-medium">Import fee transactions for existing students</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={downloadFeeTemplate}
-              className="flex items-center space-x-1.5 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
-            >
-              <Download size={14} />
-              <span>Template</span>
-            </button>
-            <button
-              onClick={() => feeFileRef.current?.click()}
-              disabled={isUploadingFees}
-              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-100 disabled:opacity-50"
-            >
-              {isUploadingFees ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Upload size={14} />
-              )}
-              <span>{isUploadingFees ? 'Processing...' : 'Upload CSV / Excel'}</span>
-            </button>
-          </div>
-          {renderUploadResult(feeUploadResult, () => setFeeUploadResult(null))}
+        <div className="bg-[#f0f4f8] px-6 py-2.5 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="text-sm font-bold text-slate-700 flex items-center space-x-2">
+            <GraduationCap size={16} className="text-[#2c5282]" />
+            <span>Student Directory & Fee Management</span>
+          </h2>
+          <span className="text-[10px] text-slate-400 font-medium">Academic Year 2025-26</span>
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex flex-1 items-center gap-3 max-w-2xl">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex flex-1 items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               type="text" 
               placeholder="Search by Roll No or Name..." 
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all shadow-sm"
+              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -686,38 +585,128 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all shadow-sm min-w-[200px]"
+            className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all min-w-[180px]"
           >
             <option value="">All Departments</option>
             {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
           </select>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => setShowBulkUpload(!showBulkUpload)}
+            className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border ${showBulkUpload ? 'bg-slate-100 text-slate-700 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+          >
+            <Upload size={16} />
+            <span>Bulk Upload</span>
+          </button>
           <button 
             onClick={() => { resetForm(); setShowManualModal(true); }}
-            className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
+            className="flex items-center space-x-2 px-5 py-2.5 bg-[#2c5282] text-white rounded-lg font-medium text-sm hover:bg-[#1a365d] transition-colors shadow-sm"
           >
-            <Plus size={18} />
+            <Plus size={16} />
             <span>New Admission</span>
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      {showBulkUpload && (
+        <div className="space-y-3 animate-in slide-in-from-top duration-200">
+          <div className="bg-gradient-to-r from-[#2c5282] to-[#3182ce] rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2">
+                <Layers size={16} className="text-white" />
+                <h3 className="text-sm font-bold text-white">Combined Upload (Student + Fee Data)</h3>
+              </div>
+              <p className="text-[10px] text-blue-200 font-medium">20-column Excel/CSV template</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button onClick={downloadCombinedTemplate} className="flex items-center space-x-1.5 px-3 py-2 bg-white/15 backdrop-blur border border-white/25 rounded-lg text-xs font-medium text-white hover:bg-white/25 transition-colors">
+                <Download size={13} />
+                <span>Download Template</span>
+              </button>
+              <button onClick={() => combinedFileRef.current?.click()} disabled={isUploadingCombined} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-white text-[#2c5282] rounded-lg text-xs font-bold hover:bg-blue-50 transition-colors disabled:opacity-50">
+                {isUploadingCombined ? <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" /> : <Upload size={13} />}
+                <span>{isUploadingCombined ? 'Processing...' : 'Upload File'}</span>
+              </button>
+            </div>
+            {combinedUploadResult && (
+              <div className={`mt-3 p-3 rounded-lg text-xs font-medium ${combinedUploadResult.errors.length > 0 ? 'bg-amber-50 border border-amber-100' : 'bg-white/90'}`}>
+                {(combinedUploadResult.students > 0 || combinedUploadResult.transactions > 0) && (
+                  <p className="text-blue-800">{combinedUploadResult.students > 0 && `${combinedUploadResult.students} student(s) imported.`}{combinedUploadResult.students > 0 && combinedUploadResult.transactions > 0 && ' '}{combinedUploadResult.transactions > 0 && `${combinedUploadResult.transactions} transaction(s) added.`}</p>
+                )}
+                {combinedUploadResult.students === 0 && combinedUploadResult.transactions === 0 && <p className="text-amber-700">No records imported.</p>}
+                {combinedUploadResult.errors.length > 0 && (
+                  <div className="mt-2 space-y-0.5 max-h-20 overflow-y-auto">{combinedUploadResult.errors.map((err, i) => (<p key={i} className="text-[10px] text-amber-600 flex items-start space-x-1"><AlertTriangle size={10} className="shrink-0 mt-0.5" /><span>{err}</span></p>))}</div>
+                )}
+                <button onClick={() => setCombinedUploadResult(null)} className="mt-2 text-[10px] text-slate-400 hover:text-slate-600 underline">Dismiss</button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg"><UserPlus size={16} /></div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Student Only Upload</h3>
+                  <p className="text-[10px] text-slate-400">13-column template - no fee data</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button onClick={downloadStudentTemplate} className="flex items-center space-x-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors">
+                  <Download size={13} /><span>Template</span>
+                </button>
+                <button onClick={() => studentFileRef.current?.click()} disabled={isUploadingStudents} className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                  {isUploadingStudents ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Upload size={13} />}
+                  <span>{isUploadingStudents ? 'Processing...' : 'Upload'}</span>
+                </button>
+              </div>
+              {renderUploadResult(studentUploadResult, () => setStudentUploadResult(null))}
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg"><CreditCard size={16} /></div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Fee Only Upload</h3>
+                  <p className="text-[10px] text-slate-400">6-column template - existing students</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button onClick={downloadFeeTemplate} className="flex items-center space-x-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors">
+                  <Download size={13} /><span>Template</span>
+                </button>
+                <button onClick={() => feeFileRef.current?.click()} disabled={isUploadingFees} className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                  {isUploadingFees ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Upload size={13} />}
+                  <span>{isUploadingFees ? 'Processing...' : 'Upload'}</span>
+                </button>
+              </div>
+              {renderUploadResult(feeUploadResult, () => setFeeUploadResult(null))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <p className="text-xs font-medium text-slate-500">Showing <span className="font-bold text-slate-700">{filteredStudents.length}</span> of <span className="font-bold text-slate-700">{students.length}</span> students</p>
+          {departmentFilter && <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded font-medium border border-blue-100">{departmentFilter}</span>}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Identity</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Roll No</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Mode</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Academic Year</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Collection</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+              <tr className="border-b border-slate-200">
+                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">S.No</th>
+                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Student</th>
+                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Roll Number</th>
+                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Department</th>
+                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Admission</th>
+                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Fee Status</th>
+                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredStudents.length > 0 ? filteredStudents.map((student) => {
+              {filteredStudents.length > 0 ? filteredStudents.map((student, index) => {
                 const locker = student.feeLockers.find(l => l.year === student.currentYear);
                 const paid = locker?.transactions.filter(t => t.status === 'APPROVED').reduce((sum, t) => sum + t.amount, 0) || 0;
                 const target = (locker?.tuitionTarget || 0) + (locker?.universityTarget || 0);
@@ -726,88 +715,91 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                 return (
                   <tr 
                     key={student.hallTicketNumber} 
-                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                    className="hover:bg-blue-50/40 transition-colors cursor-pointer"
                     onClick={(e) => handleView(e, student.hallTicketNumber)}
                   >
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-3">
+                      <span className="text-xs text-slate-400 font-medium">{index + 1}</span>
+                    </td>
+                    <td className="px-5 py-3">
                       <div className="flex items-center space-x-3">
-                        <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+                        <div className="w-8 h-8 rounded-full bg-[#2c5282] text-white flex items-center justify-center font-bold text-[10px] uppercase flex-shrink-0">
                           {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
-                        <div className="overflow-hidden">
-                          <p className="text-sm font-bold text-slate-900 uppercase truncate max-w-[150px]">{student.name}</p>
-                          <p className="text-[10px] text-slate-400 truncate">{student.department}</p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 uppercase truncate">{student.name}</p>
+                          <p className="text-[10px] text-slate-400">S/D of {student.fatherName}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-mono font-bold text-slate-600 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm">{student.hallTicketNumber}</span>
+                    <td className="px-5 py-3">
+                      <span className="text-xs font-mono font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-1 rounded">{student.hallTicketNumber}</span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-tighter ${
-                        student.admissionCategory.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-blue-50 text-blue-600 border border-blue-100'
+                    <td className="px-5 py-3">
+                      <p className="text-xs font-medium text-slate-700 max-w-[180px] truncate">{student.department}</p>
+                      <p className="text-[10px] text-slate-400">{student.admissionYear} - Batch {student.batch}</p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`text-[10px] font-semibold px-2 py-1 rounded inline-block ${
+                        student.admissionCategory.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : 
+                        student.admissionCategory.includes('CONVENOR') || student.admissionCategory.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                        'bg-blue-50 text-blue-700 border border-blue-200'
                       }`}>
                         {student.admissionCategory}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-1.5">
-                        <Calendar size={12} className="text-slate-400" />
-                        <span className="text-xs font-bold text-slate-700">{student.admissionYear}</span>
-                      </div>
-                      <p className="text-[9px] text-slate-400">Batch {student.batch}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="w-full max-w-[100px]">
+                    <td className="px-5 py-3">
+                      <div className="w-full max-w-[110px]">
                         <div className="flex justify-between items-center mb-1">
-                          <span className={`text-[9px] font-black ${progress >= 100 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                          <span className="text-[10px] font-semibold text-slate-500">{paid.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}</span>
+                          <span className={`text-[9px] font-bold ${progress >= 100 ? 'text-emerald-600' : progress > 0 ? 'text-blue-600' : 'text-slate-400'}`}>
                             {progress >= 100 ? 'PAID' : `${progress.toFixed(0)}%`}
                           </span>
                         </div>
                         <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                           <div 
-                            className={`h-full transition-all duration-700 ${progress >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`} 
+                            className={`h-full rounded-full transition-all duration-500 ${progress >= 100 ? 'bg-emerald-500' : progress > 0 ? 'bg-blue-500' : 'bg-slate-200'}`} 
                             style={{ width: `${Math.min(progress, 100)}%` }}
                           />
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-center space-x-1">
                         <button 
                           onClick={(e) => handleCollect(e, student.hallTicketNumber)}
-                          className="p-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg transition-all hover:bg-blue-600 hover:text-white"
+                          className="p-1.5 text-[#2c5282] bg-blue-50 border border-blue-100 rounded-md transition-all hover:bg-[#2c5282] hover:text-white hover:border-[#2c5282]"
                           title="Collect Fee"
                         >
-                          <Wallet size={16} />
+                          <Wallet size={14} />
                         </button>
                         <button 
                           onClick={(e) => handleView(e, student.hallTicketNumber)}
-                          className="p-1.5 bg-white text-slate-400 border border-slate-200 rounded-lg transition-all hover:text-slate-900"
-                          title="View Ledger"
+                          className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-slate-700 hover:bg-slate-50"
+                          title="View Details"
                         >
-                          <Eye size={16} />
+                          <Eye size={14} />
                         </button>
                         <button 
                           onClick={(e) => handleEditClick(e, student)}
-                          className="p-1.5 bg-white text-slate-400 border border-slate-200 rounded-lg transition-all hover:text-blue-600 hover:bg-blue-50 hover:border-blue-100"
-                          title="Edit Student"
+                          className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200"
+                          title="Edit"
                         >
-                          <Edit2 size={16} />
+                          <Edit2 size={14} />
                         </button>
                         <button 
                           onClick={(e) => handleDelete(e, student.hallTicketNumber, student.name)}
-                          className="p-1.5 bg-white text-rose-400 border border-slate-200 rounded-lg transition-all hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100"
-                          title="Delete Student"
+                          className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200"
+                          title="Delete"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
                   </tr>
                 );
               }) : (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">No students found matching your criteria.</td></tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">No students found matching your criteria.</td></tr>
               )}
             </tbody>
           </table>
