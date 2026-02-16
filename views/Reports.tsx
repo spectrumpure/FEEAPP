@@ -167,7 +167,18 @@ export const Reports: React.FC = () => {
     let filtered = [...students];
     if (deptFilter !== 'all') filtered = filtered.filter(s => s.department === deptFilter);
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
-    return filtered.sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
+    return filtered.map(s => {
+      let tTarget = 0, tPaid = 0, uTarget = 0, uPaid = 0;
+      s.feeLockers.forEach(l => {
+        tTarget += l.tuitionTarget;
+        uTarget += l.universityTarget;
+        l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
+          if (t.feeType === 'Tuition') tPaid += t.amount;
+          else if (t.feeType === 'University') uPaid += t.amount;
+        });
+      });
+      return { ...s, tTarget, tPaid, tBalance: tTarget - tPaid, uTarget, uPaid, uBalance: uTarget - uPaid, totalPaid: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid) };
+    }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
   };
 
   const getDefaultersData = () => {
@@ -290,27 +301,50 @@ export const Reports: React.FC = () => {
 
   const handleExportStudentMaster = () => {
     const data = getStudentMasterData();
+    const totals = data.reduce((acc, s) => ({
+      tTarget: acc.tTarget + s.tTarget, tPaid: acc.tPaid + s.tPaid, tBalance: acc.tBalance + s.tBalance,
+      uTarget: acc.uTarget + s.uTarget, uPaid: acc.uPaid + s.uPaid, uBalance: acc.uBalance + s.uBalance,
+      totalPaid: acc.totalPaid + s.totalPaid, totalBalance: acc.totalBalance + s.totalBalance,
+    }), { tTarget: 0, tPaid: 0, tBalance: 0, uTarget: 0, uPaid: 0, uBalance: 0, totalPaid: 0, totalBalance: 0 });
+
     const rows = data.map((s, i) => `<tr>
       <td class="text-center">${i + 1}</td>
       <td class="font-bold" style="font-size:9px">${s.hallTicketNumber}</td>
       <td>${s.name}</td>
-      <td style="font-size:8px">${s.fatherName}</td>
       <td class="text-center">${s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
-      <td class="text-center">${s.batch}</td>
-      <td class="text-center">${s.admissionCategory}</td>
-      <td>${s.mobile}</td>
+      <td class="text-right">${formatCurrency(s.tTarget)}</td>
+      <td class="text-right text-green">${formatCurrency(s.tPaid)}</td>
+      <td class="text-right text-red">${formatCurrency(s.tBalance)}</td>
+      <td class="text-right">${formatCurrency(s.uTarget)}</td>
+      <td class="text-right text-green">${formatCurrency(s.uPaid)}</td>
+      <td class="text-right text-red">${formatCurrency(s.uBalance)}</td>
+      <td class="text-right text-green font-bold">${formatCurrency(s.totalPaid)}</td>
+      <td class="text-right text-red font-bold">${formatCurrency(s.totalBalance)}</td>
     </tr>`).join('');
 
     const html = `<table><thead><tr>
-      <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th><th>Father Name</th>
-      <th class="text-center">Dept</th><th class="text-center">Batch</th><th class="text-center">Admission</th><th>Mobile</th>
-    </tr></thead><tbody>${rows}</tbody></table>
+      <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th>
+      <th class="text-center">Dept</th>
+      <th class="text-right">T.Target</th><th class="text-right">T.Paid</th><th class="text-right">T.Balance</th>
+      <th class="text-right">U.Target</th><th class="text-right">U.Paid</th><th class="text-right">U.Balance</th>
+      <th class="text-right">Total Paid</th><th class="text-right">Total Balance</th>
+    </tr></thead><tbody>${rows}
+    <tr class="summary-row">
+      <td colspan="4" class="text-right font-bold">GRAND TOTAL</td>
+      <td class="text-right">${formatCurrency(totals.tTarget)}</td><td class="text-right">${formatCurrency(totals.tPaid)}</td><td class="text-right">${formatCurrency(totals.tBalance)}</td>
+      <td class="text-right">${formatCurrency(totals.uTarget)}</td><td class="text-right">${formatCurrency(totals.uPaid)}</td><td class="text-right">${formatCurrency(totals.uBalance)}</td>
+      <td class="text-right">${formatCurrency(totals.totalPaid)}</td><td class="text-right">${formatCurrency(totals.totalBalance)}</td>
+    </tr></tbody></table>
     <div style="margin-top:12px;font-size:9px;color:#718096;text-align:right;">Total Students: ${data.length}</div>`;
     exportPDF(`Student Master List${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}`, html);
   };
 
   const handleExportDefaulters = () => {
     const data = getDefaultersData();
+    const totals = data.reduce((acc, s) => ({
+      totalTarget: acc.totalTarget + s.totalTarget, totalPaid: acc.totalPaid + s.totalPaid, balance: acc.balance + s.balance,
+    }), { totalTarget: 0, totalPaid: 0, balance: 0 });
+
     const rows = data.map((s, i) => `<tr>
       <td class="text-center">${i + 1}</td>
       <td class="font-bold" style="font-size:9px">${s.hallTicketNumber}</td>
@@ -322,16 +356,16 @@ export const Reports: React.FC = () => {
       <td class="text-right text-red font-bold">${formatCurrency(s.balance)}</td>
     </tr>`).join('');
 
-    const totalBalance = data.reduce((sum, s) => sum + s.balance, 0);
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th>
       <th class="text-center">Dept</th><th class="text-center">Year</th>
       <th class="text-right">Target</th><th class="text-right">Paid</th><th class="text-right">Balance</th>
     </tr></thead><tbody>${rows}
-    <tr class="summary-row"><td colspan="7" class="text-right">TOTAL OUTSTANDING</td>
-      <td class="text-right">${formatCurrency(totalBalance)}</td>
-    </tr></tbody></table>
-    <div style="margin-top:12px;font-size:9px;color:#718096;text-align:right;">Total Defaulters: ${data.length}</div>`;
+    <tr class="summary-row"><td colspan="5" class="text-right font-bold">GRAND TOTAL (${data.length} defaulters)</td>
+      <td class="text-right">${formatCurrency(totals.totalTarget)}</td>
+      <td class="text-right">${formatCurrency(totals.totalPaid)}</td>
+      <td class="text-right">${formatCurrency(totals.balance)}</td>
+    </tr></tbody></table>`;
     exportPDF(`Fee Defaulters Report${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
   };
 
@@ -515,6 +549,12 @@ export const Reports: React.FC = () => {
 
   const renderStudentMaster = () => {
     const data = getStudentMasterData();
+    const totals = data.reduce((acc, s) => ({
+      tTarget: acc.tTarget + s.tTarget, tPaid: acc.tPaid + s.tPaid, tBalance: acc.tBalance + s.tBalance,
+      uTarget: acc.uTarget + s.uTarget, uPaid: acc.uPaid + s.uPaid, uBalance: acc.uBalance + s.uBalance,
+      totalPaid: acc.totalPaid + s.totalPaid, totalBalance: acc.totalBalance + s.totalBalance,
+    }), { tTarget: 0, tPaid: 0, tBalance: 0, uTarget: 0, uPaid: 0, uBalance: 0, totalPaid: 0, totalBalance: 0 });
+
     return (
       <div>
         <div className="flex items-center space-x-4 mb-6">
@@ -542,35 +582,52 @@ export const Reports: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b-2 border-slate-200">
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center w-12">S.No</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">Hall Ticket</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">Student Name</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">Father Name</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Dept</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Batch</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Admission</th>
-                <th className="px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">Mobile</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center w-10">S.No</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Hall Ticket</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Student Name</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Dept</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">T.Target</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">T.Paid</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">T.Balance</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">U.Target</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">U.Paid</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">U.Balance</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Total Paid</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Total Balance</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {data.map((s, i) => (
                 <tr key={s.hallTicketNumber} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-3 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
-                  <td className="px-3 py-2.5 text-xs font-mono font-bold text-slate-700">{s.hallTicketNumber}</td>
-                  <td className="px-3 py-2.5 text-xs font-bold text-slate-800">{s.name}</td>
-                  <td className="px-3 py-2.5 text-[11px] text-slate-500">{s.fatherName}</td>
-                  <td className="px-3 py-2.5 text-[11px] text-slate-600 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
-                  <td className="px-3 py-2.5 text-[11px] text-slate-500 text-center">{s.batch}</td>
-                  <td className="px-3 py-2.5 text-center">
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${s.admissionCategory.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
-                      {s.admissionCategory}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5 text-[11px] text-slate-500">{s.mobile}</td>
+                  <td className="px-2 py-2 text-xs text-slate-400 text-center">{i + 1}</td>
+                  <td className="px-2 py-2 text-[11px] font-mono font-bold text-slate-700">{s.hallTicketNumber}</td>
+                  <td className="px-2 py-2 text-[11px] font-bold text-slate-800">{s.name}</td>
+                  <td className="px-2 py-2 text-[10px] text-slate-600 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+                  <td className="px-2 py-2 text-[11px] text-slate-600 text-right">{formatCurrency(s.tTarget)}</td>
+                  <td className="px-2 py-2 text-[11px] font-bold text-green-600 text-right">{formatCurrency(s.tPaid)}</td>
+                  <td className="px-2 py-2 text-[11px] font-bold text-red-600 text-right">{formatCurrency(s.tBalance)}</td>
+                  <td className="px-2 py-2 text-[11px] text-slate-600 text-right">{formatCurrency(s.uTarget)}</td>
+                  <td className="px-2 py-2 text-[11px] font-bold text-blue-600 text-right">{formatCurrency(s.uPaid)}</td>
+                  <td className="px-2 py-2 text-[11px] font-bold text-red-600 text-right">{formatCurrency(s.uBalance)}</td>
+                  <td className="px-2 py-2 text-[11px] font-bold text-green-600 text-right">{formatCurrency(s.totalPaid)}</td>
+                  <td className="px-2 py-2 text-[11px] font-bold text-red-600 text-right">{formatCurrency(s.totalBalance)}</td>
                 </tr>
               ))}
               {data.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-400 italic text-xs">No students match the selected filters.</td></tr>
+                <tr><td colSpan={12} className="px-4 py-12 text-center text-slate-400 italic text-xs">No students match the selected filters.</td></tr>
+              )}
+              {data.length > 0 && (
+                <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
+                  <td colSpan={4} className="px-2 py-3 text-[11px] text-slate-800 text-right">GRAND TOTAL ({data.length} students)</td>
+                  <td className="px-2 py-3 text-[11px] text-slate-700 text-right">{formatCurrency(totals.tTarget)}</td>
+                  <td className="px-2 py-3 text-[11px] text-green-700 text-right">{formatCurrency(totals.tPaid)}</td>
+                  <td className="px-2 py-3 text-[11px] text-red-700 text-right">{formatCurrency(totals.tBalance)}</td>
+                  <td className="px-2 py-3 text-[11px] text-slate-700 text-right">{formatCurrency(totals.uTarget)}</td>
+                  <td className="px-2 py-3 text-[11px] text-blue-700 text-right">{formatCurrency(totals.uPaid)}</td>
+                  <td className="px-2 py-3 text-[11px] text-red-700 text-right">{formatCurrency(totals.uBalance)}</td>
+                  <td className="px-2 py-3 text-[11px] text-green-700 text-right">{formatCurrency(totals.totalPaid)}</td>
+                  <td className="px-2 py-3 text-[11px] text-red-700 text-right">{formatCurrency(totals.totalBalance)}</td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -581,7 +638,9 @@ export const Reports: React.FC = () => {
 
   const renderDefaulters = () => {
     const data = getDefaultersData();
-    const totalOutstanding = data.reduce((sum, s) => sum + s.balance, 0);
+    const totals = data.reduce((acc, s) => ({
+      totalTarget: acc.totalTarget + s.totalTarget, totalPaid: acc.totalPaid + s.totalPaid, balance: acc.balance + s.balance,
+    }), { totalTarget: 0, totalPaid: 0, balance: 0 });
 
     return (
       <div>
@@ -607,7 +666,7 @@ export const Reports: React.FC = () => {
           </div>
           <div className="ml-auto self-end flex items-center space-x-4">
             <span className="text-xs font-bold text-red-500 bg-red-50 px-3 py-2 rounded-xl">{data.length} defaulters</span>
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-2 rounded-xl">Outstanding: {formatCurrency(totalOutstanding)}</span>
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-2 rounded-xl">Outstanding: {formatCurrency(totals.balance)}</span>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -642,8 +701,10 @@ export const Reports: React.FC = () => {
               )}
               {data.length > 0 && (
                 <tr className="bg-red-50 font-bold border-t-2 border-red-200">
-                  <td colSpan={7} className="px-3 py-3 text-sm text-red-800 text-right">TOTAL OUTSTANDING</td>
-                  <td className="px-3 py-3 text-sm font-bold text-red-700 text-right">{formatCurrency(totalOutstanding)}</td>
+                  <td colSpan={5} className="px-3 py-3 text-sm text-red-800 text-right">GRAND TOTAL ({data.length} defaulters)</td>
+                  <td className="px-3 py-3 text-sm text-slate-700 text-right">{formatCurrency(totals.totalTarget)}</td>
+                  <td className="px-3 py-3 text-sm font-bold text-green-700 text-right">{formatCurrency(totals.totalPaid)}</td>
+                  <td className="px-3 py-3 text-sm font-bold text-red-700 text-right">{formatCurrency(totals.balance)}</td>
                 </tr>
               )}
             </tbody>
