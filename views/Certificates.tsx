@@ -116,7 +116,7 @@ export const Certificates: React.FC = () => {
     overflow: hidden;
   }
   .double-border {
-    border: 3px double #000;
+    border: 4px double #000;
     padding: 8mm 14mm 8mm 14mm;
     height: 100%;
     position: relative;
@@ -129,14 +129,12 @@ export const Certificates: React.FC = () => {
   .college-sub { font-size: 10pt; margin-top: 1mm; color: #333; }
   .society-name { font-size: 10pt; color: #000; margin-top: 0.5mm; font-weight: bold; }
   .address-line { font-size: 9pt; color: #333; margin-top: 1mm; }
-  .title { text-align: center; font-size: 15pt; font-weight: bold; text-decoration: underline; margin: 4mm 0 3mm; font-style: italic; }
+  .title { text-align: center; font-size: 15pt; font-weight: bold; text-decoration: underline; margin: 4mm 0 3mm; }
   .sno-date { display: flex; justify-content: space-between; font-size: 11pt; margin-bottom: 3mm; }
-  .body-text { font-size: 12pt; line-height: 2.2; text-align: left; margin-bottom: 2mm; }
-  .body-text .underline { text-decoration: underline; font-weight: bold; }
+  .body-text { font-size: 12pt; line-height: 2.2; text-align: justify; margin-bottom: 2mm; }
+  .body-text .underline { text-decoration: underline; font-weight: bold; display: inline-block; min-width: 50mm; }
   .conduct { font-size: 12pt; line-height: 2; }
-  .signatures { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 11pt; align-items: flex-end; }
-  .sig-left { text-align: left; }
-  .sig-right { text-align: center; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 11pt; align-items: baseline; }
   @media print {
     body { margin: 0; }
     .certificate-page { page-break-after: always; }
@@ -168,14 +166,8 @@ export const Certificates: React.FC = () => {
     </div>
     <div class="conduct">${pronoun} bears &nbsp;${bcConduct} Conduct.</div>
     <div class="signatures">
-      <div class="sig-left">Clerk</div>
-      <div class="sig-right">
-        <div style="font-weight:bold; font-size:12pt;">PRINCIPAL</div>
-        <div style="font-size:8pt; margin-top:1mm; color:#333;">Muffakham Jah College Of</div>
-        <div style="font-size:8pt; color:#333;">Engineering & Technology</div>
-        <div style="font-size:8pt; color:#333;">Banjara Hills, Road No. 3,</div>
-        <div style="font-size:8pt; color:#333;">HYDERABAD-500 034.(T.S.)</div>
-      </div>
+      <div>Clerk</div>
+      <div style="font-weight:bold;">PRINCIPAL</div>
     </div>
   </div>
 </div>
