@@ -9,6 +9,7 @@ import { FeeEntry } from './views/FeeEntry';
 import { FeeLedger } from './views/FeeLedger';
 import { Reports } from './views/Reports';
 import { Approvals } from './views/Approvals';
+import { Certificates } from './views/Certificates';
 import { GraduationCap, Wallet, ShieldCheck, ClipboardCheck } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
@@ -97,12 +98,7 @@ const MainApp: React.FC = () => {
       case 'fee-entry': return <FeeEntry preSelectedHTN={preSelectedFeeHTN} />;
       case 'approvals': return <Approvals />;
       case 'reports': return <Reports />;
-      case 'certificates': return (
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400">
-          <p className="font-bold">Certificates Module</p>
-          <p className="text-xs mt-2">Generate Bonafide, Transfer, and Custom Certificates.</p>
-        </div>
-      );
+      case 'certificates': return <Certificates />;
       case 'defaulters': return (
         <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400">
           <p className="font-bold">Defaulter List Module</p>

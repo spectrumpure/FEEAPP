@@ -25,6 +25,7 @@ A centralized college fee management and governance system built with React, Typ
 - **xlsx**: For parsing Excel (.xlsx/.xls) files in the browser for bulk uploads
 
 ## Recent Changes
+- 2026-02-16: Added Certificates module with Bonafide Certificate (half A4 portrait) and Transfer Certificate (A4, Original + Office Copy) generation, student search, editable fields, and print functionality
 - 2026-02-16: Split Student Master into two reports: "Student Master Fee List" (year-wise fee details with year/dept/batch filters) and "Student Master List" (complete personal details with dept/batch filters), now 6 total report tabs
 - 2026-02-16: Rebuilt Reports section with 6 tabbed reports (Dept Summary, Financial Year Wise, Batch Wise, Student Master Fee List, Student Master List, Fee Defaulters) each with PDF export including MJCET header with logo, college name, address
 - 2026-02-16: Added Fee Locker Configuration to Dashboard - 3 groups (Group A B.E, Group B B.E, M.E Programs) with editable tuition/university targets, persisted to localStorage, used by store when creating year lockers
