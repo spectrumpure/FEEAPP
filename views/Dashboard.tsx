@@ -1,13 +1,19 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../store';
+import { FeeLockerConfig } from '../types';
+import { DEPARTMENTS } from '../constants';
 import { 
   Users, 
   BadgeDollarSign, 
   Clock, 
   ArrowUpRight,
   TrendingUp,
-  CreditCard
+  CreditCard,
+  Settings,
+  XCircle,
+  Save,
+  Lock
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -33,7 +39,9 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string, 
 );
 
 export const Dashboard: React.FC = () => {
-  const { students, transactions } = useApp();
+  const { students, transactions, feeLockerConfig, updateFeeLockerConfig } = useApp();
+  const [showLockerConfig, setShowLockerConfig] = useState(false);
+  const [editConfig, setEditConfig] = useState<FeeLockerConfig>(feeLockerConfig);
 
   const totalStudents = students.length;
   const pendingApprovals = transactions.filter(t => t.status === 'PENDING').length;
@@ -159,6 +167,161 @@ export const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 bg-violet-50 text-violet-600 rounded-xl">
+              <Lock size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Fee Locker Configuration</h3>
+              <p className="text-sm text-slate-400">Manage tuition and university fee targets by department group</p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setEditConfig(feeLockerConfig); setShowLockerConfig(true); }}
+            className="flex items-center space-x-2 px-5 py-2.5 bg-[#2c5282] text-white rounded-xl font-medium text-sm hover:bg-[#1a365d] transition-colors shadow-sm"
+          >
+            <Settings size={16} />
+            <span>Configure Fee Lockers</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+            <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-3">Locker A (Group A - B.E.)</h4>
+            <div className="grid grid-cols-2 gap-3 mb-2">
+              <div>
+                <p className="text-[9px] text-slate-400 font-semibold uppercase">Tuition</p>
+                <p className="text-sm font-bold text-slate-800">{formatCurrency(feeLockerConfig.groupA.tuition)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] text-slate-400 font-semibold uppercase">University</p>
+                <p className="text-sm font-bold text-slate-800">{formatCurrency(feeLockerConfig.groupA.university)}</p>
+              </div>
+            </div>
+            <p className="text-[9px] text-slate-400">Applies to: {feeLockerConfig.groupA.departments.map(c => `B.E(${c})`).join(', ')}</p>
+          </div>
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+            <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-3">Locker B (Group B - B.E.)</h4>
+            <div className="grid grid-cols-2 gap-3 mb-2">
+              <div>
+                <p className="text-[9px] text-slate-400 font-semibold uppercase">Tuition</p>
+                <p className="text-sm font-bold text-slate-800">{formatCurrency(feeLockerConfig.groupB.tuition)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] text-slate-400 font-semibold uppercase">University</p>
+                <p className="text-sm font-bold text-slate-800">{formatCurrency(feeLockerConfig.groupB.university)}</p>
+              </div>
+            </div>
+            <p className="text-[9px] text-slate-400">Applies to: {feeLockerConfig.groupB.departments.map(c => `B.E(${c})`).join(', ')}</p>
+          </div>
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+            <h4 className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-3">Locker C (M.E Programs)</h4>
+            <div className="grid grid-cols-2 gap-3 mb-1">
+              <div>
+                <p className="text-[9px] text-slate-400 font-semibold uppercase">1st Yr Tuition</p>
+                <p className="text-sm font-bold text-slate-800">{formatCurrency(feeLockerConfig.groupC.year1Tuition)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] text-slate-400 font-semibold uppercase">1st Yr Univ</p>
+                <p className="text-sm font-bold text-slate-800">{formatCurrency(feeLockerConfig.groupC.year1University)}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-2">
+              <div>
+                <p className="text-[9px] text-slate-400 font-semibold uppercase">2nd Yr Tuition</p>
+                <p className="text-sm font-bold text-slate-800">{formatCurrency(feeLockerConfig.groupC.year2Tuition)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] text-slate-400 font-semibold uppercase">2nd Yr Univ</p>
+                <p className="text-sm font-bold text-slate-800">{formatCurrency(feeLockerConfig.groupC.year2University)}</p>
+              </div>
+            </div>
+            <p className="text-[9px] text-slate-400">Applies to: {feeLockerConfig.groupC.departments.map(c => `M.E(${c.replace('ME-', '')})`).join(', ')}</p>
+          </div>
+        </div>
+      </div>
+
+      {showLockerConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl my-8">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-800">Configure Fee Lockers</h3>
+              <button onClick={() => setShowLockerConfig(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-full transition-colors">
+                <XCircle size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-8 max-h-[70vh] overflow-y-auto">
+              <div className="p-5 bg-slate-50 rounded-xl border border-slate-200">
+                <h4 className="text-sm font-bold text-indigo-700 uppercase tracking-wider mb-4">Locker A (Group A - B.E.)</h4>
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Tuition Fee Target (₹)</label>
+                    <input type="number" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100" value={editConfig.groupA.tuition} onChange={e => setEditConfig({...editConfig, groupA: {...editConfig.groupA, tuition: parseInt(e.target.value) || 0}})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">University Fee Target (₹)</label>
+                    <input type="number" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100" value={editConfig.groupA.university} onChange={e => setEditConfig({...editConfig, groupA: {...editConfig.groupA, university: parseInt(e.target.value) || 0}})} />
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400">Applies to: {editConfig.groupA.departments.map(c => `B.E(${c})`).join(', ')}</p>
+              </div>
+
+              <div className="p-5 bg-slate-50 rounded-xl border border-slate-200">
+                <h4 className="text-sm font-bold text-indigo-700 uppercase tracking-wider mb-4">Locker B (Group B - B.E.)</h4>
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Tuition Fee Target (₹)</label>
+                    <input type="number" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100" value={editConfig.groupB.tuition} onChange={e => setEditConfig({...editConfig, groupB: {...editConfig.groupB, tuition: parseInt(e.target.value) || 0}})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">University Fee Target (₹)</label>
+                    <input type="number" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100" value={editConfig.groupB.university} onChange={e => setEditConfig({...editConfig, groupB: {...editConfig.groupB, university: parseInt(e.target.value) || 0}})} />
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400">Applies to: {editConfig.groupB.departments.map(c => `B.E(${c})`).join(', ')}</p>
+              </div>
+
+              <div className="p-5 bg-slate-50 rounded-xl border border-slate-200">
+                <h4 className="text-sm font-bold text-teal-700 uppercase tracking-wider mb-4">Locker C (M.E Programs)</h4>
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">1st Year Tuition (₹)</label>
+                    <input type="number" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100" value={editConfig.groupC.year1Tuition} onChange={e => setEditConfig({...editConfig, groupC: {...editConfig.groupC, year1Tuition: parseInt(e.target.value) || 0}})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">1st Year University (₹)</label>
+                    <input type="number" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100" value={editConfig.groupC.year1University} onChange={e => setEditConfig({...editConfig, groupC: {...editConfig.groupC, year1University: parseInt(e.target.value) || 0}})} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">2nd Year Tuition (₹)</label>
+                    <input type="number" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100" value={editConfig.groupC.year2Tuition} onChange={e => setEditConfig({...editConfig, groupC: {...editConfig.groupC, year2Tuition: parseInt(e.target.value) || 0}})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">2nd Year University (₹)</label>
+                    <input type="number" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100" value={editConfig.groupC.year2University} onChange={e => setEditConfig({...editConfig, groupC: {...editConfig.groupC, year2University: parseInt(e.target.value) || 0}})} />
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400">Applies to: {editConfig.groupC.departments.map(c => `M.E(${c.replace('ME-', '')})`).join(', ')}</p>
+              </div>
+            </div>
+            <div className="p-6 border-t border-slate-100 flex justify-end space-x-3">
+              <button onClick={() => setShowLockerConfig(false)} className="px-6 py-2.5 bg-slate-100 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-200 transition-colors">Cancel</button>
+              <button
+                onClick={() => { updateFeeLockerConfig(editConfig); setShowLockerConfig(false); }}
+                className="px-8 py-2.5 bg-[#2c5282] text-white rounded-xl font-medium text-sm shadow-sm hover:bg-[#1a365d] transition-colors flex items-center space-x-2"
+              >
+                <Save size={16} />
+                <span>Save Configuration</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

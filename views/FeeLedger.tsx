@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useApp } from '../store';
+import { DEPARTMENTS } from '../constants';
 import { Search, ChevronDown, ChevronRight, CheckCircle2, XCircle, Clock, FileText, IndianRupee, Printer, Download, Share2, Calendar, User } from 'lucide-react';
 import { Student, YearLocker } from '../types';
 
@@ -96,6 +97,7 @@ const YearSummaryCard: React.FC<{ locker: YearLocker }> = ({ locker }) => {
 };
 
 export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
+  const { getFeeTargets } = useApp();
   const handlePrint = () => {
     window.print();
   };
@@ -196,10 +198,11 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
             const existingYears = new Set(student.feeLockers.map(l => l.year));
             const emptyYears = Array.from({ length: maxYears }, (_, i) => i + 1).filter(y => !existingYears.has(y));
             return emptyYears.map(y => {
+              const targets = getFeeTargets(student.department, y);
               const emptyLocker: YearLocker = {
                 year: y,
-                tuitionTarget: student.admissionCategory.includes('MANAGEMENT') ? 125000 : 100000,
-                universityTarget: 12650,
+                tuitionTarget: targets.tuition,
+                universityTarget: targets.university,
                 otherTarget: 0,
                 transactions: []
               };

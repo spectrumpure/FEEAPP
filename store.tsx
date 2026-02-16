@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Student, User, UserRole, FeeTransaction, Department, CertificateTemplate, PaymentStatus } from './types';
+import { Student, User, UserRole, FeeTransaction, Department, CertificateTemplate, PaymentStatus, FeeLockerConfig } from './types';
 import { INITIAL_STUDENTS, DEPARTMENTS } from './constants';
 
 interface AppState {
@@ -23,6 +23,9 @@ interface AppState {
   bulkRejectTransactions: (txIds: string[]) => void;
   addTemplate: (template: CertificateTemplate) => void;
   deleteTemplate: (id: string) => void;
+  feeLockerConfig: FeeLockerConfig;
+  updateFeeLockerConfig: (config: FeeLockerConfig) => void;
+  getFeeTargets: (department: string, year: number) => { tuition: number; university: number };
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -63,11 +66,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
 
+  const DEFAULT_FEE_CONFIG: FeeLockerConfig = {
+    groupA: { tuition: 100000, university: 25000, departments: ['CSE', 'CIVIL', 'MECH', 'ECE'] },
+    groupB: { tuition: 125000, university: 30000, departments: ['CS-AI', 'CS-DS', 'CS-AIML', 'IT', 'EEE', 'PROD'] },
+    groupC: { year1Tuition: 130000, year1University: 11650, year2Tuition: 130000, year2University: 4500, departments: ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'] }
+  };
+
+  const [feeLockerConfig, setFeeLockerConfig] = useState<FeeLockerConfig>(() => {
+    const saved = localStorage.getItem('ef_fee_config');
+    return saved ? JSON.parse(saved) : DEFAULT_FEE_CONFIG;
+  });
+
+  const updateFeeLockerConfig = (config: FeeLockerConfig) => setFeeLockerConfig(config);
+
+  const getFeeTargets = (department: string, year: number): { tuition: number; university: number } => {
+    const dept = DEPARTMENTS.find(d => d.name === department);
+    const code = dept?.code || '';
+    if (feeLockerConfig.groupC.departments.includes(code) || department.startsWith('M.E')) {
+      return year === 1
+        ? { tuition: feeLockerConfig.groupC.year1Tuition, university: feeLockerConfig.groupC.year1University }
+        : { tuition: feeLockerConfig.groupC.year2Tuition, university: feeLockerConfig.groupC.year2University };
+    }
+    if (feeLockerConfig.groupB.departments.includes(code)) {
+      return { tuition: feeLockerConfig.groupB.tuition, university: feeLockerConfig.groupB.university };
+    }
+    return { tuition: feeLockerConfig.groupA.tuition, university: feeLockerConfig.groupA.university };
+  };
+
   useEffect(() => {
     localStorage.setItem('ef_user', JSON.stringify(currentUser));
     localStorage.setItem('ef_students', JSON.stringify(students));
     localStorage.setItem('ef_txs', JSON.stringify(transactions));
-  }, [currentUser, students, transactions]);
+    localStorage.setItem('ef_fee_config', JSON.stringify(feeLockerConfig));
+  }, [currentUser, students, transactions, feeLockerConfig]);
 
   const login = (role: UserRole) => {
     const userMap: Record<UserRole, User> = {
@@ -134,11 +165,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const year = tx.targetYear || s.currentYear;
         let lockerIndex = updatedLockers.findIndex(l => l.year === year);
         if (lockerIndex === -1) {
-          const mode = s.admissionCategory || '';
+          const targets = getFeeTargets(s.department, year);
           updatedLockers.push({
             year,
-            tuitionTarget: mode.includes('MANAGEMENT') ? 125000 : 100000,
-            universityTarget: 12650,
+            tuitionTarget: targets.tuition,
+            universityTarget: targets.university,
             otherTarget: 0,
             transactions: []
           });
@@ -170,11 +201,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const year = tx.targetYear || s.currentYear;
         let lockerIndex = updatedLockers.findIndex(l => l.year === year);
         if (lockerIndex === -1) {
-          const mode = s.admissionCategory || '';
+          const targets = getFeeTargets(s.department, year);
           updatedLockers.push({
             year,
-            tuitionTarget: mode.includes('MANAGEMENT') ? 125000 : 100000,
-            universityTarget: 12650,
+            tuitionTarget: targets.tuition,
+            universityTarget: targets.university,
             otherTarget: 0,
             transactions: []
           });
@@ -221,10 +252,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      currentUser, students, departments, transactions, templates,
+      currentUser, students, departments, transactions, templates, feeLockerConfig,
       login, logout, addStudent, updateStudent, deleteStudent, bulkAddStudents, addTransaction, bulkAddTransactions,
       approveTransaction, rejectTransaction, bulkApproveTransactions, bulkRejectTransactions,
-      addTemplate, deleteTemplate
+      addTemplate, deleteTemplate, updateFeeLockerConfig, getFeeTargets
     }}>
       {children}
     </AppContext.Provider>

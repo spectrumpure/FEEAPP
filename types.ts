@@ -73,6 +73,16 @@ export interface Student {
   feeLockers: YearLocker[];
 }
 
+export interface FeeLockerConfig {
+  groupA: { tuition: number; university: number; departments: string[] };
+  groupB: { tuition: number; university: number; departments: string[] };
+  groupC: {
+    year1Tuition: number; year1University: number;
+    year2Tuition: number; year2University: number;
+    departments: string[];
+  };
+}
+
 export interface CertificateTemplate {
   id: string;
   name: string;
