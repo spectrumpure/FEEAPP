@@ -1,7 +1,7 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Student, User, UserRole, FeeTransaction, Department, CertificateTemplate, PaymentStatus, FeeLockerConfig } from './types';
-import { INITIAL_STUDENTS, DEPARTMENTS } from './constants';
+import { DEPARTMENTS } from './constants';
 
 interface AppState {
   currentUser: User | null;
@@ -26,9 +26,16 @@ interface AppState {
   feeLockerConfig: FeeLockerConfig;
   updateFeeLockerConfig: (config: FeeLockerConfig) => void;
   getFeeTargets: (department: string, year: number) => { tuition: number; university: number };
+  isLoading: boolean;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
+
+const DEFAULT_FEE_CONFIG: FeeLockerConfig = {
+  groupA: { tuition: 100000, university: 25000, departments: ['CSE', 'CIVIL', 'MECH', 'ECE'] },
+  groupB: { tuition: 125000, university: 30000, departments: ['CS-AI', 'CS-DS', 'CS-AIML', 'IT', 'EEE', 'PROD'] },
+  groupC: { year1Tuition: 130000, year1University: 11650, year2Tuition: 130000, year2University: 4500, departments: ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'] }
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -36,50 +43,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [students, setStudents] = useState<Student[]>(() => {
-    const saved = localStorage.getItem('ef_students');
-    if (saved) {
-      const deptMigration: Record<string, string> = {
-        'Computer Science & Engineering': 'B.E(Computer Science Engineering)',
-        'Electronics & Communication Engineering': 'B.E(Electronics & Communication Engineering)',
-        'Electrical & Electronics Engineering': 'B.E(Electrical& Electronics Engineering)',
-        'Mechanical Engineering': 'B.E(Mechanical Engineering)',
-        'Civil Engineering': 'B.E(Civil engineering)',
-        'Production Engineering': 'B.E(Production Engineering)',
-      };
-      const parsed = JSON.parse(saved) as Student[];
-      return parsed.map(s => ({
-        ...s,
-        department: deptMigration[s.department] || s.department,
-      }));
-    }
-    return INITIAL_STUDENTS;
-  });
-
-  const [departments, setDepartments] = useState<Department[]>(DEPARTMENTS);
-
-  const [transactions, setTransactions] = useState<FeeTransaction[]>(() => {
-    const saved = localStorage.getItem('ef_txs');
-    if (saved) return JSON.parse(saved);
-    return INITIAL_STUDENTS.flatMap(s => s.feeLockers.flatMap(l => l.transactions));
-  });
-
+  const [students, setStudents] = useState<Student[]>([]);
+  const [departments] = useState<Department[]>(DEPARTMENTS);
+  const [transactions, setTransactions] = useState<FeeTransaction[]>([]);
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
+  const [feeLockerConfig, setFeeLockerConfig] = useState<FeeLockerConfig>(DEFAULT_FEE_CONFIG);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const DEFAULT_FEE_CONFIG: FeeLockerConfig = {
-    groupA: { tuition: 100000, university: 25000, departments: ['CSE', 'CIVIL', 'MECH', 'ECE'] },
-    groupB: { tuition: 125000, university: 30000, departments: ['CS-AI', 'CS-DS', 'CS-AIML', 'IT', 'EEE', 'PROD'] },
-    groupC: { year1Tuition: 130000, year1University: 11650, year2Tuition: 130000, year2University: 4500, departments: ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'] }
-  };
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const res = await fetch('/api/bootstrap');
+        if (res.ok) {
+          const data = await res.json();
+          setStudents(data.students || []);
+          setTransactions(data.transactions || []);
+          if (data.feeLockerConfig) {
+            setFeeLockerConfig(data.feeLockerConfig);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load data from database:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
-  const [feeLockerConfig, setFeeLockerConfig] = useState<FeeLockerConfig>(() => {
-    const saved = localStorage.getItem('ef_fee_config');
-    return saved ? JSON.parse(saved) : DEFAULT_FEE_CONFIG;
-  });
+  useEffect(() => {
+    localStorage.setItem('ef_user', JSON.stringify(currentUser));
+  }, [currentUser]);
 
-  const updateFeeLockerConfig = (config: FeeLockerConfig) => setFeeLockerConfig(config);
-
-  const getFeeTargets = (department: string, year: number): { tuition: number; university: number } => {
+  const getFeeTargets = useCallback((department: string, year: number): { tuition: number; university: number } => {
     const dept = DEPARTMENTS.find(d => d.name === department);
     const code = dept?.code || '';
     if (feeLockerConfig.groupC.departments.includes(code) || department.startsWith('M.E')) {
@@ -91,14 +87,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { tuition: feeLockerConfig.groupB.tuition, university: feeLockerConfig.groupB.university };
     }
     return { tuition: feeLockerConfig.groupA.tuition, university: feeLockerConfig.groupA.university };
-  };
+  }, [feeLockerConfig]);
 
-  useEffect(() => {
-    localStorage.setItem('ef_user', JSON.stringify(currentUser));
-    localStorage.setItem('ef_students', JSON.stringify(students));
-    localStorage.setItem('ef_txs', JSON.stringify(transactions));
-    localStorage.setItem('ef_fee_config', JSON.stringify(feeLockerConfig));
-  }, [currentUser, students, transactions, feeLockerConfig]);
+  const updateFeeLockerConfig = async (config: FeeLockerConfig) => {
+    setFeeLockerConfig(config);
+    try {
+      await fetch('/api/fee-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+    } catch (err) {
+      console.error('Failed to save fee config:', err);
+    }
+  };
 
   const login = (role: UserRole) => {
     const userMap: Record<UserRole, User> = {
@@ -112,32 +114,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logout = () => setCurrentUser(null);
 
-  const addStudent = (student: Student) => {
+  const addStudent = async (student: Student) => {
     setStudents(prev => [...prev, student]);
-    // Sync transactions if any
     const studentTxs = student.feeLockers.flatMap(l => l.transactions);
     if (studentTxs.length > 0) {
       setTransactions(prev => [...prev, ...studentTxs]);
     }
+    try {
+      await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(student),
+      });
+    } catch (err) {
+      console.error('Failed to save student:', err);
+    }
   };
 
-  const updateStudent = (student: Student) => {
+  const updateStudent = async (student: Student) => {
     setStudents(prev => prev.map(s => s.hallTicketNumber === student.hallTicketNumber ? student : s));
-    // Sync transactions if any - only add those that don't exist
     const studentTxs = student.feeLockers.flatMap(l => l.transactions);
     setTransactions(prev => {
       const existingIds = new Set(prev.map(t => t.id));
       const newTxs = studentTxs.filter(t => !existingIds.has(t.id));
       return [...prev, ...newTxs];
     });
+    try {
+      await fetch(`/api/students/${encodeURIComponent(student.hallTicketNumber)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(student),
+      });
+    } catch (err) {
+      console.error('Failed to update student:', err);
+    }
   };
 
-  const deleteStudent = (htn: string) => {
+  const deleteStudent = async (htn: string) => {
     setStudents(prev => prev.filter(s => s.hallTicketNumber !== htn));
     setTransactions(prev => prev.filter(t => t.studentHTN !== htn));
+    try {
+      await fetch(`/api/students/${encodeURIComponent(htn)}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to delete student:', err);
+    }
   };
 
-  const bulkAddStudents = (newStudents: Student[]) => {
+  const bulkAddStudents = async (newStudents: Student[]) => {
     setStudents(prev => {
       const existingHTNs = new Set(prev.map(s => s.hallTicketNumber));
       const filtered = newStudents.filter(ns => !existingHTNs.has(ns.hallTicketNumber));
@@ -148,16 +171,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return [...updated, ...filtered];
     });
 
-    // Extract all transactions from all lockers of all students being uploaded
     const allNewTxs = newStudents.flatMap(s => s.feeLockers.flatMap(l => l.transactions));
     setTransactions(prev => {
       const existingIds = new Set(prev.map(t => t.id));
       const filteredNewTxs = allNewTxs.filter(t => !existingIds.has(t.id));
       return [...prev, ...filteredNewTxs];
     });
+
+    try {
+      await fetch('/api/students/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ students: newStudents }),
+      });
+    } catch (err) {
+      console.error('Failed to bulk add students:', err);
+    }
   };
 
-  const addTransaction = (tx: FeeTransaction) => {
+  const addTransaction = async (tx: FeeTransaction) => {
     setTransactions(prev => [...prev, tx]);
     setStudents(prev => prev.map(s => {
       if (s.hallTicketNumber === tx.studentHTN) {
@@ -183,9 +215,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return s;
     }));
+
+    try {
+      await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tx),
+      });
+    } catch (err) {
+      console.error('Failed to save transaction:', err);
+    }
   };
 
-  const bulkAddTransactions = (txs: FeeTransaction[]) => {
+  const bulkAddTransactions = async (txs: FeeTransaction[]) => {
     setTransactions(prev => {
       const existingIds = new Set(prev.map(t => t.id));
       const filtered = txs.filter(t => !existingIds.has(t.id));
@@ -218,11 +260,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       return { ...s, feeLockers: updatedLockers };
     }));
+
+    try {
+      await fetch('/api/transactions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactions: txs }),
+      });
+    } catch (err) {
+      console.error('Failed to bulk add transactions:', err);
+    }
   };
 
-  const updateTransactionStatus = (txIds: string[], status: PaymentStatus, approverName?: string) => {
+  const updateTransactionStatus = async (txIds: string[], status: PaymentStatus, approverName?: string) => {
     const approvalDate = status === 'APPROVED' ? new Date().toISOString().split('T')[0] : undefined;
-    
+
     setTransactions(prev => prev.map(tx => {
       if (txIds.includes(tx.id)) {
         return { ...tx, status, approvedBy: approverName, approvalDate };
@@ -239,11 +291,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } : t)
       }))
     })));
+
+    try {
+      if (status === 'APPROVED') {
+        await fetch('/api/transactions/approve', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ txIds, approverName }),
+        });
+      } else if (status === 'REJECTED') {
+        await fetch('/api/transactions/reject', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ txIds }),
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update transaction status:', err);
+    }
   };
 
   const approveTransaction = (txId: string, approverName: string) => updateTransactionStatus([txId], 'APPROVED', approverName);
   const rejectTransaction = (txId: string) => updateTransactionStatus([txId], 'REJECTED');
-  
+
   const bulkApproveTransactions = (txIds: string[], approverName: string) => updateTransactionStatus(txIds, 'APPROVED', approverName);
   const bulkRejectTransactions = (txIds: string[]) => updateTransactionStatus(txIds, 'REJECTED');
 
@@ -252,7 +322,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      currentUser, students, departments, transactions, templates, feeLockerConfig,
+      currentUser, students, departments, transactions, templates, feeLockerConfig, isLoading,
       login, logout, addStudent, updateStudent, deleteStudent, bulkAddStudents, addTransaction, bulkAddTransactions,
       approveTransaction, rejectTransaction, bulkApproveTransactions, bulkRejectTransactions,
       addTemplate, deleteTemplate, updateFeeLockerConfig, getFeeTargets

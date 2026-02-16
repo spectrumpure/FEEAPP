@@ -1,0 +1,390 @@
+import { Router, Request, Response } from 'express';
+import pool from './db.js';
+
+const router = Router();
+
+function mapStudentRow(row: any) {
+  return {
+    hallTicketNumber: row.hall_ticket_number,
+    name: row.name,
+    fatherName: row.father_name,
+    motherName: row.mother_name,
+    sex: row.sex,
+    dob: row.dob,
+    mobile: row.mobile,
+    fatherMobile: row.father_mobile,
+    address: row.address,
+    course: row.course,
+    department: row.department,
+    specialization: row.specialization,
+    section: row.section,
+    admissionCategory: row.admission_category,
+    admissionYear: row.admission_year,
+    batch: row.batch,
+    currentYear: row.current_year,
+  };
+}
+
+function mapTxRow(row: any) {
+  return {
+    id: row.id,
+    studentHTN: row.student_htn,
+    feeType: row.fee_type,
+    amount: parseFloat(row.amount),
+    challanNumber: row.challan_number,
+    paymentMode: row.payment_mode,
+    paymentDate: row.payment_date,
+    academicYear: row.academic_year,
+    financialYear: row.financial_year,
+    status: row.status,
+    approvedBy: row.approved_by || undefined,
+    approvalDate: row.approval_date || undefined,
+    targetYear: row.target_year || undefined,
+  };
+}
+
+function mapLockerRow(row: any) {
+  return {
+    year: row.year,
+    tuitionTarget: parseFloat(row.tuition_target),
+    universityTarget: parseFloat(row.university_target),
+    otherTarget: parseFloat(row.other_target),
+  };
+}
+
+router.get('/api/bootstrap', async (_req: Request, res: Response) => {
+  try {
+    const studentsRes = await pool.query('SELECT * FROM students ORDER BY name');
+    const lockersRes = await pool.query('SELECT * FROM year_lockers ORDER BY student_htn, year');
+    const txsRes = await pool.query('SELECT * FROM fee_transactions ORDER BY created_at');
+    const configRes = await pool.query('SELECT config FROM fee_locker_config WHERE id = 1');
+
+    const txsByHTN: Record<string, Record<number, any[]>> = {};
+    for (const row of txsRes.rows) {
+      const htn = row.student_htn;
+      const yr = row.target_year || 1;
+      if (!txsByHTN[htn]) txsByHTN[htn] = {};
+      if (!txsByHTN[htn][yr]) txsByHTN[htn][yr] = [];
+      txsByHTN[htn][yr].push(mapTxRow(row));
+    }
+
+    const lockersByHTN: Record<string, any[]> = {};
+    for (const row of lockersRes.rows) {
+      const htn = row.student_htn;
+      if (!lockersByHTN[htn]) lockersByHTN[htn] = [];
+      const locker = mapLockerRow(row);
+      (locker as any).transactions = txsByHTN[htn]?.[row.year] || [];
+      lockersByHTN[htn].push(locker);
+    }
+
+    const students = studentsRes.rows.map(row => {
+      const s = mapStudentRow(row);
+      return { ...s, feeLockers: lockersByHTN[row.hall_ticket_number] || [] };
+    });
+
+    const allTxs = txsRes.rows.map(mapTxRow);
+    const config = configRes.rows.length > 0 ? configRes.rows[0].config : null;
+
+    res.json({ students, transactions: allTxs, feeLockerConfig: config });
+  } catch (err: any) {
+    console.error('Bootstrap error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/students', async (req: Request, res: Response) => {
+  const s = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO students (hall_ticket_number, name, father_name, mother_name, sex, dob, mobile, father_mobile, address, course, department, specialization, section, admission_category, admission_year, batch, current_year)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       ON CONFLICT (hall_ticket_number) DO UPDATE SET
+         name=EXCLUDED.name, father_name=EXCLUDED.father_name, mother_name=EXCLUDED.mother_name,
+         sex=EXCLUDED.sex, dob=EXCLUDED.dob, mobile=EXCLUDED.mobile, father_mobile=EXCLUDED.father_mobile,
+         address=EXCLUDED.address, course=EXCLUDED.course, department=EXCLUDED.department,
+         specialization=EXCLUDED.specialization, section=EXCLUDED.section,
+         admission_category=EXCLUDED.admission_category, admission_year=EXCLUDED.admission_year,
+         batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, updated_at=NOW()`,
+      [s.hallTicketNumber, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
+       s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', s.department||'',
+       s.specialization||'', s.section||'', s.admissionCategory||'', s.admissionYear||'',
+       s.batch||'', s.currentYear||1]
+    );
+
+    if (s.feeLockers && Array.isArray(s.feeLockers)) {
+      for (const locker of s.feeLockers) {
+        await client.query(
+          `INSERT INTO year_lockers (student_htn, year, tuition_target, university_target, other_target)
+           VALUES ($1,$2,$3,$4,$5)
+           ON CONFLICT (student_htn, year) DO UPDATE SET
+             tuition_target=EXCLUDED.tuition_target, university_target=EXCLUDED.university_target, other_target=EXCLUDED.other_target`,
+          [s.hallTicketNumber, locker.year, locker.tuitionTarget||0, locker.universityTarget||0, locker.otherTarget||0]
+        );
+        if (locker.transactions && Array.isArray(locker.transactions)) {
+          for (const tx of locker.transactions) {
+            await client.query(
+              `INSERT INTO fee_transactions (id, student_htn, fee_type, amount, challan_number, payment_mode, payment_date, academic_year, financial_year, status, approved_by, approval_date, target_year)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+               ON CONFLICT (id) DO UPDATE SET
+                 fee_type=EXCLUDED.fee_type, amount=EXCLUDED.amount, challan_number=EXCLUDED.challan_number,
+                 payment_mode=EXCLUDED.payment_mode, payment_date=EXCLUDED.payment_date,
+                 academic_year=EXCLUDED.academic_year, financial_year=EXCLUDED.financial_year,
+                 status=EXCLUDED.status, approved_by=EXCLUDED.approved_by, approval_date=EXCLUDED.approval_date,
+                 target_year=EXCLUDED.target_year`,
+              [tx.id, s.hallTicketNumber, tx.feeType||'Tuition', tx.amount||0, tx.challanNumber||'',
+               tx.paymentMode||'Cash', tx.paymentDate||'', tx.academicYear||'', tx.financialYear||'',
+               tx.status||'PENDING', tx.approvedBy||null, tx.approvalDate||null, tx.targetYear||locker.year]
+            );
+          }
+        }
+      }
+    }
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    console.error('Add student error:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/api/students/bulk', async (req: Request, res: Response) => {
+  const students = req.body.students;
+  if (!Array.isArray(students)) return res.status(400).json({ error: 'students array required' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const s of students) {
+      await client.query(
+        `INSERT INTO students (hall_ticket_number, name, father_name, mother_name, sex, dob, mobile, father_mobile, address, course, department, specialization, section, admission_category, admission_year, batch, current_year)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+         ON CONFLICT (hall_ticket_number) DO UPDATE SET
+           name=EXCLUDED.name, father_name=EXCLUDED.father_name, mother_name=EXCLUDED.mother_name,
+           sex=EXCLUDED.sex, dob=EXCLUDED.dob, mobile=EXCLUDED.mobile, father_mobile=EXCLUDED.father_mobile,
+           address=EXCLUDED.address, course=EXCLUDED.course, department=EXCLUDED.department,
+           specialization=EXCLUDED.specialization, section=EXCLUDED.section,
+           admission_category=EXCLUDED.admission_category, admission_year=EXCLUDED.admission_year,
+           batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, updated_at=NOW()`,
+        [s.hallTicketNumber, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
+         s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', s.department||'',
+         s.specialization||'', s.section||'', s.admissionCategory||'', s.admissionYear||'',
+         s.batch||'', s.currentYear||1]
+      );
+
+      if (s.feeLockers && Array.isArray(s.feeLockers)) {
+        for (const locker of s.feeLockers) {
+          await client.query(
+            `INSERT INTO year_lockers (student_htn, year, tuition_target, university_target, other_target)
+             VALUES ($1,$2,$3,$4,$5)
+             ON CONFLICT (student_htn, year) DO UPDATE SET
+               tuition_target=EXCLUDED.tuition_target, university_target=EXCLUDED.university_target, other_target=EXCLUDED.other_target`,
+            [s.hallTicketNumber, locker.year, locker.tuitionTarget||0, locker.universityTarget||0, locker.otherTarget||0]
+          );
+          if (locker.transactions && Array.isArray(locker.transactions)) {
+            for (const tx of locker.transactions) {
+              await client.query(
+                `INSERT INTO fee_transactions (id, student_htn, fee_type, amount, challan_number, payment_mode, payment_date, academic_year, financial_year, status, approved_by, approval_date, target_year)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+                 ON CONFLICT (id) DO UPDATE SET
+                   fee_type=EXCLUDED.fee_type, amount=EXCLUDED.amount, challan_number=EXCLUDED.challan_number,
+                   payment_mode=EXCLUDED.payment_mode, payment_date=EXCLUDED.payment_date,
+                   academic_year=EXCLUDED.academic_year, financial_year=EXCLUDED.financial_year,
+                   status=EXCLUDED.status, approved_by=EXCLUDED.approved_by, approval_date=EXCLUDED.approval_date,
+                   target_year=EXCLUDED.target_year`,
+                [tx.id, s.hallTicketNumber, tx.feeType||'Tuition', tx.amount||0, tx.challanNumber||'',
+                 tx.paymentMode||'Cash', tx.paymentDate||'', tx.academicYear||'', tx.financialYear||'',
+                 tx.status||'PENDING', tx.approvedBy||null, tx.approvalDate||null, tx.targetYear||locker.year]
+              );
+            }
+          }
+        }
+      }
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, count: students.length });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    console.error('Bulk add error:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.put('/api/students/:htn', async (req: Request, res: Response) => {
+  const htn = req.params.htn;
+  const s = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE students SET name=$2, father_name=$3, mother_name=$4, sex=$5, dob=$6, mobile=$7, father_mobile=$8, address=$9, course=$10, department=$11, specialization=$12, section=$13, admission_category=$14, admission_year=$15, batch=$16, current_year=$17, updated_at=NOW()
+       WHERE hall_ticket_number=$1`,
+      [htn, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
+       s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', s.department||'',
+       s.specialization||'', s.section||'', s.admissionCategory||'', s.admissionYear||'',
+       s.batch||'', s.currentYear||1]
+    );
+
+    if (s.feeLockers && Array.isArray(s.feeLockers)) {
+      for (const locker of s.feeLockers) {
+        await client.query(
+          `INSERT INTO year_lockers (student_htn, year, tuition_target, university_target, other_target)
+           VALUES ($1,$2,$3,$4,$5)
+           ON CONFLICT (student_htn, year) DO UPDATE SET
+             tuition_target=EXCLUDED.tuition_target, university_target=EXCLUDED.university_target, other_target=EXCLUDED.other_target`,
+          [htn, locker.year, locker.tuitionTarget||0, locker.universityTarget||0, locker.otherTarget||0]
+        );
+        if (locker.transactions && Array.isArray(locker.transactions)) {
+          for (const tx of locker.transactions) {
+            await client.query(
+              `INSERT INTO fee_transactions (id, student_htn, fee_type, amount, challan_number, payment_mode, payment_date, academic_year, financial_year, status, approved_by, approval_date, target_year)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+               ON CONFLICT (id) DO UPDATE SET
+                 fee_type=EXCLUDED.fee_type, amount=EXCLUDED.amount, challan_number=EXCLUDED.challan_number,
+                 payment_mode=EXCLUDED.payment_mode, payment_date=EXCLUDED.payment_date,
+                 academic_year=EXCLUDED.academic_year, financial_year=EXCLUDED.financial_year,
+                 status=EXCLUDED.status, approved_by=EXCLUDED.approved_by, approval_date=EXCLUDED.approval_date,
+                 target_year=EXCLUDED.target_year`,
+              [tx.id, htn, tx.feeType||'Tuition', tx.amount||0, tx.challanNumber||'',
+               tx.paymentMode||'Cash', tx.paymentDate||'', tx.academicYear||'', tx.financialYear||'',
+               tx.status||'PENDING', tx.approvedBy||null, tx.approvalDate||null, tx.targetYear||locker.year]
+            );
+          }
+        }
+      }
+    }
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.delete('/api/students/:htn', async (req: Request, res: Response) => {
+  try {
+    await pool.query('DELETE FROM students WHERE hall_ticket_number = $1', [req.params.htn]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/transactions', async (req: Request, res: Response) => {
+  const tx = req.body;
+  try {
+    await pool.query(
+      `INSERT INTO fee_transactions (id, student_htn, fee_type, amount, challan_number, payment_mode, payment_date, academic_year, financial_year, status, approved_by, approval_date, target_year)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       ON CONFLICT (id) DO NOTHING`,
+      [tx.id, tx.studentHTN, tx.feeType||'Tuition', tx.amount||0, tx.challanNumber||'',
+       tx.paymentMode||'Cash', tx.paymentDate||'', tx.academicYear||'', tx.financialYear||'',
+       tx.status||'PENDING', tx.approvedBy||null, tx.approvalDate||null, tx.targetYear||null]
+    );
+
+    if (tx.targetYear && tx.studentHTN) {
+      await pool.query(
+        `INSERT INTO year_lockers (student_htn, year, tuition_target, university_target, other_target)
+         VALUES ($1, $2, 0, 0, 0)
+         ON CONFLICT (student_htn, year) DO NOTHING`,
+        [tx.studentHTN, tx.targetYear]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Add transaction error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/transactions/bulk', async (req: Request, res: Response) => {
+  const txs = req.body.transactions;
+  if (!Array.isArray(txs)) return res.status(400).json({ error: 'transactions array required' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const tx of txs) {
+      await client.query(
+        `INSERT INTO fee_transactions (id, student_htn, fee_type, amount, challan_number, payment_mode, payment_date, academic_year, financial_year, status, approved_by, approval_date, target_year)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+         ON CONFLICT (id) DO NOTHING`,
+        [tx.id, tx.studentHTN, tx.feeType||'Tuition', tx.amount||0, tx.challanNumber||'',
+         tx.paymentMode||'Cash', tx.paymentDate||'', tx.academicYear||'', tx.financialYear||'',
+         tx.status||'PENDING', tx.approvedBy||null, tx.approvalDate||null, tx.targetYear||null]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, count: txs.length });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.put('/api/transactions/approve', async (req: Request, res: Response) => {
+  const { txIds, approverName } = req.body;
+  if (!Array.isArray(txIds)) return res.status(400).json({ error: 'txIds array required' });
+
+  try {
+    const approvalDate = new Date().toISOString().split('T')[0];
+    await pool.query(
+      `UPDATE fee_transactions SET status='APPROVED', approved_by=$1, approval_date=$2 WHERE id = ANY($3::text[])`,
+      [approverName, approvalDate, txIds]
+    );
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/api/transactions/reject', async (req: Request, res: Response) => {
+  const { txIds } = req.body;
+  if (!Array.isArray(txIds)) return res.status(400).json({ error: 'txIds array required' });
+
+  try {
+    await pool.query(
+      `UPDATE fee_transactions SET status='REJECTED' WHERE id = ANY($1::text[])`,
+      [txIds]
+    );
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/api/fee-config', async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query('SELECT config FROM fee_locker_config WHERE id = 1');
+    res.json(result.rows.length > 0 ? result.rows[0].config : null);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/api/fee-config', async (req: Request, res: Response) => {
+  const config = req.body;
+  try {
+    await pool.query(
+      `INSERT INTO fee_locker_config (id, config) VALUES (1, $1::jsonb)
+       ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config`,
+      [JSON.stringify(config)]
+    );
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+export default router;
