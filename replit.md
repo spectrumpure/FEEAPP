@@ -25,6 +25,7 @@ A centralized college fee management and governance system built with React, Typ
 - **xlsx**: For parsing Excel (.xlsx/.xls) files in the browser for bulk uploads
 
 ## Recent Changes
+- 2026-02-16: Rebuilt Reports section with 5 tabbed reports (Dept Summary, Financial Year Wise, Batch Wise, Student Master List, Fee Defaulters) each with PDF export including MJCET header with logo, college name, address
 - 2026-02-16: Added Fee Locker Configuration to Dashboard - 3 groups (Group A B.E, Group B B.E, M.E Programs) with editable tuition/university targets, persisted to localStorage, used by store when creating year lockers
 - 2026-02-16: Added Year selector (1st-4th for B.E, 1st-2nd for M.E) to Payment Collection Form with auto-calculated Academic Year based on admission year + selected year
 - 2026-02-16: Redesigned Student Directory with MJCET branded header (logo + college name), collapsible bulk upload section, dedicated S.No/Department columns, father's name display, INR currency formatting, student count summary bar, navy blue (#1a365d/#2c5282) color scheme
