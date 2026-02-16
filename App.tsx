@@ -84,21 +84,21 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <div className="relative w-full h-56 md:h-72 overflow-hidden">
-        <img src="/mjcet-college.png" alt="MJCET Campus" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1a365d]/70 via-[#1a365d]/50 to-slate-50"></div>
+      <div className="relative w-full h-[50vh] md:h-[55vh] overflow-hidden">
+        <img src="/mjcet-college.png" alt="MJCET Campus" className="w-full h-full object-cover object-center" style={{objectPosition: 'center 40%'}} />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a365d]/50 via-[#1a365d]/30 to-slate-50"></div>
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center text-white">
-            <img src="/mjcet-logo.png" alt="MJCET" className="w-16 h-16 object-contain mx-auto mb-3 bg-white/15 rounded-xl p-1.5" />
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight drop-shadow-lg">MJCET FEE APP</h1>
-            <p className="font-semibold text-sm mt-1 text-white/90">Muffakham Jah College of Engineering & Technology</p>
-            <p className="text-white/70 mt-1 text-xs">Autonomous & Accredited by NAAC with A+ and NBA</p>
-            <p className="text-white/70 text-xs">Affiliated to Osmania University & Approved by AICTE</p>
+            <img src="/mjcet-logo.png" alt="MJCET" className="w-20 h-20 object-contain mx-auto mb-3 bg-white/15 rounded-xl p-2" />
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight drop-shadow-lg">MJCET FEE APP</h1>
+            <p className="font-semibold text-base mt-2 text-white/90">Muffakham Jah College of Engineering & Technology</p>
+            <p className="text-white/70 mt-1 text-sm">Autonomous & Accredited by NAAC with A+ and NBA</p>
+            <p className="text-white/70 text-sm">Affiliated to Osmania University & Approved by AICTE</p>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6 -mt-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 -mt-10">
         <p className="text-slate-500 mb-6 text-base font-medium">Centralized College Fee Management & Governance System</p>
 
         {!showResetPassword ? (
