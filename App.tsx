@@ -89,9 +89,6 @@ const LoginPage: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-[#0f1f3d] via-[#1a365d]/60 to-[#1a365d]/30"></div>
         <div className="absolute inset-0 flex flex-col items-center justify-center px-8">
           <div className="text-center">
-            <div className="w-24 h-24 md:w-28 md:h-28 mx-auto mb-5 bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/20">
-              <img src="/mjcet-logo.png" alt="MJCET" className="w-full h-full object-contain" />
-            </div>
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white tracking-tight drop-shadow-lg">MJCET FEE APP</h1>
             <div className="w-16 h-1 bg-amber-400 mx-auto my-4 rounded-full"></div>
             <p className="font-semibold text-base md:text-lg text-white/90">Muffakham Jah College of Engineering & Technology</p>
