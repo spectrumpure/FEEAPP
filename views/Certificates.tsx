@@ -126,7 +126,7 @@ export const Certificates: React.FC = () => {
   .college-info { text-align: center; flex: 1; }
   .college-name-1 { font-size: 18pt; font-weight: bold; color: #000; letter-spacing: 1px; }
   .college-name-2 { font-size: 14pt; font-weight: bold; color: #000; letter-spacing: 0.5px; }
-  .accred { font-size: 9pt; color: #2b6cb0; margin-top: 0.5mm; font-weight: 600; }
+  .accred { font-size: 9pt; color: #000; margin-top: 0.5mm; font-weight: 600; }
   .society-name { font-size: 10pt; color: #000; margin-top: 0.5mm; font-weight: bold; }
   .address-line { font-size: 9pt; color: #333; margin-top: 1mm; }
   .title { text-align: center; font-size: 15pt; font-weight: bold; text-decoration: underline; margin: 4mm 0 3mm; }
@@ -259,7 +259,7 @@ export const Certificates: React.FC = () => {
   .header { text-align: center; margin-bottom: 3mm; }
   .college-name { font-size: 18pt; font-weight: bold; color: #1a1a1a; }
   .college-name.sub { font-size: 14pt; }
-  .accred { font-size: 9pt; color: #2b6cb0; margin-top: 0.5mm; font-weight: 600; }
+  .accred { font-size: 9pt; color: #000; margin-top: 0.5mm; font-weight: 600; }
   .society { font-size: 10pt; color: #555; font-weight: 600; margin-top: 0.5mm; }
   .address { font-size: 10pt; color: #444; margin-top: 1mm; }
   .logo-center { text-align: center; margin: 5mm 0; }

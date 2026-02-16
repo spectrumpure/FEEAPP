@@ -45,7 +45,7 @@ const exportPDF = (title: string, tableHtml: string) => {
   .header .society { font-size: 10px; font-weight: 600; color: #4a5568; letter-spacing: 2px; text-transform: uppercase; }
   .header .college { font-size: 16px; font-weight: 800; color: #1a365d; margin: 4px 0; }
   .header .address { font-size: 9px; color: #718096; }
-  .header .accreditation { font-size: 8px; color: #2b6cb0; margin-top: 2px; font-weight: 600; }
+  .header .accreditation { font-size: 8px; color: #000; margin-top: 2px; font-weight: 600; }
   .report-title { text-align: center; font-size: 13px; font-weight: 700; color: #2c5282; text-transform: uppercase; letter-spacing: 1.5px; margin: 16px 0 12px; }
   .report-meta { text-align: center; font-size: 9px; color: #a0aec0; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 10px; }
