@@ -10,11 +10,13 @@ import {
   Users,
   AlertTriangle,
   Layers,
-  ChevronDown
+  ChevronDown,
+  ContactRound,
+  IndianRupee
 } from 'lucide-react';
 import { Student } from '../types';
 
-type ReportTab = 'dept_summary' | 'financial_year' | 'batch_wise' | 'student_master' | 'defaulters';
+type ReportTab = 'dept_summary' | 'financial_year' | 'batch_wise' | 'student_master' | 'student_info' | 'defaulters';
 
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -83,7 +85,8 @@ export const Reports: React.FC = () => {
     { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} /> },
     { id: 'financial_year', label: 'Financial Year', icon: <Calendar size={16} /> },
     { id: 'batch_wise', label: 'Batch Wise', icon: <Layers size={16} /> },
-    { id: 'student_master', label: 'Student Master List', icon: <Users size={16} /> },
+    { id: 'student_master', label: 'Student Master Fee List', icon: <IndianRupee size={16} /> },
+    { id: 'student_info', label: 'Student Master List', icon: <ContactRound size={16} /> },
     { id: 'defaulters', label: 'Fee Defaulters', icon: <AlertTriangle size={16} /> },
   ];
 
@@ -167,18 +170,33 @@ export const Reports: React.FC = () => {
     let filtered = [...students];
     if (deptFilter !== 'all') filtered = filtered.filter(s => s.department === deptFilter);
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
+    const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     return filtered.map(s => {
       let tTarget = 0, tPaid = 0, uTarget = 0, uPaid = 0;
-      s.feeLockers.forEach(l => {
-        tTarget += l.tuitionTarget;
-        uTarget += l.universityTarget;
-        l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-          if (t.feeType === 'Tuition') tPaid += t.amount;
-          else if (t.feeType === 'University') uPaid += t.amount;
+      const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
+      if (filterYear && lockers.length === 0) {
+        const targets = getFeeTargets(s.department, filterYear);
+        tTarget = targets.tuition;
+        uTarget = targets.university;
+      } else {
+        lockers.forEach(l => {
+          tTarget += l.tuitionTarget;
+          uTarget += l.universityTarget;
+          l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
+            if (t.feeType === 'Tuition') tPaid += t.amount;
+            else if (t.feeType === 'University') uPaid += t.amount;
+          });
         });
-      });
+      }
       return { ...s, tTarget, tPaid, tBalance: tTarget - tPaid, uTarget, uPaid, uBalance: uTarget - uPaid, totalPaid: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid) };
     }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
+  };
+
+  const getStudentInfoData = () => {
+    let filtered = [...students];
+    if (deptFilter !== 'all') filtered = filtered.filter(s => s.department === deptFilter);
+    if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
+    return filtered.sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
   };
 
   const getDefaultersData = () => {
@@ -336,6 +354,34 @@ export const Reports: React.FC = () => {
       <td class="text-right">${formatCurrency(totals.totalPaid)}</td><td class="text-right">${formatCurrency(totals.totalBalance)}</td>
     </tr></tbody></table>
     <div style="margin-top:12px;font-size:9px;color:#718096;text-align:right;">Total Students: ${data.length}</div>`;
+    exportPDF(`Student Master Fee List${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
+  };
+
+  const handleExportStudentInfo = () => {
+    const data = getStudentInfoData();
+    const rows = data.map((s, i) => `<tr>
+      <td class="text-center">${i + 1}</td>
+      <td class="font-bold" style="font-size:9px">${s.hallTicketNumber}</td>
+      <td>${s.name}</td>
+      <td style="font-size:8px">${s.fatherName}</td>
+      <td style="font-size:8px">${s.motherName}</td>
+      <td class="text-center">${s.sex}</td>
+      <td class="text-center">${s.dob}</td>
+      <td class="text-center">${s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+      <td class="text-center">${s.batch}</td>
+      <td class="text-center">${s.admissionCategory}</td>
+      <td>${s.mobile}</td>
+      <td>${s.fatherMobile}</td>
+      <td style="font-size:7px;max-width:120px">${s.address}</td>
+    </tr>`).join('');
+
+    const html = `<table><thead><tr>
+      <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th><th>Father Name</th><th>Mother Name</th>
+      <th class="text-center">Sex</th><th class="text-center">DOB</th>
+      <th class="text-center">Dept</th><th class="text-center">Batch</th><th class="text-center">Admission</th>
+      <th>Mobile</th><th>Father Mobile</th><th>Address</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <div style="margin-top:12px;font-size:9px;color:#718096;text-align:right;">Total Students: ${data.length}</div>`;
     exportPDF(`Student Master List${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}`, html);
   };
 
@@ -374,6 +420,7 @@ export const Reports: React.FC = () => {
     financial_year: handleExportFinYear,
     batch_wise: handleExportBatchWise,
     student_master: handleExportStudentMaster,
+    student_info: handleExportStudentInfo,
     defaulters: handleExportDefaulters,
   };
 
@@ -557,7 +604,7 @@ export const Reports: React.FC = () => {
 
     return (
       <div>
-        <div className="flex items-center space-x-4 mb-6">
+        <div className="flex items-center space-x-4 mb-6 flex-wrap gap-y-3">
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
             <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
@@ -572,6 +619,17 @@ export const Reports: React.FC = () => {
               className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
               <option value="all">All Batches</option>
               {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Year</label>
+            <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
+              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
+              <option value="all">All Years</option>
+              <option value="1">1st Year</option>
+              <option value="2">2nd Year</option>
+              <option value="3">3rd Year</option>
+              <option value="4">4th Year</option>
             </select>
           </div>
           <div className="ml-auto self-end">
@@ -628,6 +686,82 @@ export const Reports: React.FC = () => {
                   <td className="px-2 py-3 text-[11px] text-green-700 text-right">{formatCurrency(totals.totalPaid)}</td>
                   <td className="px-2 py-3 text-[11px] text-red-700 text-right">{formatCurrency(totals.totalBalance)}</td>
                 </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderStudentInfo = () => {
+    const data = getStudentInfoData();
+    return (
+      <div>
+        <div className="flex items-center space-x-4 mb-6 flex-wrap gap-y-3">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
+            <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
+              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
+              <option value="all">All Departments</option>
+              {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Batch</label>
+            <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)}
+              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100">
+              <option value="all">All Batches</option>
+              {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div className="ml-auto self-end">
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-2 rounded-xl">{data.length} students</span>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b-2 border-slate-200">
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center w-10">S.No</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Hall Ticket</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Student Name</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Father Name</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Mother Name</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Sex</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">DOB</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Dept</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Batch</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Admission</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Mobile</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Father Mobile</th>
+                <th className="px-2 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Address</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {data.map((s, i) => (
+                <tr key={s.hallTicketNumber} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-2 py-2 text-xs text-slate-400 text-center">{i + 1}</td>
+                  <td className="px-2 py-2 text-[10px] font-mono font-bold text-slate-700">{s.hallTicketNumber}</td>
+                  <td className="px-2 py-2 text-[11px] font-bold text-slate-800">{s.name}</td>
+                  <td className="px-2 py-2 text-[10px] text-slate-500">{s.fatherName}</td>
+                  <td className="px-2 py-2 text-[10px] text-slate-500">{s.motherName}</td>
+                  <td className="px-2 py-2 text-[10px] text-slate-500 text-center">{s.sex}</td>
+                  <td className="px-2 py-2 text-[10px] text-slate-500 text-center">{s.dob}</td>
+                  <td className="px-2 py-2 text-[10px] text-slate-600 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+                  <td className="px-2 py-2 text-[10px] text-slate-500 text-center">{s.batch}</td>
+                  <td className="px-2 py-2 text-center">
+                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${s.admissionCategory.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
+                      {s.admissionCategory}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 text-[10px] text-slate-500">{s.mobile}</td>
+                  <td className="px-2 py-2 text-[10px] text-slate-500">{s.fatherMobile}</td>
+                  <td className="px-2 py-2 text-[9px] text-slate-400 max-w-[150px] truncate" title={s.address}>{s.address}</td>
+                </tr>
+              ))}
+              {data.length === 0 && (
+                <tr><td colSpan={13} className="px-4 py-12 text-center text-slate-400 italic text-xs">No students match the selected filters.</td></tr>
               )}
             </tbody>
           </table>
@@ -719,6 +853,7 @@ export const Reports: React.FC = () => {
     financial_year: renderFinancialYear,
     batch_wise: renderBatchWise,
     student_master: renderStudentMaster,
+    student_info: renderStudentInfo,
     defaulters: renderDefaulters,
   };
 
@@ -726,7 +861,8 @@ export const Reports: React.FC = () => {
     dept_summary: { title: 'DEPT SUMMARY SUMMARY', subtitle: 'INSTITUTIONAL REVENUE ANALYSIS' },
     financial_year: { title: 'FINANCIAL YEAR WISE', subtitle: 'YEAR-ON-YEAR COLLECTION BREAKDOWN' },
     batch_wise: { title: 'BATCH WISE REPORT', subtitle: 'ADMISSION BATCH FEE ANALYSIS' },
-    student_master: { title: 'STUDENT MASTER LIST', subtitle: 'COMPLETE STUDENT DIRECTORY' },
+    student_master: { title: 'STUDENT MASTER FEE LIST', subtitle: 'YEAR WISE FEE DETAILS PER STUDENT' },
+    student_info: { title: 'STUDENT MASTER LIST', subtitle: 'COMPLETE STUDENT PERSONAL DETAILS' },
     defaulters: { title: 'FEE DEFAULTERS', subtitle: 'DEPARTMENT & YEAR WISE OUTSTANDING' },
   };
 
