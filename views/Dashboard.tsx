@@ -67,14 +67,30 @@ export const Dashboard: React.FC = () => {
 
   const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
 
+  const collectionPct = targetTotal > 0 ? ((approvedTotal / targetTotal) * 100).toFixed(1) : '0.0';
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="bg-gradient-to-r from-[#1a365d] via-[#2c5282] to-[#2b6cb0] rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 opacity-5">
+          <img src="/mjcet-logo.png" alt="" className="w-full h-full object-contain" />
+        </div>
+        <div className="flex items-center gap-4 relative z-10">
+          <img src="/mjcet-logo.png" alt="MJCET" className="w-16 h-16 object-contain bg-white/10 rounded-xl p-1.5" />
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">Muffakham Jah College of Engineering & Technology</h1>
+            <p className="text-blue-200 text-xs mt-0.5">Autonomous & Accredited by NAAC with A+ and NBA | Affiliated to Osmania University & Approved by AICTE</p>
+            <p className="text-blue-300/70 text-[10px] mt-0.5 font-medium uppercase tracking-wider">Sultan-Ul-Uloom Education Society | Fee Management System</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard 
           icon={<Users size={24} />} 
           label="Total Students" 
           value={totalStudents.toString()} 
-          subValue="Across 4 Departments" 
+          subValue={`Across ${DEPARTMENTS.length} Departments`} 
           color="bg-blue-600"
           trend="up"
         />
@@ -95,15 +111,28 @@ export const Dashboard: React.FC = () => {
         <StatCard 
           icon={<CreditCard size={24} />} 
           label="Collection Efficiency" 
-          value={`${((approvedTotal / targetTotal) * 100).toFixed(1)}%`} 
+          value={`${collectionPct}%`} 
           subValue="Approved vs Total Target" 
           color="bg-violet-600"
           trend="up"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Collection Chart */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-slate-700">Overall Collection Progress</h3>
+          <span className="text-xs font-bold text-[#1a365d]">{collectionPct}%</span>
+        </div>
+        <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-[#1a365d] to-[#2b6cb0] rounded-full transition-all duration-700" style={{width: `${Math.min(parseFloat(collectionPct), 100)}%`}}></div>
+        </div>
+        <div className="flex justify-between mt-2 text-[10px] text-slate-400 font-medium">
+          <span>Collected: {formatCurrency(approvedTotal)}</span>
+          <span>Target: {formatCurrency(targetTotal)}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <div>

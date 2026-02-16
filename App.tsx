@@ -26,11 +26,12 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-4xl">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-3xl text-white font-black text-4xl shadow-2xl shadow-blue-200 mb-6">
-            E
-          </div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">EduFee Enterprise</h1>
-          <p className="text-slate-500 mt-3 text-lg">Centralized College Fee Management & Governance System</p>
+          <img src="/mjcet-logo.png" alt="MJCET" className="w-20 h-20 object-contain mx-auto mb-4" />
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">MJCET FEE APP</h1>
+          <p className="text-slate-600 font-semibold text-sm mt-1">Muffakham Jah College of Engineering & Technology</p>
+          <p className="text-slate-400 mt-1 text-xs">Autonomous & Accredited by NAAC with A+ and NBA</p>
+          <p className="text-slate-400 text-xs">Affiliated to Osmania University & Approved by AICTE</p>
+          <p className="text-slate-500 mt-3 text-base">Centralized College Fee Management & Governance System</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -50,7 +51,7 @@ const LoginPage: React.FC = () => {
         </div>
 
         <div className="mt-16 text-center text-slate-400 text-sm font-medium">
-          &copy; {new Date().getFullYear()} EduFee Systems Inc. All Rights Reserved.
+          &copy; {new Date().getFullYear()} MJCET Fee Management System. All Rights Reserved.
         </div>
       </div>
     </div>

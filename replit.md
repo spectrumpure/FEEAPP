@@ -1,4 +1,4 @@
-# EduFee Enterprise - College Fee Management System
+# MJCET FEE APP - College Fee Management System
 
 ## Overview
 A centralized college fee management and governance system built with React, TypeScript, and Vite. The app provides role-based access for Administrator, Accountant, Principal, and Exam Cell users to manage fee entries, approvals, reports, and student directories.

@@ -71,7 +71,7 @@ const exportPDF = (title: string, tableHtml: string) => {
   <div class="accreditation">${COLLEGE_HEADER.accreditation2}</div>
 </div>
 <div class="report-title">${title}</div>
-<div class="report-meta">Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })} | EduFee Enterprise</div>
+<div class="report-meta">Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })} | MJCET Fee App</div>
 ${tableHtml}
 <div class="footer">This is a computer-generated document. No signature is required.</div>
 </body></html>`);
