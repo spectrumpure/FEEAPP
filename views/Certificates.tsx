@@ -130,11 +130,11 @@ export const Certificates: React.FC = () => {
   .society-name { font-size: 10pt; color: #000; margin-top: 0.5mm; font-weight: bold; }
   .address-line { font-size: 9pt; color: #333; margin-top: 1mm; }
   .title { text-align: center; font-size: 15pt; font-weight: bold; text-decoration: underline; margin: 4mm 0 3mm; }
-  .sno-date { display: flex; justify-content: space-between; font-size: 11pt; margin-bottom: 3mm; }
-  .body-text { font-size: 12pt; line-height: 2.2; text-align: justify; margin-bottom: 2mm; }
-  .body-text .underline { text-decoration: underline; font-weight: bold; display: inline-block; min-width: 50mm; }
-  .conduct { font-size: 12pt; line-height: 2; }
-  .signatures { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 11pt; align-items: baseline; }
+  .ref-date { display: flex; justify-content: space-between; font-size: 11pt; margin-bottom: 5mm; }
+  .body-text { font-size: 12.5pt; line-height: 2.4; text-align: justify; margin-bottom: 3mm; }
+  .body-text b { font-weight: bold; }
+  .conduct { font-size: 12.5pt; line-height: 2.4; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 10mm; font-size: 11pt; align-items: baseline; font-weight: bold; }
   @media print {
     body { margin: 0; }
     .certificate-page { page-break-after: always; }
@@ -154,20 +154,19 @@ export const Certificates: React.FC = () => {
       </div>
     </div>
     <div class="title">Bonafide/Conduct Certificate</div>
-    <div class="sno-date">
-      <span>S.No: ${sno}</span>
-      <span>Date : ${bcDate}</span>
+    <div class="ref-date">
+      <span>Ref No: ${sno}</span>
+      <span>Date: ${bcDate}</span>
     </div>
     <div class="body-text">
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This is to certify that &nbsp;<span class="underline">&nbsp;${s.name}&nbsp;</span><br/>
-      S/o. D/o. Mr. <span class="underline">&nbsp;${s.fatherName}&nbsp;</span><br/>
-      (Roll No : <span class="underline">&nbsp;${s.hallTicketNumber}&nbsp;</span> ) is/was a bonafide student of &nbsp;${s.course} Year, Br. (&nbsp;<span class="underline">&nbsp;${yearRoman}&nbsp;</span>&nbsp;,<br/>
-      <span class="underline">&nbsp;${dept}&nbsp;</span> ) in this college in the Academic year &nbsp;<span class="underline">&nbsp;${bcAcademicYear}&nbsp;</span>.
+      This is to certify that <b><u>${s.name}</u></b>
+      S/o. D/o. Mr. <b><u>${s.fatherName}</u></b>
+      (Roll No: <b>${s.hallTicketNumber}</b> ), is/was a Bonafide student of <b>${s.department}</b> in this college during the academic year <b>${bcAcademicYear}</b>.
     </div>
-    <div class="conduct">${pronoun} bears &nbsp;${bcConduct} Conduct.</div>
+    <div class="conduct">${pronoun} bears ${bcConduct} Conduct.</div>
     <div class="signatures">
       <div>Clerk</div>
-      <div style="font-weight:bold;">PRINCIPAL</div>
+      <div>Principal</div>
     </div>
   </div>
 </div>
