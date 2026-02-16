@@ -57,15 +57,45 @@ export const Dashboard: React.FC = () => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
   };
 
-  const chartData = [
-    { name: 'CSE', collection: 4500000 },
-    { name: 'ECE', collection: 3200000 },
-    { name: 'EEE', collection: 2800000 },
-    { name: 'MECH', collection: 2100000 },
-    { name: 'CIVIL', collection: 1800000 },
-  ];
+  const deptShort = (d: string) => {
+    const m = d.match(/\(([^)]+)\)/);
+    return m ? m[1] : d.replace('B.E ', '').replace('M.E ', '').slice(0, 6);
+  };
 
-  const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
+  const deptSummaryData = DEPARTMENTS.map(dept => {
+    const count = students.filter(s => s.department === dept.name).length;
+    return { name: deptShort(dept.name), students: count, fullName: dept.name };
+  }).filter(d => d.students > 0);
+
+  const deptCollectionData = DEPARTMENTS.map(dept => {
+    const deptStudents = students.filter(s => s.department === dept.name);
+    const collection = deptStudents.reduce((sum, s) => {
+      return sum + s.feeLockers.reduce((lSum, l) => {
+        return lSum + l.transactions
+          .filter(t => t.status === 'APPROVED')
+          .reduce((tSum, t) => tSum + t.amount, 0);
+      }, 0);
+    }, 0);
+    const target = deptStudents.reduce((sum, s) => {
+      return sum + s.feeLockers.reduce((lSum, l) => lSum + l.tuitionTarget + l.universityTarget, 0);
+    }, 0);
+    return { name: deptShort(dept.name), collection, target, fullName: dept.name };
+  }).filter(d => d.target > 0 || d.collection > 0);
+
+  const deptDefaulterData = DEPARTMENTS.map(dept => {
+    const deptStudents = students.filter(s => s.department === dept.name);
+    const defaulters = deptStudents.filter(s => {
+      const totalTarget = s.feeLockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
+      const totalPaid = s.feeLockers.reduce((sum, l) => {
+        return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
+      }, 0);
+      return totalTarget > 0 && totalPaid < totalTarget;
+    }).length;
+    return { name: deptShort(dept.name), defaulters, fullName: dept.name };
+  }).filter(d => d.defaulters > 0);
+
+  const COLORS_BLUE = ['#1a365d', '#2c5282', '#2b6cb0', '#3182ce', '#4299e1', '#63b3ed', '#90cdf4', '#bee3f8', '#1e40af', '#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
+  const COLORS_RED = ['#9b2c2c', '#c53030', '#e53e3e', '#fc8181', '#feb2b2', '#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fecaca', '#b91c1c', '#991b1b', '#7f1d1d', '#450a0a'];
 
   const collectionPct = targetTotal > 0 ? ((approvedTotal / targetTotal) * 100).toFixed(1) : '0.0';
 
@@ -132,68 +162,115 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Fee Collection by Department</h3>
-              <p className="text-sm text-slate-400">Total approved collection per department</p>
-            </div>
-            <select className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium outline-none">
-              <option>Academic Year 2023-24</option>
-            </select>
-          </div>
-          <div className="h-72">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="mb-6">
+          <h3 className="text-lg font-bold text-slate-800">Department Summary</h3>
+          <p className="text-sm text-slate-400">Student count per department</p>
+        </div>
+        <div className="h-72">
+          {deptSummaryData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+              <BarChart data={deptSummaryData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} tickFormatter={(val) => `₹${val/100000}L`} />
-                <Tooltip 
-                  cursor={{fill: '#f8fafc'}} 
-                  contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
-                />
-                <Bar dataKey="collection" radius={[6, 6, 0, 0]} barSize={40}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10, fontWeight: 600}} dy={8} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
+                <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px'}} />
+                <Bar dataKey="students" name="Students" radius={[6, 6, 0, 0]} barSize={32}>
+                  {deptSummaryData.map((_e, i) => (
+                    <Cell key={`ds-${i}`} fill={COLORS_BLUE[i % COLORS_BLUE.length]} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-slate-400 text-sm">No student data available. Upload students to see department summary.</div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Fee Collection by Department</h3>
+            <p className="text-sm text-slate-400">Total approved collection per department</p>
+          </div>
+          <div className="h-72">
+            {deptCollectionData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={deptCollectionData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10, fontWeight: 600}} dy={8} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} tickFormatter={(val: number) => `₹${(val/100000).toFixed(0)}L`} />
+                  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px'}} formatter={(val: number) => formatCurrency(val)} />
+                  <Bar dataKey="collection" name="Collection" radius={[6, 6, 0, 0]} barSize={28}>
+                    {deptCollectionData.map((_e, i) => (
+                      <Cell key={`fc-${i}`} fill={COLORS_BLUE[i % COLORS_BLUE.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm">No collection data available yet.</div>
+            )}
           </div>
         </div>
 
-        {/* Recent Transactions */}
-        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Recent Payments</h3>
-          <div className="space-y-6">
-            {transactions.slice(-5).reverse().map((tx, idx) => (
-              <div key={tx.id} className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                    tx.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' : 
-                    tx.status === 'PENDING' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'
-                  }`}>
-                    {tx.studentHTN.slice(-2)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-700">{tx.studentHTN}</p>
-                    <p className="text-xs text-slate-400">{tx.paymentDate}</p>
-                  </div>
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Fee Defaulters by Department</h3>
+            <p className="text-sm text-slate-400">Students with pending fee balance</p>
+          </div>
+          <div className="h-72">
+            {deptDefaulterData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={deptDefaulterData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10, fontWeight: 600}} dy={8} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
+                  <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px'}} />
+                  <Bar dataKey="defaulters" name="Defaulters" radius={[6, 6, 0, 0]} barSize={28}>
+                    {deptDefaulterData.map((_e, i) => (
+                      <Cell key={`df-${i}`} fill={COLORS_RED[i % COLORS_RED.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm">No defaulters found.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <h3 className="text-lg font-bold text-slate-800 mb-4">Recent Payments</h3>
+        <div className="space-y-4">
+          {transactions.slice(-5).reverse().map((tx) => (
+            <div key={tx.id} className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${
+                  tx.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' : 
+                  tx.status === 'PENDING' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'
+                }`}>
+                  {tx.studentHTN.slice(-2)}
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-slate-900">{formatCurrency(tx.amount)}</p>
-                  <p className={`text-[10px] font-bold uppercase tracking-widest ${
-                    tx.status === 'APPROVED' ? 'text-emerald-500' : 
-                    tx.status === 'PENDING' ? 'text-amber-500' : 'text-rose-500'
-                  }`}>{tx.status}</p>
+                <div>
+                  <p className="text-sm font-bold text-slate-700">{tx.studentHTN}</p>
+                  <p className="text-xs text-slate-400">{tx.paymentDate}</p>
                 </div>
               </div>
-            ))}
-          </div>
-          <button className="w-full mt-8 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">
-            View All Transactions
-          </button>
+              <div className="text-right">
+                <p className="text-sm font-bold text-slate-900">{formatCurrency(tx.amount)}</p>
+                <p className={`text-[10px] font-bold uppercase tracking-widest ${
+                  tx.status === 'APPROVED' ? 'text-emerald-500' : 
+                  tx.status === 'PENDING' ? 'text-amber-500' : 'text-rose-500'
+                }`}>{tx.status}</p>
+              </div>
+            </div>
+          ))}
+          {transactions.length === 0 && (
+            <p className="text-sm text-slate-400 text-center py-4">No transactions yet.</p>
+          )}
         </div>
       </div>
 
