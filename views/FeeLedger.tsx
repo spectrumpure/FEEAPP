@@ -195,15 +195,16 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
             const maxYears = student.department.startsWith('M.E') || student.course === 'M.E' ? 2 : 4;
             const existingYears = new Set(student.feeLockers.map(l => l.year));
             const emptyYears = Array.from({ length: maxYears }, (_, i) => i + 1).filter(y => !existingYears.has(y));
-            return emptyYears.map(y => (
-              <div key={`empty-${y}`} className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center text-center opacity-50 print:opacity-100 print:bg-slate-50">
-                <div className="w-8 h-8 rounded-lg bg-slate-200 text-slate-400 flex items-center justify-center font-bold text-xs mb-3">
-                  Y{y}
-                </div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">FUTURE YEAR LOCKER</p>
-                <p className="text-[8px] text-slate-300 italic">No Data Available</p>
-              </div>
-            ));
+            return emptyYears.map(y => {
+              const emptyLocker: YearLocker = {
+                year: y,
+                tuitionTarget: student.admissionCategory.includes('MANAGEMENT') ? 125000 : 100000,
+                universityTarget: 12650,
+                otherTarget: 0,
+                transactions: []
+              };
+              return <YearSummaryCard key={`future-${y}`} locker={emptyLocker} />;
+            });
           })()}
         </div>
 
