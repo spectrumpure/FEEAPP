@@ -192,6 +192,7 @@ export const Certificates: React.FC = () => {
 
     const tcPage = (copyType: string) => `
 <div class="tc-page">
+  <div class="copy-type">${copyType}</div>
   <div class="header">
     <div class="college-name">MUFFAKHAM JAH</div>
     <div class="college-name sub">COLLEGE OF ENGINEERING & TECHNOLOGY</div>
@@ -211,35 +212,30 @@ export const Certificates: React.FC = () => {
     <span>Date : ${tcDate}</span>
   </div>
 
-  <table class="tc-table">
-    ${tcRow(1, 'Roll No', s.hallTicketNumber)}
-    ${tcRow(2, "Student's Name", s.name)}
-    ${tcRow(3, "Father's Name", s.fatherName)}
-    ${tcRow(4, "Mother's Name", s.motherName)}
-    ${tcRow(5, 'Date Of Birth', s.dob)}
-    ${tcRow(6, 'Date Of Admission<br/>to the College', tcDateAdmission)}
-    ${tcRow(7, 'Date Of Leaving from<br/>the College', tcDateLeaving)}
-    ${tcRow(8, 'Course Completed', tcCourseCompleted)}
-    ${tcRow(9, 'Dues', tcDues)}
-    ${tcRow(10, 'Any Disciplinary<br/>measures taken<br/>against Him/Her', tcDisciplinary)}
-    ${tcRow(11, 'Conduct', tcConduct)}
-    ${tcRow(12, 'General Remarks', tcRemarks)}
-  </table>
+  <div class="tc-body">
+    <div class="watermark">
+      <img src="${COLLEGE.logo}" alt="" />
+    </div>
+    <table class="tc-table">
+      ${tcRow(1, 'Roll No', s.hallTicketNumber)}
+      ${tcRow(2, "Student's Name", s.name)}
+      ${tcRow(3, "Father's Name", s.fatherName)}
+      ${tcRow(4, "Mother's Name", s.motherName)}
+      ${tcRow(5, 'Date Of Birth', s.dob)}
+      ${tcRow(6, 'Date Of Admission<br/>to the College', tcDateAdmission)}
+      ${tcRow(7, 'Date Of Leaving from<br/>the College', tcDateLeaving)}
+      ${tcRow(8, 'Course Completed', tcCourseCompleted)}
+      ${tcRow(9, 'Dues', tcDues)}
+      ${tcRow(10, 'Any Disciplinary<br/>measures taken<br/>against Him/Her', tcDisciplinary)}
+      ${tcRow(11, 'Conduct', tcConduct)}
+      ${tcRow(12, 'General Remarks', tcRemarks)}
+    </table>
+  </div>
 
   <div class="signatures">
-    <div class="sig-left">
-      <div style="margin-top:8mm; font-size:9pt; color:#555;">Office Seal</div>
-    </div>
-    <div class="sig-right">
-      <div>Principal</div>
-      <div style="font-size:8pt;margin-top:1mm;color:#555;">PRINCIPAL</div>
-      <div style="font-size:8pt;color:#555;">Muffakham Jah College Of</div>
-      <div style="font-size:8pt;color:#555;">Engineering & Technology</div>
-      <div style="font-size:8pt;color:#555;">Banjara Hills, Road No. 3,</div>
-      <div style="font-size:8pt;color:#555;">HYDERABAD-500 034.(T.S.)</div>
-    </div>
+    <div><b>Office Seal</b></div>
+    <div><b>Principal</b></div>
   </div>
-  <div class="copy-type">${copyType}</div>
 </div>`;
 
     const win = window.open('', '_blank');
@@ -272,10 +268,12 @@ export const Certificates: React.FC = () => {
   .tc-table .label { width: 50mm; }
   .tc-table .colon { width: 5mm; text-align: center; }
   .tc-table .value { font-weight: bold; }
-  .signatures { display: flex; justify-content: space-between; margin-top: 15mm; font-size: 11pt; align-items: flex-end; }
-  .sig-left { text-align: left; }
-  .sig-right { text-align: center; }
-  .copy-type { position: absolute; bottom: 15mm; right: 22mm; font-size: 11pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+  .tc-body { position: relative; }
+  .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.08; z-index: 0; pointer-events: none; }
+  .watermark img { width: 120mm; height: 120mm; object-fit: contain; }
+  .tc-table { position: relative; z-index: 1; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 15mm; font-size: 11pt; align-items: baseline; }
+  .copy-type { text-align: right; font-size: 11pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3mm; }
   @media print { body { margin: 0; } }
 </style></head><body>
 ${tcPage('ORIGINAL')}
