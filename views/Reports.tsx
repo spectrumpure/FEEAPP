@@ -110,7 +110,12 @@ export const Reports: React.FC = () => {
 
   const getStudentTargets = (s: Student, filterYear: number | null) => {
     let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
+    const dept = DEPARTMENTS.find(d => matchesDept(s.department, d));
+    const duration = dept?.duration || 4;
     const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
+    if (filterYear && filterYear > duration) {
+      return { tTarget: 0, uTarget: 0, tPaid: 0, uPaid: 0 };
+    }
     if (lockers.length > 0) {
       lockers.forEach(l => {
         tTarget += l.tuitionTarget;
@@ -121,8 +126,6 @@ export const Reports: React.FC = () => {
         });
       });
     } else {
-      const dept = DEPARTMENTS.find(d => matchesDept(s.department, d));
-      const duration = dept?.duration || 4;
       if (filterYear) {
         const targets = getFeeTargets(s.department, filterYear);
         tTarget = targets.tuition;

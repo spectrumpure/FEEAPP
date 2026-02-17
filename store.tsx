@@ -78,7 +78,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const getFeeTargets = useCallback((department: string, year: number): { tuition: number; university: number } => {
     const dept = DEPARTMENTS.find(d => d.name === department || d.code === department || d.code.toUpperCase() === department.toUpperCase());
     const code = dept?.code || '';
-    if (feeLockerConfig.groupC.departments.includes(code) || department.startsWith('M.E')) {
+    const duration = dept?.duration || 4;
+    if (year > duration) {
+      return { tuition: 0, university: 0 };
+    }
+    const isME = feeLockerConfig.groupC.departments.includes(code) || 
+      department.startsWith('M.E') || code.startsWith('ME-');
+    if (isME) {
       return year === 1
         ? { tuition: feeLockerConfig.groupC.year1Tuition, university: feeLockerConfig.groupC.year1University }
         : { tuition: feeLockerConfig.groupC.year2Tuition, university: feeLockerConfig.groupC.year2University };

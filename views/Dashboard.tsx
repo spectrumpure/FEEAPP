@@ -181,11 +181,6 @@ export const Dashboard: React.FC = () => {
     return m ? m[1] : d.replace('B.E ', '').replace('M.E ', '').slice(0, 6);
   };
 
-  const deptSummaryData = DEPARTMENTS.map(dept => {
-    const count = students.filter(s => matchDept(s.department, dept)).length;
-    return { name: deptShort(dept.name), students: count, fullName: dept.name };
-  }).filter(d => d.students > 0);
-
   const deptTableData = DEPARTMENTS.map(dept => {
     const deptStudents = students.filter(s => matchDept(s.department, dept));
     const count = deptStudents.length;
@@ -469,32 +464,6 @@ export const Dashboard: React.FC = () => {
         <div className="flex justify-between mt-2 text-[10px] text-slate-400 font-medium">
           <span>Collected: {formatCurrency(approvedTotal)}</span>
           <span>Target: {formatCurrency(targetTotal)}</span>
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="mb-6">
-          <h3 className="text-lg font-bold text-slate-800">Department Summary</h3>
-          <p className="text-sm text-slate-400">Student count per department</p>
-        </div>
-        <div className="h-72">
-          {deptSummaryData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={deptSummaryData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10, fontWeight: 600}} dy={8} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
-                <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px'}} />
-                <Bar dataKey="students" name="Students" radius={[6, 6, 0, 0]} barSize={32}>
-                  {deptSummaryData.map((_e, i) => (
-                    <Cell key={`ds-${i}`} fill={COLORS_BLUE[i % COLORS_BLUE.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-full flex items-center justify-center text-slate-400 text-sm">No student data available. Upload students to see department summary.</div>
-          )}
         </div>
       </div>
 
