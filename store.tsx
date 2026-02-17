@@ -97,6 +97,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
+      const res = await fetch('/api/bootstrap');
+      if (res.ok) {
+        const data = await res.json();
+        setStudents(data.students || []);
+        setTransactions(data.transactions || []);
+      }
     } catch (err) {
       console.error('Failed to save fee config:', err);
     }

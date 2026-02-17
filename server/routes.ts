@@ -490,7 +490,33 @@ router.put('/api/fee-config', async (req: Request, res: Response) => {
        ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config`,
       [JSON.stringify(config)]
     );
-    res.json({ success: true });
+
+    const studentsRes = await pool.query('SELECT hall_ticket_number, department FROM students');
+    for (const s of studentsRes.rows) {
+      const dept = s.department.toUpperCase();
+      let groupADepts = (config.groupA?.departments || []).map((d: string) => d.toUpperCase());
+      let groupBDepts = (config.groupB?.departments || []).map((d: string) => d.toUpperCase());
+      let groupCDepts = (config.groupC?.departments || []).map((d: string) => d.toUpperCase());
+
+      if (groupCDepts.includes(dept) || dept.startsWith('ME-') || s.department.startsWith('M.E')) {
+        await pool.query(
+          `UPDATE year_lockers SET tuition_target = CASE WHEN year = 1 THEN $1 ELSE $2 END, university_target = CASE WHEN year = 1 THEN $3 ELSE $4 END WHERE student_htn = $5`,
+          [config.groupC.year1Tuition, config.groupC.year2Tuition, config.groupC.year1University, config.groupC.year2University, s.hall_ticket_number]
+        );
+      } else if (groupBDepts.includes(dept)) {
+        await pool.query(
+          `UPDATE year_lockers SET tuition_target = $1, university_target = $2 WHERE student_htn = $3`,
+          [config.groupB.tuition, config.groupB.university, s.hall_ticket_number]
+        );
+      } else {
+        await pool.query(
+          `UPDATE year_lockers SET tuition_target = $1, university_target = $2 WHERE student_htn = $3`,
+          [config.groupA.tuition, config.groupA.university, s.hall_ticket_number]
+        );
+      }
+    }
+
+    res.json({ success: true, updated: studentsRes.rows.length });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
