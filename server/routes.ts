@@ -21,12 +21,11 @@ const normalizeDepartment = (raw: string): string => {
   return mapping[val] || raw.trim();
 };
 
-const ME_DEPARTMENTS = ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'];
-const GROUP_B_DEPARTMENTS = ['MECH', 'CIVIL', 'PROD'];
-
 const getFeeTargetsServer = (department: string, year: number, config: any): { tuition: number; university: number } => {
   const code = normalizeDepartment(department);
-  const isME = ME_DEPARTMENTS.includes(code) || code.startsWith('ME-');
+  const groupCDepts = config?.groupC?.departments || ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'];
+  const groupBDepts = config?.groupB?.departments || ['CS-AI', 'CS-DS', 'CS-AIML', 'IT', 'EEE', 'PROD'];
+  const isME = groupCDepts.includes(code) || code.startsWith('ME-');
   const duration = isME ? 2 : 4;
   if (year > duration) return { tuition: 0, university: 0 };
   if (isME && config?.groupC) {
@@ -34,13 +33,13 @@ const getFeeTargetsServer = (department: string, year: number, config: any): { t
       ? { tuition: config.groupC.year1Tuition || 130000, university: config.groupC.year1University || 11650 }
       : { tuition: config.groupC.year2Tuition || 130000, university: config.groupC.year2University || 4500 };
   }
-  if (GROUP_B_DEPARTMENTS.includes(code) && config?.groupB) {
-    return { tuition: config.groupB.tuition || 100000, university: config.groupB.university || 12650 };
+  if (groupBDepts.includes(code) && config?.groupB) {
+    return { tuition: config.groupB.tuition || 125000, university: config.groupB.university || 9650 };
   }
   if (config?.groupA) {
     return { tuition: config.groupA.tuition || 125000, university: config.groupA.university || 12650 };
   }
-  return { tuition: 100000, university: 12650 };
+  return { tuition: 125000, university: 12650 };
 };
 
 router.post('/api/auth/login', async (req: Request, res: Response) => {
