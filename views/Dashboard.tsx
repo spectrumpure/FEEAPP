@@ -186,8 +186,10 @@ export const Dashboard: React.FC = () => {
     return { name: deptShort(dept.name), students: count, fullName: dept.name };
   }).filter(d => d.students > 0);
 
-  const deptCollectionData = DEPARTMENTS.map(dept => {
+  const deptTableData = DEPARTMENTS.map(dept => {
     const deptStudents = students.filter(s => matchDept(s.department, dept));
+    const count = deptStudents.length;
+    const target = deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0);
     const collection = deptStudents.reduce((sum, s) => {
       return sum + s.feeLockers.reduce((lSum, l) => {
         return lSum + l.transactions
@@ -195,21 +197,24 @@ export const Dashboard: React.FC = () => {
           .reduce((tSum, t) => tSum + t.amount, 0);
       }, 0);
     }, 0);
-    const target = deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0);
-    return { name: deptShort(dept.name), collection, target, fullName: dept.name };
-  }).filter(d => d.target > 0 || d.collection > 0);
-
-  const deptDefaulterData = DEPARTMENTS.map(dept => {
-    const deptStudents = students.filter(s => matchDept(s.department, dept));
+    const balance = target - collection;
     const defaulters = deptStudents.filter(s => {
-      const totalTarget = getStudentTotalTarget(s);
-      const totalPaid = s.feeLockers.reduce((sum, l) => {
-        return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
-      }, 0);
-      return totalTarget > 0 && totalPaid < totalTarget;
+      const st = getStudentTotalTarget(s);
+      const sp = s.feeLockers.reduce((sum, l) => sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0), 0);
+      return st > 0 && sp < st;
     }).length;
-    return { name: deptShort(dept.name), defaulters, fullName: dept.name };
-  }).filter(d => d.defaulters > 0);
+    const pct = target > 0 ? ((collection / target) * 100) : 0;
+    return { name: deptShort(dept.name), fullName: dept.name, code: dept.code, courseType: dept.courseType, count, target, collection, balance, defaulters, pct };
+  }).filter(d => d.count > 0);
+
+  const deptTableTotals = deptTableData.reduce((acc, d) => ({
+    count: acc.count + d.count, target: acc.target + d.target, collection: acc.collection + d.collection,
+    balance: acc.balance + d.balance, defaulters: acc.defaulters + d.defaulters
+  }), { count: 0, target: 0, collection: 0, balance: 0, defaulters: 0 });
+
+  const deptCollectionData = deptTableData.map(d => ({ name: d.name, collection: d.collection, target: d.target, fullName: d.fullName })).filter(d => d.target > 0 || d.collection > 0);
+
+  const deptDefaulterData = deptTableData.map(d => ({ name: d.name, defaulters: d.defaulters, fullName: d.fullName })).filter(d => d.defaulters > 0);
 
   const COLORS_BLUE = ['#1a365d', '#2c5282', '#2b6cb0', '#3182ce', '#4299e1', '#63b3ed', '#90cdf4', '#bee3f8', '#1e40af', '#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
   const COLORS_RED = ['#9b2c2c', '#c53030', '#e53e3e', '#fc8181', '#feb2b2', '#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fecaca', '#b91c1c', '#991b1b', '#7f1d1d', '#450a0a'];
@@ -492,6 +497,78 @@ export const Dashboard: React.FC = () => {
           )}
         </div>
       </div>
+
+      {deptTableData.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 pb-4">
+            <h3 className="text-lg font-bold text-slate-800">Department Summary</h3>
+            <p className="text-sm text-slate-400">Complete department-wise fee overview</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gradient-to-r from-[#1a365d] to-[#2c5282] text-white">
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">S.No</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Department</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider">Type</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider">Students</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider">Target Fee</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider">Collected</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider">Balance</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider">Collection %</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider">Defaulters</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deptTableData.map((d, idx) => (
+                  <tr key={d.code} className={`border-t border-slate-100 hover:bg-blue-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                    <td className="px-4 py-3 text-slate-400 font-medium">{idx + 1}</td>
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-slate-800">{d.code}</span>
+                      <span className="text-slate-400 ml-1 text-xs hidden lg:inline">({d.fullName.match(/\(([^)]+)\)/)?.[1] || d.fullName})</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${d.courseType === 'B.E' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                        {d.courseType}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center font-semibold text-slate-700">{d.count}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-700">{formatCurrency(d.target)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-green-600">{formatCurrency(d.collection)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-red-600">{formatCurrency(d.balance)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-16 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-[#1a365d] to-[#3182ce] rounded-full" style={{ width: `${Math.min(d.pct, 100)}%` }}></div>
+                        </div>
+                        <span className="text-xs font-semibold text-slate-600 w-10">{d.pct.toFixed(1)}%</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {d.defaulters > 0 ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">{d.defaulters}</span>
+                      ) : (
+                        <span className="text-green-500 text-xs font-semibold">0</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gradient-to-r from-[#1a365d] to-[#2c5282] text-white font-bold">
+                  <td className="px-4 py-3" colSpan={3}>TOTAL</td>
+                  <td className="px-4 py-3 text-center">{deptTableTotals.count}</td>
+                  <td className="px-4 py-3 text-right">{formatCurrency(deptTableTotals.target)}</td>
+                  <td className="px-4 py-3 text-right">{formatCurrency(deptTableTotals.collection)}</td>
+                  <td className="px-4 py-3 text-right">{formatCurrency(deptTableTotals.balance)}</td>
+                  <td className="px-4 py-3 text-center">{deptTableTotals.target > 0 ? ((deptTableTotals.collection / deptTableTotals.target) * 100).toFixed(1) : '0.0'}%</td>
+                  <td className="px-4 py-3 text-center">{deptTableTotals.defaulters}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
