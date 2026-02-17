@@ -49,7 +49,7 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string, 
 );
 
 export const Dashboard: React.FC = () => {
-  const { students, transactions, feeLockerConfig, updateFeeLockerConfig, currentUser } = useApp();
+  const { students, transactions, feeLockerConfig, updateFeeLockerConfig, currentUser, getFeeTargets } = useApp();
   const [showLockerConfig, setShowLockerConfig] = useState(false);
   const [editConfig, setEditConfig] = useState<FeeLockerConfig>(feeLockerConfig);
   const [searchTerm, setSearchTerm] = useState('');
@@ -147,15 +147,30 @@ export const Dashboard: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const matchDept = (sDept: string, dept: { name: string; code: string }) =>
+    sDept === dept.name || sDept === dept.code || sDept.toUpperCase() === dept.code.toUpperCase();
+
+  const getStudentTotalTarget = (s: typeof students[0]) => {
+    if (s.feeLockers.length > 0) {
+      return s.feeLockers.reduce((lSum, l) => lSum + l.tuitionTarget + l.universityTarget, 0);
+    }
+    const dept = DEPARTMENTS.find(d => matchDept(s.department, d));
+    const duration = dept?.duration || 4;
+    let total = 0;
+    for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
+      const targets = getFeeTargets(s.department, y);
+      total += targets.tuition + targets.university;
+    }
+    return total;
+  };
+
   const totalStudents = students.length;
   const pendingApprovals = transactions.filter(t => t.status === 'PENDING').length;
   const approvedTotal = transactions
     .filter(t => t.status === 'APPROVED')
     .reduce((sum, t) => sum + t.amount, 0);
   
-  const targetTotal = students.reduce((sum, s) => {
-    return sum + s.feeLockers.reduce((lSum, l) => lSum + l.tuitionTarget + l.universityTarget, 0);
-  }, 0);
+  const targetTotal = students.reduce((sum, s) => sum + getStudentTotalTarget(s), 0);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -165,9 +180,6 @@ export const Dashboard: React.FC = () => {
     const m = d.match(/\(([^)]+)\)/);
     return m ? m[1] : d.replace('B.E ', '').replace('M.E ', '').slice(0, 6);
   };
-
-  const matchDept = (sDept: string, dept: { name: string; code: string }) =>
-    sDept === dept.name || sDept === dept.code || sDept.toUpperCase() === dept.code.toUpperCase();
 
   const deptSummaryData = DEPARTMENTS.map(dept => {
     const count = students.filter(s => matchDept(s.department, dept)).length;
@@ -183,16 +195,14 @@ export const Dashboard: React.FC = () => {
           .reduce((tSum, t) => tSum + t.amount, 0);
       }, 0);
     }, 0);
-    const target = deptStudents.reduce((sum, s) => {
-      return sum + s.feeLockers.reduce((lSum, l) => lSum + l.tuitionTarget + l.universityTarget, 0);
-    }, 0);
+    const target = deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0);
     return { name: deptShort(dept.name), collection, target, fullName: dept.name };
   }).filter(d => d.target > 0 || d.collection > 0);
 
   const deptDefaulterData = DEPARTMENTS.map(dept => {
     const deptStudents = students.filter(s => matchDept(s.department, dept));
     const defaulters = deptStudents.filter(s => {
-      const totalTarget = s.feeLockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
+      const totalTarget = getStudentTotalTarget(s);
       const totalPaid = s.feeLockers.reduce((sum, l) => {
         return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
       }, 0);
@@ -238,7 +248,7 @@ export const Dashboard: React.FC = () => {
           <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
             {searchResults.length > 0 ? (
               searchResults.map(s => {
-                const totalTarget = s.feeLockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
+                const totalTarget = getStudentTotalTarget(s);
                 const totalPaid = s.feeLockers.reduce((sum, l) => {
                   return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
                 }, 0);
@@ -271,7 +281,7 @@ export const Dashboard: React.FC = () => {
         const lifetimePaid = s.feeLockers.reduce((sum, l) => {
           return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
         }, 0);
-        const lifetimeTarget = s.feeLockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
+        const lifetimeTarget = getStudentTotalTarget(s);
         const dept = DEPARTMENTS.find(d => d.name === s.department);
         const lockerStatus = (locker: typeof s.feeLockers[0]) => {
           const paid = locker.transactions.filter(t => t.status === 'APPROVED').reduce((sum, t) => sum + t.amount, 0);

@@ -108,6 +108,36 @@ export const Reports: React.FC = () => {
   const allBatches = Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort();
   const allFinYears = Array.from(new Set(transactions.map(t => t.financialYear))).filter(Boolean).sort();
 
+  const getStudentTargets = (s: Student, filterYear: number | null) => {
+    let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
+    const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
+    if (lockers.length > 0) {
+      lockers.forEach(l => {
+        tTarget += l.tuitionTarget;
+        uTarget += l.universityTarget;
+        l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
+          if (t.feeType === 'Tuition') tPaid += t.amount;
+          else if (t.feeType === 'University') uPaid += t.amount;
+        });
+      });
+    } else {
+      const dept = DEPARTMENTS.find(d => matchesDept(s.department, d));
+      const duration = dept?.duration || 4;
+      if (filterYear) {
+        const targets = getFeeTargets(s.department, filterYear);
+        tTarget = targets.tuition;
+        uTarget = targets.university;
+      } else {
+        for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
+          const targets = getFeeTargets(s.department, y);
+          tTarget += targets.tuition;
+          uTarget += targets.university;
+        }
+      }
+    }
+    return { tTarget, uTarget, tPaid, uPaid };
+  };
+
   const getDeptSummaryData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     return DEPARTMENTS.map(dept => {
@@ -115,20 +145,11 @@ export const Reports: React.FC = () => {
       const count = deptStudents.length;
       let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
       deptStudents.forEach(s => {
-        const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
-        if (filterYear && lockers.length === 0) {
-          const targets = getFeeTargets(s.department, filterYear);
-          tTarget += targets.tuition;
-          uTarget += targets.university;
-        }
-        lockers.forEach(l => {
-          tTarget += l.tuitionTarget;
-          uTarget += l.universityTarget;
-          l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-            if (t.feeType === 'Tuition') tPaid += t.amount;
-            else if (t.feeType === 'University') uPaid += t.amount;
-          });
-        });
+        const t = getStudentTargets(s, filterYear);
+        tTarget += t.tTarget;
+        uTarget += t.uTarget;
+        tPaid += t.tPaid;
+        uPaid += t.uPaid;
       });
       return {
         department: dept.name, code: dept.code, courseType: dept.courseType,
@@ -164,10 +185,9 @@ export const Reports: React.FC = () => {
     return Object.entries(grouped).map(([batch, batchStudents]) => {
       let totalTarget = 0, totalPaid = 0;
       batchStudents.forEach(s => {
-        s.feeLockers.forEach(l => {
-          totalTarget += l.tuitionTarget + l.universityTarget;
-          l.transactions.filter(t => t.status === 'APPROVED').forEach(t => { totalPaid += t.amount; });
-        });
+        const t = getStudentTargets(s, null);
+        totalTarget += t.tTarget + t.uTarget;
+        totalPaid += t.tPaid + t.uPaid;
       });
       return { batch, count: batchStudents.length, totalTarget, totalPaid, balance: totalTarget - totalPaid };
     }).sort((a, b) => a.batch.localeCompare(b.batch));
@@ -183,23 +203,8 @@ export const Reports: React.FC = () => {
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     return filtered.map(s => {
-      let tTarget = 0, tPaid = 0, uTarget = 0, uPaid = 0;
-      const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
-      if (filterYear && lockers.length === 0) {
-        const targets = getFeeTargets(s.department, filterYear);
-        tTarget = targets.tuition;
-        uTarget = targets.university;
-      } else {
-        lockers.forEach(l => {
-          tTarget += l.tuitionTarget;
-          uTarget += l.universityTarget;
-          l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-            if (t.feeType === 'Tuition') tPaid += t.amount;
-            else if (t.feeType === 'University') uPaid += t.amount;
-          });
-        });
-      }
-      return { ...s, tTarget, tPaid, tBalance: tTarget - tPaid, uTarget, uPaid, uBalance: uTarget - uPaid, totalPaid: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid) };
+      const t = getStudentTargets(s, filterYear);
+      return { ...s, tTarget: t.tTarget, tPaid: t.tPaid, tBalance: t.tTarget - t.tPaid, uTarget: t.uTarget, uPaid: t.uPaid, uBalance: t.uTarget - t.uPaid, totalPaid: t.tPaid + t.uPaid, totalBalance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid) };
     }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
   };
 
@@ -219,24 +224,14 @@ export const Reports: React.FC = () => {
     const filterDeptObj = deptFilter === 'all' ? null : DEPARTMENTS.find(d => d.name === deptFilter);
     return students.filter(s => {
       if (filterDeptObj && !matchesDept(s.department, filterDeptObj)) return false;
-      const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
-      if (lockers.length === 0 && filterYear) return true;
-      const totalTarget = lockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
-      const totalPaid = lockers.reduce((sum, l) =>
-        sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((s2, t) => s2 + t.amount, 0), 0);
+      const t = getStudentTargets(s, filterYear);
+      const totalTarget = t.tTarget + t.uTarget;
+      const totalPaid = t.tPaid + t.uPaid;
       return totalPaid < totalTarget;
     }).map(s => {
-      const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
-      let totalTarget = 0, totalPaid = 0;
-      if (lockers.length === 0 && filterYear) {
-        const targets = getFeeTargets(s.department, filterYear);
-        totalTarget = targets.tuition + targets.university;
-      } else {
-        lockers.forEach(l => {
-          totalTarget += l.tuitionTarget + l.universityTarget;
-          l.transactions.filter(t => t.status === 'APPROVED').forEach(t => { totalPaid += t.amount; });
-        });
-      }
+      const t = getStudentTargets(s, filterYear);
+      const totalTarget = t.tTarget + t.uTarget;
+      const totalPaid = t.tPaid + t.uPaid;
       return { ...s, totalTarget, totalPaid, balance: totalTarget - totalPaid };
     }).sort((a, b) => b.balance - a.balance);
   };

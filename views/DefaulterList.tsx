@@ -5,7 +5,7 @@ import { DEPARTMENTS } from '../constants';
 import { AlertCircle, Search, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 
 export const DefaulterList: React.FC = () => {
-  const { students } = useApp();
+  const { students, getFeeTargets } = useApp();
   const [expandedDept, setExpandedDept] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDept, setFilterDept] = useState('all');
@@ -14,12 +14,33 @@ export const DefaulterList: React.FC = () => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
   };
 
+  const matchDeptHelper = (sDept: string, dept: { name: string; code: string }) =>
+    sDept === dept.name || sDept === dept.code || sDept.toUpperCase() === dept.code.toUpperCase();
+
+  const getStudentTotalTarget = (s: typeof students[0]) => {
+    if (s.feeLockers.length > 0) {
+      return s.feeLockers.reduce((sm, l) => sm + l.tuitionTarget + l.universityTarget, 0);
+    }
+    const dept = DEPARTMENTS.find(d => matchDeptHelper(s.department, d));
+    const duration = dept?.duration || 4;
+    let total = 0;
+    for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
+      const targets = getFeeTargets(s.department, y);
+      total += targets.tuition + targets.university;
+    }
+    return total;
+  };
+
+  const getStudentTotalPaid = (s: typeof students[0]) => {
+    return s.feeLockers.reduce((sm, l) => {
+      return sm + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
+    }, 0);
+  };
+
   const getDefaulters = () => {
     return students.filter(s => {
-      const totalTarget = s.feeLockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
-      const totalPaid = s.feeLockers.reduce((sum, l) => {
-        return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
-      }, 0);
+      const totalTarget = getStudentTotalTarget(s);
+      const totalPaid = getStudentTotalPaid(s);
       return totalTarget > 0 && totalPaid < totalTarget;
     });
   };
@@ -39,22 +60,14 @@ export const DefaulterList: React.FC = () => {
   const deptGroups = DEPARTMENTS.map(dept => {
     const deptDefaulters = filteredDefaulters.filter(s => s.department === dept.name || s.department === dept.code || s.department.toUpperCase() === dept.code.toUpperCase());
     const totalDue = deptDefaulters.reduce((sum, s) => {
-      const target = s.feeLockers.reduce((sm, l) => sm + l.tuitionTarget + l.universityTarget, 0);
-      const paid = s.feeLockers.reduce((sm, l) => {
-        return sm + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
-      }, 0);
-      return sum + (target - paid);
+      return sum + (getStudentTotalTarget(s) - getStudentTotalPaid(s));
     }, 0);
     return { dept, defaulters: deptDefaulters, totalDue };
   }).filter(g => g.defaulters.length > 0);
 
   const totalDefaulterCount = filteredDefaulters.length;
   const totalOutstanding = filteredDefaulters.reduce((sum, s) => {
-    const target = s.feeLockers.reduce((sm, l) => sm + l.tuitionTarget + l.universityTarget, 0);
-    const paid = s.feeLockers.reduce((sm, l) => {
-      return sm + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
-    }, 0);
-    return sum + (target - paid);
+    return sum + (getStudentTotalTarget(s) - getStudentTotalPaid(s));
   }, 0);
 
   return (
@@ -162,10 +175,8 @@ export const DefaulterList: React.FC = () => {
                       </thead>
                       <tbody>
                         {defaulters.map((s, idx) => {
-                          const totalTarget = s.feeLockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
-                          const totalPaid = s.feeLockers.reduce((sum, l) => {
-                            return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
-                          }, 0);
+                          const totalTarget = getStudentTotalTarget(s);
+                          const totalPaid = getStudentTotalPaid(s);
                           const balanceDue = totalTarget - totalPaid;
                           return (
                             <tr key={s.hallTicketNumber} className="border-t border-slate-100 hover:bg-blue-50/30 transition-colors">
