@@ -201,6 +201,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   });
 
   const [departmentFilter, setDepartmentFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState('');
   const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const filteredStudents = students.filter(s => {
@@ -209,7 +210,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     const deptObj = DEPARTMENTS.find(d => d.name === departmentFilter);
     const matchesDept = !departmentFilter || s.department === departmentFilter || 
       (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
-    return matchesSearch && matchesDept;
+    const matchesYear = !yearFilter || s.currentYear === Number(yearFilter);
+    return matchesSearch && matchesDept && matchesYear;
   });
 
   const resetForm = () => {
@@ -660,6 +662,17 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
             <option value="">All Departments</option>
             {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
           </select>
+          <select
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value)}
+            className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all min-w-[120px]"
+          >
+            <option value="">All Years</option>
+            <option value="1">1st Year</option>
+            <option value="2">2nd Year</option>
+            <option value="3">3rd Year</option>
+            <option value="4">4th Year</option>
+          </select>
         </div>
         <div className="flex items-center space-x-2">
           <button 
@@ -760,7 +773,10 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <p className="text-xs font-medium text-slate-500">Showing <span className="font-bold text-slate-700">{filteredStudents.length}</span> of <span className="font-bold text-slate-700">{students.length}</span> students</p>
-          {departmentFilter && <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded font-medium border border-blue-100">{departmentFilter}</span>}
+          <div className="flex items-center gap-2">
+            {departmentFilter && <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded font-medium border border-blue-100">{departmentFilter}</span>}
+            {yearFilter && <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded font-medium border border-emerald-100">Year {yearFilter}</span>}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
