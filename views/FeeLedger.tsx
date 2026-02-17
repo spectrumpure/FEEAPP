@@ -5,7 +5,8 @@ import { DEPARTMENTS } from '../constants';
 import { Search, ChevronDown, ChevronRight, CheckCircle2, XCircle, Clock, FileText, IndianRupee, Printer, Download, Share2, Calendar, User, StickyNote } from 'lucide-react';
 import { Student, YearLocker, StudentRemark } from '../types';
 
-const YearSummaryCard: React.FC<{ locker: YearLocker }> = ({ locker }) => {
+const YearSummaryCard: React.FC<{ locker: YearLocker; currentYear: number; isCurrent: boolean }> = ({ locker, currentYear, isCurrent }) => {
+  const isFuture = locker.year > currentYear;
   const approvedTxs = locker.transactions.filter(t => t.status === 'APPROVED');
   const tuitionPaid = approvedTxs.filter(t => t.feeType === 'Tuition').reduce((sum, t) => sum + t.amount, 0);
   const univPaid = approvedTxs.filter(t => t.feeType === 'University').reduce((sum, t) => sum + t.amount, 0);
@@ -20,11 +21,14 @@ const YearSummaryCard: React.FC<{ locker: YearLocker }> = ({ locker }) => {
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col h-full print:border-slate-300 print:shadow-none">
+    <div className={`bg-white border rounded-2xl overflow-hidden shadow-sm flex flex-col h-full print:border-slate-300 print:shadow-none relative ${isFuture ? 'border-slate-100 opacity-40' : isCurrent ? 'border-blue-300 ring-2 ring-blue-100' : 'border-slate-200'}`}>
+      {isCurrent && (
+        <div className="absolute top-0 right-0 bg-blue-600 text-white text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-bl-lg">Current</div>
+      )}
       <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 print:bg-slate-50">
         <div className="flex items-center space-x-3">
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow-sm ${
-            status === 'Fully Paid' ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+            isCurrent ? 'bg-blue-600 text-white ring-2 ring-blue-200' : status === 'Fully Paid' ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
           }`}>
             Y{locker.year}
           </div>
@@ -34,10 +38,11 @@ const YearSummaryCard: React.FC<{ locker: YearLocker }> = ({ locker }) => {
           </div>
         </div>
         <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${
+          isFuture ? 'bg-slate-50 text-slate-300 border-slate-100' :
           status === 'Fully Paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
           status === 'Partial' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-50 text-slate-400 border-slate-100'
         }`}>
-          {status}
+          {isFuture ? 'Upcoming' : status}
         </div>
       </div>
 
@@ -169,6 +174,9 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
                 <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200">
                   ADM YEAR: {student.admissionYear}
                 </span>
+                <span className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest">
+                  CURRENT YEAR: {student.currentYear}
+                </span>
               </div>
               <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight leading-none">{student.name}</h2>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-400 text-sm font-medium">
@@ -208,7 +216,7 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
         {/* 4-Year Grid */}
         <div className="year-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {student.feeLockers.map((locker) => (
-            <YearSummaryCard key={locker.year} locker={locker} />
+            <YearSummaryCard key={locker.year} locker={locker} currentYear={student.currentYear} isCurrent={locker.year === student.currentYear} />
           ))}
           {(() => {
             const maxYears = student.department.startsWith('M.E') || student.course === 'M.E' ? 2 : 4;
@@ -223,7 +231,7 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
                 otherTarget: 0,
                 transactions: []
               };
-              return <YearSummaryCard key={`future-${y}`} locker={emptyLocker} />;
+              return <YearSummaryCard key={`future-${y}`} locker={emptyLocker} currentYear={student.currentYear} isCurrent={y === student.currentYear} />;
             });
           })()}
         </div>
