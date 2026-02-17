@@ -18,6 +18,26 @@ export const DEPARTMENTS: Department[] = [
   { id: '14', name: 'M.E(VLSI)', code: 'ME-VLSI', courseType: 'M.E', duration: 2, specializations: ['General'] },
 ];
 
+export const normalizeDepartment = (raw: string): string => {
+  const val = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const mapping: Record<string, string> = {
+    'CSE': 'CSE', 'COMPUTERSCIENCE': 'CSE', 'COMPUTERSCIENCEENGINEERING': 'CSE', 'COMPUTERSCIENCEANDENGINEERING': 'CSE', 'BECOMPUTERSCIENCEENGINEERING': 'CSE', 'CS': 'CSE',
+    'CIVIL': 'CIVIL', 'CIVILENGINEERING': 'CIVIL', 'BECIVILENGINEERING': 'CIVIL', 'CE': 'CIVIL',
+    'MECH': 'MECH', 'MECHANICAL': 'MECH', 'MECHANICALENGINEERING': 'MECH', 'BEMECHANICALENGINEERING': 'MECH', 'MEHCANICAL': 'MECH', 'ME': 'MECH',
+    'ECE': 'ECE', 'ELECTRONICSANDCOMMUNICATION': 'ECE', 'ELECTRONICSANDCOMMUNICATIONENGINEERING': 'ECE', 'BEELECTRONICSANDCOMMUNICATIONENGINEERING': 'ECE', 'ELECTRONICS': 'ECE',
+    'EEE': 'EEE', 'ELECTRICALANDELECTRONICS': 'EEE', 'ELECTRICALANDELECTRONICSENGINEERING': 'EEE', 'BEELECTRICALANDELECTRONICSENGINEERING': 'EEE',
+    'IT': 'IT', 'INFORMATIONTECHNOLOGY': 'IT', 'BEINFORMATIONTECHNOLOGY': 'IT',
+    'CSAI': 'CS-AI', 'CSDS': 'CS-DS', 'CSAIML': 'CS-AIML',
+    'PROD': 'PROD', 'PRODUCTION': 'PROD', 'PRODUCTIONENGINEERING': 'PROD',
+    'MECADCAM': 'ME-CADCAM', 'CADCAM': 'ME-CADCAM',
+    'MECSE': 'ME-CSE', 'MESTRUCT': 'ME-STRUCT', 'MEVLSI': 'ME-VLSI', 'VLSI': 'ME-VLSI',
+  };
+  if (mapping[val]) return mapping[val];
+  const dept = DEPARTMENTS.find(d => d.code.toUpperCase() === val || d.name.toUpperCase().replace(/[^A-Z0-9]/g, '') === val);
+  if (dept) return dept.code;
+  return raw.trim();
+};
+
 export const COURSES = ['B.E', 'M.E'] as const;
 export const SECTIONS = ['A', 'B', 'C', 'D'] as const;
 

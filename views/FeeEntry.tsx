@@ -17,14 +17,14 @@ import {
   Info
 } from 'lucide-react';
 import { FeeType, PaymentMode, FeeTransaction, Student, YearLocker } from '../types';
-import { DEPARTMENTS } from '../constants';
+import { DEPARTMENTS, normalizeDepartment } from '../constants';
 
 interface FeeEntryProps {
   preSelectedHTN?: string | null;
 }
 
 export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
-  const { students, addTransaction, bulkAddStudents } = useApp();
+  const { students, addTransaction, bulkAddStudents, getFeeTargets } = useApp();
   const [activeMode, setActiveMode] = useState<'manual' | 'bulk'>('manual');
   const [htn, setHtn] = useState(preSelectedHTN || '');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -199,21 +199,27 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
         const admYearNum = parseInt(admYear) || 2025;
         const acYear = `${admYearNum}-${(admYearNum + 1).toString().slice(-2)}`;
 
+        const normalizedDept = normalizeDepartment(cleanCols[4]);
+        const deptInfo = DEPARTMENTS.find(d => d.code === normalizedDept || d.name === normalizedDept || d.code.toUpperCase() === normalizedDept.toUpperCase());
+        const isME = deptInfo?.courseType === 'M.E' || normalizedDept.startsWith('ME-');
+        const duration = deptInfo?.duration || (isME ? 2 : 4);
+        const targets = getFeeTargets(normalizedDept, 1);
+
         const studentData: Student = {
           hallTicketNumber: htnValue,
           name: cleanCols[1].toUpperCase(),
           fatherName: cleanCols[2].toUpperCase(),
           sex: cleanCols[3],
-          department: cleanCols[4],
+          department: normalizedDept,
           admissionCategory: mode,
           admissionYear: admYear,
-          batch: cleanCols[7] || `${admYear}-${(admYearNum + 4).toString().slice(-2)}`,
+          batch: cleanCols[7] || `${admYear}-${(admYearNum + duration).toString().slice(-2)}`,
           dob: normalizeDate(cleanCols[8]),
           mobile: cleanCols[9],
           fatherMobile: cleanCols[10],
           address: cleanCols[11],
           motherName: cleanCols[12].toUpperCase(),
-          course: 'B.E',
+          course: isME ? 'M.E' : 'B.E',
           specialization: 'General',
           section: 'A',
           currentYear: 1,
@@ -222,8 +228,8 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
 
         const locker: YearLocker = {
           year: 1,
-          tuitionTarget: mode.includes('MANAGEMENT') ? 125000 : 100000,
-          universityTarget: 12650,
+          tuitionTarget: targets.tuition,
+          universityTarget: targets.university,
           otherTarget: 0,
           transactions: []
         };

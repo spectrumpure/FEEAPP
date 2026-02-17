@@ -32,7 +32,7 @@ import {
   X
 } from 'lucide-react';
 import { Student, CourseType, YearLocker, FeeTransaction, StudentRemark } from '../types';
-import { DEPARTMENTS, COURSES, SECTIONS } from '../constants';
+import { DEPARTMENTS, COURSES, SECTIONS, normalizeDepartment } from '../constants';
 
 interface StudentDirectoryProps {
   onFeeEntry?: (htn: string) => void;
@@ -97,28 +97,9 @@ const computeFY = (dateStr: string): string => {
   return month >= 4 ? `${year}-${(year + 1).toString().slice(-2)}` : `${year - 1}-${year.toString().slice(-2)}`;
 };
 
-const normalizeDepartment = (raw: string): string => {
-  const val = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const mapping: Record<string, string> = {
-    'CSE': 'CSE', 'COMPUTERSCIENCE': 'CSE', 'COMPUTERSCIENCEENGINEERING': 'CSE', 'COMPUTERSCIENCEANDENGINEERING': 'CSE', 'BECOMPUTERSCIENCEENGINEERING': 'CSE', 'CS': 'CSE',
-    'CIVIL': 'CIVIL', 'CIVILENGINEERING': 'CIVIL', 'BECIVILENGINEERING': 'CIVIL', 'CE': 'CIVIL',
-    'MECH': 'MECH', 'MECHANICAL': 'MECH', 'MECHANICALENGINEERING': 'MECH', 'BEMECHANICALENGINEERING': 'MECH', 'MEHCANICAL': 'MECH', 'ME': 'MECH',
-    'ECE': 'ECE', 'ELECTRONICSANDCOMMUNICATION': 'ECE', 'ELECTRONICSANDCOMMUNICATIONENGINEERING': 'ECE', 'BEELECTRONICSANDCOMMUNICATIONENGINEERING': 'ECE', 'ELECTRONICS': 'ECE',
-    'EEE': 'EEE', 'ELECTRICALANDELECTRONICS': 'EEE', 'ELECTRICALANDELECTRONICSENGINEERING': 'EEE', 'BEELECTRICALANDELECTRONICSENGINEERING': 'EEE',
-    'IT': 'IT', 'INFORMATIONTECHNOLOGY': 'IT', 'BEINFORMATIONTECHNOLOGY': 'IT',
-    'CSAI': 'CS-AI', 'CSDS': 'CS-DS', 'CSAIML': 'CS-AIML',
-    'PROD': 'PROD', 'PRODUCTION': 'PROD', 'PRODUCTIONENGINEERING': 'PROD',
-    'MECADCAM': 'ME-CADCAM', 'CADCAM': 'ME-CADCAM',
-    'MECSE': 'ME-CSE', 'MESTRUCT': 'ME-STRUCT', 'MEVLSI': 'ME-VLSI', 'VLSI': 'ME-VLSI',
-  };
-  if (mapping[val]) return mapping[val];
-  const dept = DEPARTMENTS.find(d => d.code.toUpperCase() === val || d.name.toUpperCase().replace(/[^A-Z0-9]/g, '') === val);
-  if (dept) return dept.code;
-  return raw.trim();
-};
 
 export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, onViewStudent }) => {
-  const { students, addStudent, departments, updateStudent, deleteStudent, bulkAddStudents, addTransaction, bulkAddTransactions, currentUser } = useApp();
+  const { students, addStudent, departments, updateStudent, deleteStudent, bulkAddStudents, addTransaction, bulkAddTransactions, currentUser, getFeeTargets } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showManualModal, setShowManualModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -275,10 +256,11 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         alert("Error: Roll Number already exists!");
         return;
       }
+      const manualTargets = getFeeTargets(formData.department, 1);
       const locker: YearLocker = {
         year: 1,
-        tuitionTarget: formData.admissionCategory === 'MANAGEMENT QUOTA' ? 125000 : 100000,
-        universityTarget: 12650,
+        tuitionTarget: manualTargets.tuition,
+        universityTarget: manualTargets.university,
         otherTarget: 0,
         transactions: []
       };
@@ -359,28 +341,33 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
 
         const admYear = String(cols[6] || '2025');
         const mode = String(cols[5] || 'TSMFC').toUpperCase();
+        const normalizedDept = normalizeDepartment(String(cols[4] || DEPARTMENTS[0].name));
+        const deptInfo = DEPARTMENTS.find(d => d.code === normalizedDept || d.name === normalizedDept || d.code.toUpperCase() === normalizedDept.toUpperCase());
+        const isME = deptInfo?.courseType === 'M.E' || normalizedDept.startsWith('ME-');
+        const duration = deptInfo?.duration || (isME ? 2 : 4);
+        const targets = getFeeTargets(normalizedDept, 1);
         const studentData: Student = {
           hallTicketNumber: htnValue,
           name: String(cols[1] || '').toUpperCase(),
           fatherName: String(cols[2] || '').toUpperCase(),
           sex: String(cols[3] || 'M'),
-          department: normalizeDepartment(String(cols[4] || DEPARTMENTS[0].name)),
+          department: normalizedDept,
           admissionCategory: mode,
           admissionYear: admYear,
-          batch: String(cols[7] || `${admYear}-${(parseInt(admYear) + 4).toString().slice(-2)}`),
+          batch: String(cols[7] || `${admYear}-${(parseInt(admYear) + duration).toString().slice(-2)}`),
           dob: normalizeDate(String(cols[8] || '')),
           mobile: String(cols[9] || ''),
           fatherMobile: String(cols[10] || ''),
           address: String(cols[11] || ''),
           motherName: String(cols[12] || '').toUpperCase(),
-          course: 'B.E',
+          course: isME ? 'M.E' : 'B.E',
           specialization: 'General',
           section: 'A',
           currentYear: 1,
           feeLockers: [{
             year: 1,
-            tuitionTarget: mode.includes('MANAGEMENT') ? 125000 : 100000,
-            universityTarget: 12650,
+            tuitionTarget: targets.tuition,
+            universityTarget: targets.university,
             otherTarget: 0,
             transactions: []
           }]
@@ -477,11 +464,16 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
 
         const mode = String(cols[5] || 'TSMFC').toUpperCase();
         const admYear = String(cols[6] || '2025');
+        const normalizedDeptC = normalizeDepartment(String(cols[4] || DEPARTMENTS[0].name));
+        const deptInfoC = DEPARTMENTS.find(d => d.code === normalizedDeptC || d.name === normalizedDeptC || d.code.toUpperCase() === normalizedDeptC.toUpperCase());
+        const isMEC = deptInfoC?.courseType === 'M.E' || normalizedDeptC.startsWith('ME-');
+        const durationC = deptInfoC?.duration || (isMEC ? 2 : 4);
+        const targetsC = getFeeTargets(normalizedDeptC, 1);
 
         const locker: YearLocker = {
           year: 1,
-          tuitionTarget: mode.includes('MANAGEMENT') ? 125000 : 100000,
-          universityTarget: 12650,
+          tuitionTarget: targetsC.tuition,
+          universityTarget: targetsC.university,
           otherTarget: 0,
           transactions: []
         };
@@ -534,16 +526,16 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           name: String(cols[1] || '').toUpperCase(),
           fatherName: String(cols[2] || '').toUpperCase(),
           sex: String(cols[3] || 'M'),
-          department: normalizeDepartment(String(cols[4] || DEPARTMENTS[0].name)),
+          department: normalizedDeptC,
           admissionCategory: mode,
           admissionYear: admYear,
-          batch: String(cols[7] || `${admYear}-${(parseInt(admYear) + 4).toString().slice(-2)}`),
+          batch: String(cols[7] || `${admYear}-${(parseInt(admYear) + durationC).toString().slice(-2)}`),
           dob: normalizeDate(String(cols[8] || '')),
           mobile: String(cols[9] || ''),
           fatherMobile: String(cols[10] || ''),
           address: String(cols[11] || ''),
           motherName: String(cols[12] || '').toUpperCase(),
-          course: 'B.E',
+          course: isMEC ? 'M.E' : 'B.E',
           specialization: 'General',
           section: 'A',
           currentYear: 1,
