@@ -213,10 +213,11 @@ export const DatabaseAdmin: React.FC = () => {
                         <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{d.count}</span>
                         <button
                           onClick={() => setDeleteConfirm({ type: 'dept', dept: d.department })}
-                          className="p-1 text-slate-300 hover:text-rose-500 transition-colors"
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 text-rose-500 border border-rose-200 rounded-lg hover:bg-rose-100 hover:text-rose-600 transition-colors text-[10px] font-semibold"
                           title={`Delete all ${d.department} students`}
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={13} />
+                          Delete
                         </button>
                       </div>
                     </div>
