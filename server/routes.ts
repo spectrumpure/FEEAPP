@@ -628,7 +628,7 @@ router.delete('/api/admin/students/department/:dept', requireAdmin, async (req: 
     const studentsRes = await client.query('SELECT hall_ticket_number FROM students WHERE department = $1', [dept]);
     const htns = studentsRes.rows.map((r: any) => r.hall_ticket_number);
     if (htns.length > 0) {
-      await client.query('DELETE FROM student_remarks WHERE hall_ticket_number = ANY($1)', [htns]);
+      await client.query('DELETE FROM student_remarks WHERE student_htn = ANY($1)', [htns]);
       await client.query('DELETE FROM fee_transactions WHERE student_htn = ANY($1)', [htns]);
       await client.query('DELETE FROM year_lockers WHERE student_htn = ANY($1)', [htns]);
       await client.query('DELETE FROM students WHERE department = $1', [dept]);
