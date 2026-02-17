@@ -206,7 +206,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       s.hallTicketNumber.includes(searchTerm);
-    const matchesDept = !departmentFilter || s.department === departmentFilter;
+    const deptObj = DEPARTMENTS.find(d => d.name === departmentFilter);
+    const matchesDept = !departmentFilter || s.department === departmentFilter || 
+      (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
     return matchesSearch && matchesDept;
   });
 

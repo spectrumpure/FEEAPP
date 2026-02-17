@@ -30,7 +30,9 @@ export const DefaulterList: React.FC = () => {
     const matchesSearch = searchTerm.trim().length === 0 ||
       (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (s.hallTicketNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDept = filterDept === 'all' || s.department === filterDept;
+    const deptObj = DEPARTMENTS.find(d => d.name === filterDept);
+    const matchesDept = filterDept === 'all' || s.department === filterDept || 
+      (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
     return matchesSearch && matchesDept;
   });
 
