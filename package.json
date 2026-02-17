@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx server/index.ts",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "NODE_ENV=production tsx server/index.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
