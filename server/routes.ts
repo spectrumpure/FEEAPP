@@ -4,6 +4,23 @@ import pool from './db.js';
 
 const router = Router();
 
+const normalizeDepartment = (raw: string): string => {
+  const val = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const mapping: Record<string, string> = {
+    'CSE': 'CSE', 'COMPUTERSCIENCE': 'CSE', 'COMPUTERSCIENCEENGINEERING': 'CSE', 'CS': 'CSE',
+    'CIVIL': 'CIVIL', 'CIVILENGINEERING': 'CIVIL', 'CE': 'CIVIL',
+    'MECH': 'MECH', 'MECHANICAL': 'MECH', 'MECHANICALENGINEERING': 'MECH', 'MEHCANICAL': 'MECH',
+    'ECE': 'ECE', 'ELECTRONICSANDCOMMUNICATION': 'ECE', 'ELECTRONICSANDCOMMUNICATIONENGINEERING': 'ECE', 'ELECTRONICS': 'ECE',
+    'EEE': 'EEE', 'ELECTRICALANDELECTRONICS': 'EEE', 'ELECTRICALANDELECTRONICSENGINEERING': 'EEE',
+    'IT': 'IT', 'INFORMATIONTECHNOLOGY': 'IT',
+    'CSAI': 'CS-AI', 'CSDS': 'CS-DS', 'CSAIML': 'CS-AIML',
+    'PROD': 'PROD', 'PRODUCTION': 'PROD', 'PRODUCTIONENGINEERING': 'PROD',
+    'MECADCAM': 'ME-CADCAM', 'CADCAM': 'ME-CADCAM',
+    'MECSE': 'ME-CSE', 'MESTRUCT': 'ME-STRUCT', 'MEVLSI': 'ME-VLSI', 'VLSI': 'ME-VLSI',
+  };
+  return mapping[val] || raw.trim();
+};
+
 router.post('/api/auth/login', async (req: Request, res: Response) => {
   const { username, password } = req.body;
   try {
@@ -217,7 +234,7 @@ router.post('/api/students', async (req: Request, res: Response) => {
          admission_category=EXCLUDED.admission_category, admission_year=EXCLUDED.admission_year,
          batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, updated_at=NOW()`,
       [s.hallTicketNumber, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
-       s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', s.department||'',
+       s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', normalizeDepartment(s.department||''),
        s.specialization||'', s.section||'', s.admissionCategory||'', s.admissionYear||'',
        s.batch||'', s.currentYear||1]
     );
@@ -280,7 +297,7 @@ router.post('/api/students/bulk', async (req: Request, res: Response) => {
            admission_category=EXCLUDED.admission_category, admission_year=EXCLUDED.admission_year,
            batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, updated_at=NOW()`,
         [s.hallTicketNumber, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
-         s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', s.department||'',
+         s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', normalizeDepartment(s.department||''),
          s.specialization||'', s.section||'', s.admissionCategory||'', s.admissionYear||'',
          s.batch||'', s.currentYear||1]
       );
@@ -335,7 +352,7 @@ router.put('/api/students/:htn', async (req: Request, res: Response) => {
       `UPDATE students SET name=$2, father_name=$3, mother_name=$4, sex=$5, dob=$6, mobile=$7, father_mobile=$8, address=$9, course=$10, department=$11, specialization=$12, section=$13, admission_category=$14, admission_year=$15, batch=$16, current_year=$17, updated_at=NOW()
        WHERE hall_ticket_number=$1`,
       [htn, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
-       s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', s.department||'',
+       s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', normalizeDepartment(s.department||''),
        s.specialization||'', s.section||'', s.admissionCategory||'', s.admissionYear||'',
        s.batch||'', s.currentYear||1]
     );

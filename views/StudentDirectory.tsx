@@ -97,6 +97,26 @@ const computeFY = (dateStr: string): string => {
   return month >= 4 ? `${year}-${(year + 1).toString().slice(-2)}` : `${year - 1}-${year.toString().slice(-2)}`;
 };
 
+const normalizeDepartment = (raw: string): string => {
+  const val = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const mapping: Record<string, string> = {
+    'CSE': 'CSE', 'COMPUTERSCIENCE': 'CSE', 'COMPUTERSCIENCEENGINEERING': 'CSE', 'COMPUTERSCIENCEANDENGINEERING': 'CSE', 'BECOMPUTERSCIENCEENGINEERING': 'CSE', 'CS': 'CSE',
+    'CIVIL': 'CIVIL', 'CIVILENGINEERING': 'CIVIL', 'BECIVILENGINEERING': 'CIVIL', 'CE': 'CIVIL',
+    'MECH': 'MECH', 'MECHANICAL': 'MECH', 'MECHANICALENGINEERING': 'MECH', 'BEMECHANICALENGINEERING': 'MECH', 'MEHCANICAL': 'MECH', 'ME': 'MECH',
+    'ECE': 'ECE', 'ELECTRONICSANDCOMMUNICATION': 'ECE', 'ELECTRONICSANDCOMMUNICATIONENGINEERING': 'ECE', 'BEELECTRONICSANDCOMMUNICATIONENGINEERING': 'ECE', 'ELECTRONICS': 'ECE',
+    'EEE': 'EEE', 'ELECTRICALANDELECTRONICS': 'EEE', 'ELECTRICALANDELECTRONICSENGINEERING': 'EEE', 'BEELECTRICALANDELECTRONICSENGINEERING': 'EEE',
+    'IT': 'IT', 'INFORMATIONTECHNOLOGY': 'IT', 'BEINFORMATIONTECHNOLOGY': 'IT',
+    'CSAI': 'CS-AI', 'CSDS': 'CS-DS', 'CSAIML': 'CS-AIML',
+    'PROD': 'PROD', 'PRODUCTION': 'PROD', 'PRODUCTIONENGINEERING': 'PROD',
+    'MECADCAM': 'ME-CADCAM', 'CADCAM': 'ME-CADCAM',
+    'MECSE': 'ME-CSE', 'MESTRUCT': 'ME-STRUCT', 'MEVLSI': 'ME-VLSI', 'VLSI': 'ME-VLSI',
+  };
+  if (mapping[val]) return mapping[val];
+  const dept = DEPARTMENTS.find(d => d.code.toUpperCase() === val || d.name.toUpperCase().replace(/[^A-Z0-9]/g, '') === val);
+  if (dept) return dept.code;
+  return raw.trim();
+};
+
 export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, onViewStudent }) => {
   const { students, addStudent, departments, updateStudent, deleteStudent, bulkAddStudents, addTransaction, bulkAddTransactions, currentUser } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
@@ -344,7 +364,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           name: String(cols[1] || '').toUpperCase(),
           fatherName: String(cols[2] || '').toUpperCase(),
           sex: String(cols[3] || 'M'),
-          department: String(cols[4] || DEPARTMENTS[0].name),
+          department: normalizeDepartment(String(cols[4] || DEPARTMENTS[0].name)),
           admissionCategory: mode,
           admissionYear: admYear,
           batch: String(cols[7] || `${admYear}-${(parseInt(admYear) + 4).toString().slice(-2)}`),
@@ -514,7 +534,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           name: String(cols[1] || '').toUpperCase(),
           fatherName: String(cols[2] || '').toUpperCase(),
           sex: String(cols[3] || 'M'),
-          department: String(cols[4] || DEPARTMENTS[0].name),
+          department: normalizeDepartment(String(cols[4] || DEPARTMENTS[0].name)),
           admissionCategory: mode,
           admissionYear: admYear,
           batch: String(cols[7] || `${admYear}-${(parseInt(admYear) + 4).toString().slice(-2)}`),
