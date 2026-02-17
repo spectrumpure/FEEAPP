@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../store';
 import * as XLSX from 'xlsx';
 import { 
@@ -27,9 +27,11 @@ import {
   Save,
   UserPlus,
   CreditCard,
-  Layers
+  Layers,
+  StickyNote,
+  X
 } from 'lucide-react';
-import { Student, CourseType, YearLocker, FeeTransaction } from '../types';
+import { Student, CourseType, YearLocker, FeeTransaction, StudentRemark } from '../types';
 import { DEPARTMENTS, COURSES, SECTIONS } from '../constants';
 
 interface StudentDirectoryProps {
@@ -96,11 +98,77 @@ const computeFY = (dateStr: string): string => {
 };
 
 export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, onViewStudent }) => {
-  const { students, addStudent, departments, updateStudent, deleteStudent, bulkAddStudents, addTransaction, bulkAddTransactions } = useApp();
+  const { students, addStudent, departments, updateStudent, deleteStudent, bulkAddStudents, addTransaction, bulkAddTransactions, currentUser } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showManualModal, setShowManualModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingHTN, setEditingHTN] = useState<string | null>(null);
+  const [allRemarks, setAllRemarks] = useState<Record<string, StudentRemark[]>>({});
+  const [remarksModalHTN, setRemarksModalHTN] = useState<string | null>(null);
+  const [newRemark, setNewRemark] = useState('');
+  const [addingRemark, setAddingRemark] = useState(false);
+
+  useEffect(() => {
+    const loadAllRemarks = async () => {
+      const remarksMap: Record<string, StudentRemark[]> = {};
+      try {
+        const promises = students.map(async (s) => {
+          const res = await fetch(`/api/remarks/${encodeURIComponent(s.hallTicketNumber)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.length > 0) remarksMap[s.hallTicketNumber] = data;
+          }
+        });
+        await Promise.all(promises);
+        setAllRemarks(remarksMap);
+      } catch (err) {
+        console.error('Failed to load remarks:', err);
+      }
+    };
+    if (students.length > 0) loadAllRemarks();
+  }, [students]);
+
+  const handleAddRemark = async () => {
+    if (!remarksModalHTN || !newRemark.trim()) return;
+    setAddingRemark(true);
+    try {
+      const res = await fetch('/api/remarks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hallTicketNumber: remarksModalHTN, remark: newRemark.trim(), addedBy: currentUser?.name || 'Admin' }),
+      });
+      if (res.ok) {
+        const resRemarks = await fetch(`/api/remarks/${encodeURIComponent(remarksModalHTN)}`);
+        if (resRemarks.ok) {
+          const data = await resRemarks.json();
+          setAllRemarks(prev => ({ ...prev, [remarksModalHTN]: data }));
+        }
+        setNewRemark('');
+      }
+    } catch (err) {
+      console.error('Failed to add remark:', err);
+    }
+    setAddingRemark(false);
+  };
+
+  const handleDeleteRemark = async (remarkId: number) => {
+    if (!remarksModalHTN) return;
+    try {
+      await fetch(`/api/remarks/${remarkId}`, { method: 'DELETE' });
+      const resRemarks = await fetch(`/api/remarks/${encodeURIComponent(remarksModalHTN)}`);
+      if (resRemarks.ok) {
+        const data = await resRemarks.json();
+        setAllRemarks(prev => {
+          const updated = { ...prev };
+          if (data.length > 0) updated[remarksModalHTN] = data;
+          else delete updated[remarksModalHTN];
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to delete remark:', err);
+    }
+  };
 
   const [isUploadingStudents, setIsUploadingStudents] = useState(false);
   const [isUploadingFees, setIsUploadingFees] = useState(false);
@@ -727,7 +795,19 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                           {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800 uppercase truncate">{student.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-semibold text-slate-800 uppercase truncate">{student.name}</p>
+                            {allRemarks[student.hallTicketNumber] && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setRemarksModalHTN(student.hallTicketNumber); }}
+                                className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 text-amber-600 border border-amber-200 rounded text-[8px] font-bold hover:bg-amber-100 transition-colors flex-shrink-0"
+                                title="View Remarks"
+                              >
+                                <StickyNote size={10} />
+                                {allRemarks[student.hallTicketNumber].length}
+                              </button>
+                            )}
+                          </div>
                           <p className="text-[10px] text-slate-400">S/D of {student.fatherName}</p>
                         </div>
                       </div>
@@ -781,6 +861,13 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                           <Eye size={14} />
                         </button>
                         <button 
+                          onClick={(e) => { e.stopPropagation(); setRemarksModalHTN(student.hallTicketNumber); }}
+                          className={`p-1.5 border rounded-md transition-all ${allRemarks[student.hallTicketNumber] ? 'text-amber-500 bg-amber-50 border-amber-200 hover:bg-amber-100' : 'text-slate-400 bg-white border-slate-200 hover:text-amber-500 hover:bg-amber-50 hover:border-amber-200'}`}
+                          title="Remarks / Notes"
+                        >
+                          <StickyNote size={14} />
+                        </button>
+                        <button 
                           onClick={(e) => handleEditClick(e, student)}
                           className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200"
                           title="Edit"
@@ -805,6 +892,65 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           </table>
         </div>
       </div>
+
+      {remarksModalHTN && (() => {
+        const student = students.find(s => s.hallTicketNumber === remarksModalHTN);
+        const remarks = allRemarks[remarksModalHTN] || [];
+        const isAdmin = currentUser?.role === 'ADMIN';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setRemarksModalHTN(null)}>
+            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 text-amber-600 rounded-lg"><StickyNote size={18} /></div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">Student Remarks</h3>
+                    <p className="text-xs text-slate-400">{student?.name} - {remarksModalHTN}</p>
+                  </div>
+                </div>
+                <button onClick={() => setRemarksModalHTN(null)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"><X size={18} /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                {remarks.length === 0 ? (
+                  <p className="text-center text-slate-300 text-sm py-8">No remarks yet.</p>
+                ) : remarks.map(r => (
+                  <div key={r.id} className="flex items-start gap-3 bg-amber-50/50 border border-amber-100 rounded-xl px-4 py-3">
+                    <StickyNote size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-700">{r.remark}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">By {r.addedBy} on {new Date(r.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                    </div>
+                    {isAdmin && (
+                      <button onClick={() => handleDeleteRemark(r.id)} className="p-1 text-slate-300 hover:text-rose-500 transition-colors shrink-0" title="Delete"><Trash2 size={12} /></button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {isAdmin && (
+                <div className="p-4 border-t border-slate-100">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newRemark}
+                      onChange={(e) => setNewRemark(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddRemark()}
+                      placeholder="Add a remark..."
+                      className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300"
+                    />
+                    <button
+                      onClick={handleAddRemark}
+                      disabled={addingRemark || !newRemark.trim()}
+                      className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors disabled:opacity-50"
+                    >
+                      {addingRemark ? '...' : 'Add'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {showManualModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
