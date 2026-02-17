@@ -35,7 +35,7 @@ export const DefaulterList: React.FC = () => {
   });
 
   const deptGroups = DEPARTMENTS.map(dept => {
-    const deptDefaulters = filteredDefaulters.filter(s => s.department === dept.name);
+    const deptDefaulters = filteredDefaulters.filter(s => s.department === dept.name || s.department === dept.code || s.department.toUpperCase() === dept.code.toUpperCase());
     const totalDue = deptDefaulters.reduce((sum, s) => {
       const target = s.feeLockers.reduce((sm, l) => sm + l.tuitionTarget + l.universityTarget, 0);
       const paid = s.feeLockers.reduce((sm, l) => {

@@ -83,6 +83,12 @@ const thClass = "px-4 py-3.5 text-[10px] font-semibold text-slate-500 uppercase 
 const tdClass = "px-4 py-3 text-sm";
 const selectClass = "bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all cursor-pointer";
 
+const matchesDept = (studentDept: string, dept: { name: string; code: string }) =>
+  studentDept === dept.name || studentDept === dept.code || studentDept.toUpperCase() === dept.code.toUpperCase();
+
+const findDeptForStudent = (studentDept: string) =>
+  DEPARTMENTS.find(d => matchesDept(studentDept, d));
+
 export const Reports: React.FC = () => {
   const { students, transactions, getFeeTargets } = useApp();
   const [activeTab, setActiveTab] = useState<ReportTab>('dept_summary');
@@ -105,7 +111,7 @@ export const Reports: React.FC = () => {
   const getDeptSummaryData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     return DEPARTMENTS.map(dept => {
-      const deptStudents = students.filter(s => s.department === dept.name);
+      const deptStudents = students.filter(s => matchesDept(s.department, dept));
       const count = deptStudents.length;
       let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
       deptStudents.forEach(s => {
@@ -169,7 +175,11 @@ export const Reports: React.FC = () => {
 
   const getStudentMasterData = () => {
     let filtered = [...students];
-    if (deptFilter !== 'all') filtered = filtered.filter(s => s.department === deptFilter);
+    if (deptFilter !== 'all') {
+      const filterDeptObj = DEPARTMENTS.find(d => d.name === deptFilter);
+      if (filterDeptObj) filtered = filtered.filter(s => matchesDept(s.department, filterDeptObj));
+      else filtered = filtered.filter(s => s.department === deptFilter);
+    }
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     return filtered.map(s => {
@@ -195,16 +205,20 @@ export const Reports: React.FC = () => {
 
   const getStudentInfoData = () => {
     let filtered = [...students];
-    if (deptFilter !== 'all') filtered = filtered.filter(s => s.department === deptFilter);
+    if (deptFilter !== 'all') {
+      const filterDeptObj = DEPARTMENTS.find(d => d.name === deptFilter);
+      if (filterDeptObj) filtered = filtered.filter(s => matchesDept(s.department, filterDeptObj));
+      else filtered = filtered.filter(s => s.department === deptFilter);
+    }
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
     return filtered.sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
   };
 
   const getDefaultersData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
-    const filterDept = deptFilter === 'all' ? null : deptFilter;
+    const filterDeptObj = deptFilter === 'all' ? null : DEPARTMENTS.find(d => d.name === deptFilter);
     return students.filter(s => {
-      if (filterDept && s.department !== filterDept) return false;
+      if (filterDeptObj && !matchesDept(s.department, filterDeptObj)) return false;
       const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
       if (lockers.length === 0 && filterYear) return true;
       const totalTarget = lockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);

@@ -166,13 +166,16 @@ export const Dashboard: React.FC = () => {
     return m ? m[1] : d.replace('B.E ', '').replace('M.E ', '').slice(0, 6);
   };
 
+  const matchDept = (sDept: string, dept: { name: string; code: string }) =>
+    sDept === dept.name || sDept === dept.code || sDept.toUpperCase() === dept.code.toUpperCase();
+
   const deptSummaryData = DEPARTMENTS.map(dept => {
-    const count = students.filter(s => s.department === dept.name).length;
+    const count = students.filter(s => matchDept(s.department, dept)).length;
     return { name: deptShort(dept.name), students: count, fullName: dept.name };
   }).filter(d => d.students > 0);
 
   const deptCollectionData = DEPARTMENTS.map(dept => {
-    const deptStudents = students.filter(s => s.department === dept.name);
+    const deptStudents = students.filter(s => matchDept(s.department, dept));
     const collection = deptStudents.reduce((sum, s) => {
       return sum + s.feeLockers.reduce((lSum, l) => {
         return lSum + l.transactions
@@ -187,7 +190,7 @@ export const Dashboard: React.FC = () => {
   }).filter(d => d.target > 0 || d.collection > 0);
 
   const deptDefaulterData = DEPARTMENTS.map(dept => {
-    const deptStudents = students.filter(s => s.department === dept.name);
+    const deptStudents = students.filter(s => matchDept(s.department, dept));
     const defaulters = deptStudents.filter(s => {
       const totalTarget = s.feeLockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget, 0);
       const totalPaid = s.feeLockers.reduce((sum, l) => {

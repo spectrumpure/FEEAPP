@@ -76,7 +76,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser]);
 
   const getFeeTargets = useCallback((department: string, year: number): { tuition: number; university: number } => {
-    const dept = DEPARTMENTS.find(d => d.name === department);
+    const dept = DEPARTMENTS.find(d => d.name === department || d.code === department || d.code.toUpperCase() === department.toUpperCase());
     const code = dept?.code || '';
     if (feeLockerConfig.groupC.departments.includes(code) || department.startsWith('M.E')) {
       return year === 1
