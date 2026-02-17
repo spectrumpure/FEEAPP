@@ -11,6 +11,7 @@ import { Reports } from './views/Reports';
 import { Approvals } from './views/Approvals';
 import { Certificates } from './views/Certificates';
 import { DefaulterList } from './views/DefaulterList';
+import { DatabaseAdmin } from './views/DatabaseAdmin';
 import { GraduationCap, Wallet, ShieldCheck, ClipboardCheck, Eye, EyeOff, Lock, KeyRound, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
@@ -323,6 +324,7 @@ const MainApp: React.FC = () => {
       case 'reports': return <Reports />;
       case 'certificates': return <Certificates />;
       case 'defaulters': return <DefaulterList />;
+      case 'database': return <DatabaseAdmin />;
       default: return <Dashboard />;
     }
   };

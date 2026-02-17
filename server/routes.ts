@@ -539,4 +539,94 @@ router.put('/api/fee-config', async (req: Request, res: Response) => {
   }
 });
 
+const requireAdmin = (req: Request, res: Response, next: Function) => {
+  const role = req.headers['x-user-role'] as string;
+  if (role !== 'ADMIN') return res.status(403).json({ error: 'Admin access required' });
+  next();
+};
+
+router.get('/api/admin/db-overview', requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const [studentsCount, lockersCount, txCount, remarksCount, usersCount, configCount] = await Promise.all([
+      pool.query('SELECT COUNT(*) as count FROM students'),
+      pool.query('SELECT COUNT(*) as count FROM year_lockers'),
+      pool.query('SELECT COUNT(*) as count FROM fee_transactions'),
+      pool.query('SELECT COUNT(*) as count FROM student_remarks'),
+      pool.query('SELECT COUNT(*) as count FROM app_users'),
+      pool.query('SELECT COUNT(*) as count FROM fee_locker_config'),
+    ]);
+    const deptBreakdown = await pool.query('SELECT department, COUNT(*) as count FROM students GROUP BY department ORDER BY department');
+    res.json({
+      tables: {
+        students: parseInt(studentsCount.rows[0].count),
+        year_lockers: parseInt(lockersCount.rows[0].count),
+        fee_transactions: parseInt(txCount.rows[0].count),
+        student_remarks: parseInt(remarksCount.rows[0].count),
+        app_users: parseInt(usersCount.rows[0].count),
+        fee_locker_config: parseInt(configCount.rows[0].count),
+      },
+      departmentBreakdown: deptBreakdown.rows,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/api/admin/table/:tableName', requireAdmin, async (req: Request, res: Response) => {
+  const allowed = ['students', 'year_lockers', 'fee_transactions', 'student_remarks', 'app_users', 'fee_locker_config'];
+  const tableName = req.params.tableName as string;
+  if (!allowed.includes(tableName)) return res.status(400).json({ error: 'Invalid table name' });
+  const limit = parseInt(req.query.limit as string) || 50;
+  const offset = parseInt(req.query.offset as string) || 0;
+  try {
+    const countRes = await pool.query(`SELECT COUNT(*) as count FROM ${tableName}`);
+    const selectCols = tableName === 'app_users' ? 'id, username, name, email, role, created_at' : '*';
+    const dataRes = await pool.query(`SELECT ${selectCols} FROM ${tableName} ORDER BY 1 LIMIT $1 OFFSET $2`, [limit, offset]);
+    res.json({ total: parseInt(countRes.rows[0].count), rows: dataRes.rows, columns: dataRes.fields.map(f => f.name) });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/api/admin/students/department/:dept', requireAdmin, async (req: Request, res: Response) => {
+  const { dept } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const studentsRes = await client.query('SELECT hall_ticket_number FROM students WHERE department = $1', [dept]);
+    const htns = studentsRes.rows.map((r: any) => r.hall_ticket_number);
+    if (htns.length > 0) {
+      await client.query('DELETE FROM student_remarks WHERE hall_ticket_number = ANY($1)', [htns]);
+      await client.query('DELETE FROM fee_transactions WHERE student_htn = ANY($1)', [htns]);
+      await client.query('DELETE FROM year_lockers WHERE student_htn = ANY($1)', [htns]);
+      await client.query('DELETE FROM students WHERE department = $1', [dept]);
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, deleted: htns.length });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.delete('/api/admin/students/all', requireAdmin, async (_req: Request, res: Response) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM student_remarks');
+    await client.query('DELETE FROM fee_transactions');
+    await client.query('DELETE FROM year_lockers');
+    await client.query('DELETE FROM students');
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;
