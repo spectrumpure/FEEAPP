@@ -21,6 +21,28 @@ const normalizeDepartment = (raw: string): string => {
   return mapping[val] || raw.trim();
 };
 
+const ME_DEPARTMENTS = ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'];
+const GROUP_B_DEPARTMENTS = ['MECH', 'CIVIL', 'PROD'];
+
+const getFeeTargetsServer = (department: string, year: number, config: any): { tuition: number; university: number } => {
+  const code = normalizeDepartment(department);
+  const isME = ME_DEPARTMENTS.includes(code) || code.startsWith('ME-');
+  const duration = isME ? 2 : 4;
+  if (year > duration) return { tuition: 0, university: 0 };
+  if (isME && config?.groupC) {
+    return year === 1
+      ? { tuition: config.groupC.year1Tuition || 130000, university: config.groupC.year1University || 11650 }
+      : { tuition: config.groupC.year2Tuition || 130000, university: config.groupC.year2University || 4500 };
+  }
+  if (GROUP_B_DEPARTMENTS.includes(code) && config?.groupB) {
+    return { tuition: config.groupB.tuition || 100000, university: config.groupB.university || 12650 };
+  }
+  if (config?.groupA) {
+    return { tuition: config.groupA.tuition || 125000, university: config.groupA.university || 12650 };
+  }
+  return { tuition: 100000, university: 12650 };
+};
+
 router.post('/api/auth/login', async (req: Request, res: Response) => {
   const { username, password } = req.body;
   try {
@@ -194,11 +216,22 @@ router.get('/api/bootstrap', async (_req: Request, res: Response) => {
       txsByHTN[htn][yr].push(mapTxRow(row));
     }
 
+    const config = configRes.rows.length > 0 ? configRes.rows[0].config : null;
+
+    const studentDeptMap: Record<string, string> = {};
+    for (const row of studentsRes.rows) {
+      studentDeptMap[row.hall_ticket_number] = row.department;
+    }
+
     const lockersByHTN: Record<string, any[]> = {};
     for (const row of lockersRes.rows) {
       const htn = row.student_htn;
       if (!lockersByHTN[htn]) lockersByHTN[htn] = [];
       const locker = mapLockerRow(row);
+      const dept = studentDeptMap[htn] || '';
+      const targets = getFeeTargetsServer(dept, row.year, config);
+      locker.tuitionTarget = targets.tuition;
+      locker.universityTarget = targets.university;
       (locker as any).transactions = txsByHTN[htn]?.[row.year] || [];
       lockersByHTN[htn].push(locker);
     }
@@ -209,7 +242,6 @@ router.get('/api/bootstrap', async (_req: Request, res: Response) => {
     });
 
     const allTxs = txsRes.rows.map(mapTxRow);
-    const config = configRes.rows.length > 0 ? configRes.rows[0].config : null;
 
     res.json({ students, transactions: allTxs, feeLockerConfig: config });
   } catch (err: any) {
