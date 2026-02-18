@@ -1068,6 +1068,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                     <option>MANAGEMENT QUOTA</option>
                     <option>CONVENOR</option>
                     <option>SPOT</option>
+                    <option>LATERAL ENTRY TSMFC</option>
+                    <option>LATERAL ENTRY TSEAMCET</option>
+                    <option>LATERAL ENTRY MANAGEMENT</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
