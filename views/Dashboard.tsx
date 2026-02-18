@@ -230,7 +230,11 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="bg-gradient-to-r from-[#1a365d] via-[#2c5282] to-[#2b6cb0] rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 opacity-5">
+          <img src="/mjcet-logo.png" alt="" className="w-full h-full object-contain" />
+        </div>
         <div className="flex items-center gap-4 relative z-10">
+          <img src="/mjcet-logo.png" alt="MJCET" className="w-16 h-16 object-contain bg-white/10 rounded-xl p-1.5" />
           <div>
             <h1 className="text-xl font-bold tracking-tight">Muffakham Jah College of Engineering & Technology</h1>
             <p className="text-blue-200 text-xs mt-0.5">Autonomous & Accredited by NAAC with A+ and NBA | Affiliated to Osmania University & Approved by AICTE</p>
