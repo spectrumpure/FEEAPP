@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Student } from '../types';
 
-type ReportTab = 'dept_summary' | 'financial_year' | 'batch_wise' | 'student_master' | 'student_info' | 'defaulters';
+type ReportTab = 'dept_summary' | 'financial_year' | 'batch_wise' | 'student_master' | 'student_info' | 'defaulters' | 'category_analysis';
 
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -103,6 +103,7 @@ export const Reports: React.FC = () => {
     { id: 'student_master', label: 'Fee List', icon: <IndianRupee size={16} />, desc: 'Student fee details' },
     { id: 'student_info', label: 'Student List', icon: <ContactRound size={16} />, desc: 'Personal details' },
     { id: 'defaulters', label: 'Defaulters', icon: <AlertTriangle size={16} />, desc: 'Outstanding dues' },
+    { id: 'category_analysis', label: 'Category Analysis', icon: <Users size={16} />, desc: 'Management vs Convenor' },
   ];
 
   const allBatches = Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort();
@@ -333,6 +334,7 @@ export const Reports: React.FC = () => {
       <td class="font-bold" style="font-size:9px">${s.hallTicketNumber}</td>
       <td>${s.name}</td>
       <td class="text-center">${s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+      <td class="text-center">${s.admissionCategory || '-'}</td>
       <td class="text-right">${formatCurrency(s.tTarget)}</td>
       <td class="text-right text-green">${formatCurrency(s.tPaid)}</td>
       <td class="text-right text-red">${formatCurrency(s.tBalance)}</td>
@@ -344,13 +346,13 @@ export const Reports: React.FC = () => {
     </tr>`).join('');
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th>
-      <th class="text-center">Dept</th>
+      <th class="text-center">Dept</th><th class="text-center">Category</th>
       <th class="text-right">T.Target</th><th class="text-right">T.Paid</th><th class="text-right">T.Balance</th>
       <th class="text-right">U.Target</th><th class="text-right">U.Paid</th><th class="text-right">U.Balance</th>
       <th class="text-right">Total Paid</th><th class="text-right">Total Balance</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row">
-      <td colspan="4" class="text-right font-bold">GRAND TOTAL</td>
+      <td colspan="5" class="text-right font-bold">GRAND TOTAL</td>
       <td class="text-right">${formatCurrency(totals.tTarget)}</td><td class="text-right">${formatCurrency(totals.tPaid)}</td><td class="text-right">${formatCurrency(totals.tBalance)}</td>
       <td class="text-right">${formatCurrency(totals.uTarget)}</td><td class="text-right">${formatCurrency(totals.uPaid)}</td><td class="text-right">${formatCurrency(totals.uBalance)}</td>
       <td class="text-right">${formatCurrency(totals.totalPaid)}</td><td class="text-right">${formatCurrency(totals.totalBalance)}</td>
@@ -396,6 +398,7 @@ export const Reports: React.FC = () => {
       <td class="font-bold" style="font-size:9px">${s.hallTicketNumber}</td>
       <td>${s.name}</td>
       <td class="text-center">${s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+      <td class="text-center">${s.admissionCategory || '-'}</td>
       <td class="text-center">${s.currentYear}</td>
       <td class="text-right">${formatCurrency(s.totalTarget)}</td>
       <td class="text-right text-green">${formatCurrency(s.totalPaid)}</td>
@@ -403,15 +406,91 @@ export const Reports: React.FC = () => {
     </tr>`).join('');
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th>
-      <th class="text-center">Dept</th><th class="text-center">Year</th>
+      <th class="text-center">Dept</th><th class="text-center">Category</th><th class="text-center">Year</th>
       <th class="text-right">Target</th><th class="text-right">Paid</th><th class="text-right">Balance</th>
     </tr></thead><tbody>${rows}
-    <tr class="summary-row"><td colspan="5" class="text-right font-bold">GRAND TOTAL (${data.length} defaulters)</td>
+    <tr class="summary-row"><td colspan="6" class="text-right font-bold">GRAND TOTAL (${data.length} defaulters)</td>
       <td class="text-right">${formatCurrency(totals.totalTarget)}</td>
       <td class="text-right">${formatCurrency(totals.totalPaid)}</td>
       <td class="text-right">${formatCurrency(totals.balance)}</td>
     </tr></tbody></table>`;
     exportPDF(`Fee Defaulters Report${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
+  };
+
+  const getCategoryAnalysisData = () => {
+    const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
+    const isManagement = (cat: string) => (cat || '').toUpperCase().includes('MANAGEMENT');
+    const isConvenor = (cat: string) => { const u = (cat || '').toUpperCase(); return u.includes('CONVENOR') || u.includes('CONVENER'); };
+
+    const result: Array<{
+      department: string; code: string; courseType: string;
+      mgmtCount: number; mgmtTarget: number; mgmtPaid: number; mgmtBalance: number;
+      convCount: number; convTarget: number; convPaid: number; convBalance: number;
+    }> = [];
+
+    DEPARTMENTS.forEach(dept => {
+      const deptStudents = students.filter(s => matchesDept(s.department, dept));
+      const mgmtStudents = deptStudents.filter(s => isManagement(s.admissionCategory));
+      const convStudents = deptStudents.filter(s => isConvenor(s.admissionCategory));
+
+      let mgmtTarget = 0, mgmtPaid = 0, convTarget = 0, convPaid = 0;
+      mgmtStudents.forEach(s => {
+        const t = getStudentTargets(s, filterYear);
+        mgmtTarget += t.tTarget + t.uTarget;
+        mgmtPaid += t.tPaid + t.uPaid;
+      });
+      convStudents.forEach(s => {
+        const t = getStudentTargets(s, filterYear);
+        convTarget += t.tTarget + t.uTarget;
+        convPaid += t.tPaid + t.uPaid;
+      });
+
+      if (mgmtStudents.length > 0 || convStudents.length > 0) {
+        result.push({
+          department: dept.name, code: dept.code, courseType: dept.courseType,
+          mgmtCount: mgmtStudents.length, mgmtTarget, mgmtPaid, mgmtBalance: mgmtTarget - mgmtPaid,
+          convCount: convStudents.length, convTarget, convPaid, convBalance: convTarget - convPaid,
+        });
+      }
+    });
+    return result;
+  };
+
+  const handleExportCategoryAnalysis = () => {
+    const data = getCategoryAnalysisData();
+    const total = data.reduce((acc, d) => ({
+      mgmtCount: acc.mgmtCount + d.mgmtCount, mgmtTarget: acc.mgmtTarget + d.mgmtTarget,
+      mgmtPaid: acc.mgmtPaid + d.mgmtPaid, mgmtBalance: acc.mgmtBalance + d.mgmtBalance,
+      convCount: acc.convCount + d.convCount, convTarget: acc.convTarget + d.convTarget,
+      convPaid: acc.convPaid + d.convPaid, convBalance: acc.convBalance + d.convBalance,
+    }), { mgmtCount: 0, mgmtTarget: 0, mgmtPaid: 0, mgmtBalance: 0, convCount: 0, convTarget: 0, convPaid: 0, convBalance: 0 });
+    const rows = data.map(d => `<tr>
+      <td class="font-bold">${d.courseType}(${d.code})</td>
+      <td class="text-center">${d.mgmtCount}</td>
+      <td class="text-right">${formatCurrency(d.mgmtTarget)}</td>
+      <td class="text-right text-green">${formatCurrency(d.mgmtPaid)}</td>
+      <td class="text-right text-red font-bold">${formatCurrency(d.mgmtBalance)}</td>
+      <td class="text-center">${d.convCount}</td>
+      <td class="text-right">${formatCurrency(d.convTarget)}</td>
+      <td class="text-right text-green">${formatCurrency(d.convPaid)}</td>
+      <td class="text-right text-red font-bold">${formatCurrency(d.convBalance)}</td>
+    </tr>`).join('');
+    const html = `<table><thead><tr>
+      <th rowspan="2">Department</th>
+      <th colspan="4" class="text-center" style="background:#fef3c7;color:#92400e">Management Quota</th>
+      <th colspan="4" class="text-center" style="background:#ede9fe;color:#5b21b6">Convenor</th>
+    </tr><tr>
+      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Paid</th><th class="text-right">Pending</th>
+      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Paid</th><th class="text-right">Pending</th>
+    </tr></thead><tbody>${rows}
+    <tr class="summary-row">
+      <td class="font-bold">GRAND TOTAL</td>
+      <td class="text-center">${total.mgmtCount}</td><td class="text-right">${formatCurrency(total.mgmtTarget)}</td>
+      <td class="text-right">${formatCurrency(total.mgmtPaid)}</td><td class="text-right">${formatCurrency(total.mgmtBalance)}</td>
+      <td class="text-center">${total.convCount}</td><td class="text-right">${formatCurrency(total.convTarget)}</td>
+      <td class="text-right">${formatCurrency(total.convPaid)}</td><td class="text-right">${formatCurrency(total.convBalance)}</td>
+    </tr></tbody></table>`;
+    exportPDF(`Admission Category Fee Analysis${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
   };
 
   const exportHandlers: Record<ReportTab, () => void> = {
@@ -421,6 +500,7 @@ export const Reports: React.FC = () => {
     student_master: handleExportStudentMaster,
     student_info: handleExportStudentInfo,
     defaulters: handleExportDefaulters,
+    category_analysis: handleExportCategoryAnalysis,
   };
 
   const EmptyState = ({ message }: { message: string }) => (
@@ -671,6 +751,7 @@ export const Reports: React.FC = () => {
                 <th className={thClass}>Hall Ticket</th>
                 <th className={thClass}>Name</th>
                 <th className={`${thClass} text-center`}>Dept</th>
+                <th className={`${thClass} text-center`}>Category</th>
                 <th className={`${thClass} text-right`}>T.Target</th>
                 <th className={`${thClass} text-right`}>T.Paid</th>
                 <th className={`${thClass} text-right`}>T.Bal</th>
@@ -689,6 +770,11 @@ export const Reports: React.FC = () => {
                   <td className="px-3 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
                   <td className="px-3 py-2.5 text-xs font-semibold text-slate-800">{s.name}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+                  <td className="px-3 py-2.5 text-center">
+                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : s.admissionCategory?.includes('CONVENOR') || s.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                      {s.admissionCategory || '-'}
+                    </span>
+                  </td>
                   <td className="px-3 py-2.5 text-xs text-slate-600 text-right">{formatCurrency(s.tTarget)}</td>
                   <td className="px-3 py-2.5 text-xs font-semibold text-emerald-600 text-right">{formatCurrency(s.tPaid)}</td>
                   <td className="px-3 py-2.5 text-xs font-semibold text-right" style={{ color: s.tBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(s.tBalance)}</td>
@@ -701,7 +787,7 @@ export const Reports: React.FC = () => {
               ))}
               {data.length > 0 && (
                 <tr className="bg-[#1a365d] text-white">
-                  <td colSpan={4} className="px-3 py-3 text-xs font-bold text-right">GRAND TOTAL ({data.length} students)</td>
+                  <td colSpan={5} className="px-3 py-3 text-xs font-bold text-right">GRAND TOTAL ({data.length} students)</td>
                   <td className="px-3 py-3 text-xs font-bold text-right">{formatCurrency(totals.tTarget)}</td>
                   <td className="px-3 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(totals.tPaid)}</td>
                   <td className="px-3 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(totals.tBalance)}</td>
@@ -818,6 +904,7 @@ export const Reports: React.FC = () => {
                 <th className={thClass}>Hall Ticket</th>
                 <th className={thClass}>Student Name</th>
                 <th className={`${thClass} text-center`}>Dept</th>
+                <th className={`${thClass} text-center`}>Category</th>
                 <th className={`${thClass} text-center`}>Year</th>
                 <th className={`${thClass} text-right`}>Target</th>
                 <th className={`${thClass} text-right`}>Paid</th>
@@ -832,6 +919,11 @@ export const Reports: React.FC = () => {
                   <td className="px-4 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
                   <td className="px-4 py-2.5 text-sm font-semibold text-slate-800">{s.name}</td>
                   <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : s.admissionCategory?.includes('CONVENOR') || s.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                      {s.admissionCategory || '-'}
+                    </span>
+                  </td>
                   <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{s.currentYear}</td>
                   <td className="px-4 py-2.5 text-sm text-slate-600 text-right">{formatCurrency(s.totalTarget)}</td>
                   <td className="px-4 py-2.5 text-sm font-semibold text-emerald-600 text-right">{formatCurrency(s.totalPaid)}</td>
@@ -840,10 +932,84 @@ export const Reports: React.FC = () => {
               ))}
               {data.length > 0 && (
                 <tr className="bg-[#1a365d] text-white">
-                  <td colSpan={5} className={`${tdClass} font-bold text-right`}>GRAND TOTAL ({data.length} defaulters)</td>
+                  <td colSpan={6} className={`${tdClass} font-bold text-right`}>GRAND TOTAL ({data.length} defaulters)</td>
                   <td className={`${tdClass} font-bold text-right`}>{formatCurrency(totals.totalTarget)}</td>
                   <td className={`${tdClass} font-bold text-right text-emerald-200`}>{formatCurrency(totals.totalPaid)}</td>
                   <td className={`${tdClass} font-bold text-right text-red-200`}>{formatCurrency(totals.balance)}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCategoryAnalysis = () => {
+    const data = getCategoryAnalysisData();
+    const total = data.reduce((acc, d) => ({
+      mgmtCount: acc.mgmtCount + d.mgmtCount, mgmtTarget: acc.mgmtTarget + d.mgmtTarget,
+      mgmtPaid: acc.mgmtPaid + d.mgmtPaid, mgmtBalance: acc.mgmtBalance + d.mgmtBalance,
+      convCount: acc.convCount + d.convCount, convTarget: acc.convTarget + d.convTarget,
+      convPaid: acc.convPaid + d.convPaid, convBalance: acc.convBalance + d.convBalance,
+    }), { mgmtCount: 0, mgmtTarget: 0, mgmtPaid: 0, mgmtBalance: 0, convCount: 0, convTarget: 0, convPaid: 0, convBalance: 0 });
+
+    return (
+      <div>
+        <FilterBar count={total.mgmtCount + total.convCount} countLabel="students">
+          <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
+            <option value="all">All Years</option>
+            <option value="1">1st Year</option>
+            <option value="2">2nd Year</option>
+            <option value="3">3rd Year</option>
+            <option value="4">4th Year</option>
+          </SelectFilter>
+        </FilterBar>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full text-left border-collapse text-[13px]">
+            <thead>
+              <tr className="bg-slate-50/80">
+                <th className={thClass} rowSpan={2}>Department</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-amber-800 uppercase tracking-wider bg-amber-50 text-center border-b border-amber-200" colSpan={4}>Management Quota</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-purple-800 uppercase tracking-wider bg-purple-50 text-center border-b border-purple-200" colSpan={4}>Convenor</th>
+              </tr>
+              <tr className="bg-slate-50/80">
+                <th className="px-3 py-2 text-[10px] font-bold text-amber-700 uppercase tracking-wider bg-amber-50/50 text-center">Count</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-amber-700 uppercase tracking-wider bg-amber-50/50 text-right">Target</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-amber-700 uppercase tracking-wider bg-amber-50/50 text-right">Paid</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-amber-700 uppercase tracking-wider bg-amber-50/50 text-right">Pending</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-purple-700 uppercase tracking-wider bg-purple-50/50 text-center">Count</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-purple-700 uppercase tracking-wider bg-purple-50/50 text-right">Target</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-purple-700 uppercase tracking-wider bg-purple-50/50 text-right">Paid</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-purple-700 uppercase tracking-wider bg-purple-50/50 text-right">Pending</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.length === 0 && <EmptyState message="No Management or Convenor students found." />}
+              {data.map((d, i) => (
+                <tr key={d.code} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <td className="px-3 py-2.5 text-xs font-bold text-slate-800">{d.courseType}({d.code})</td>
+                  <td className="px-3 py-2.5 text-xs text-amber-700 font-semibold text-center bg-amber-50/20">{d.mgmtCount}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-600 text-right bg-amber-50/20">{formatCurrency(d.mgmtTarget)}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-amber-50/20">{formatCurrency(d.mgmtPaid)}</td>
+                  <td className="px-3 py-2.5 text-xs font-bold text-right bg-amber-50/20" style={{ color: d.mgmtBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.mgmtBalance)}</td>
+                  <td className="px-3 py-2.5 text-xs text-purple-700 font-semibold text-center bg-purple-50/20">{d.convCount}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-600 text-right bg-purple-50/20">{formatCurrency(d.convTarget)}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-purple-50/20">{formatCurrency(d.convPaid)}</td>
+                  <td className="px-3 py-2.5 text-xs font-bold text-right bg-purple-50/20" style={{ color: d.convBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.convBalance)}</td>
+                </tr>
+              ))}
+              {data.length > 0 && (
+                <tr className="bg-[#1a365d] text-white">
+                  <td className="px-3 py-3 text-xs font-bold">GRAND TOTAL</td>
+                  <td className="px-3 py-3 text-xs font-bold text-center">{total.mgmtCount}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right">{formatCurrency(total.mgmtTarget)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(total.mgmtPaid)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(total.mgmtBalance)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-center">{total.convCount}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right">{formatCurrency(total.convTarget)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(total.convPaid)}</td>
+                  <td className="px-3 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(total.convBalance)}</td>
                 </tr>
               )}
             </tbody>
@@ -860,6 +1026,7 @@ export const Reports: React.FC = () => {
     student_master: renderStudentMaster,
     student_info: renderStudentInfo,
     defaulters: renderDefaulters,
+    category_analysis: renderCategoryAnalysis,
   };
 
   const reportTitles: Record<ReportTab, { title: string; subtitle: string }> = {
@@ -869,6 +1036,7 @@ export const Reports: React.FC = () => {
     student_master: { title: 'Student Master Fee List', subtitle: 'Year wise fee details per student' },
     student_info: { title: 'Student Master List', subtitle: 'Complete student personal information directory' },
     defaulters: { title: 'Fee Defaulters', subtitle: 'Department & year wise outstanding balance' },
+    category_analysis: { title: 'Category Analysis', subtitle: 'Management vs Convenor fee payment & pending summary' },
   };
 
   const activeReport = reportTitles[activeTab];
@@ -893,7 +1061,7 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-7 gap-2">
         {tabs.map(tab => (
           <button
             key={tab.id}
