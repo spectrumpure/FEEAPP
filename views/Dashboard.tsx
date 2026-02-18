@@ -563,9 +563,9 @@ export const Dashboard: React.FC = () => {
       )}
 
       {(() => {
-        const isManagement = (cat: string) => (cat || '').toUpperCase().includes('MANAGEMENT');
-        const isConvenor = (cat: string) => { const u = (cat || '').toUpperCase(); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
-        const isTSMFC = (cat: string) => { const u = (cat || '').toUpperCase(); return u.includes('TSMFC') || u.includes('TSECET'); };
+        const isManagement = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('MANAGEMENT') || u === 'MQ' || u === 'SPOT'; };
+        const isConvenor = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
+        const isTSMFC = (cat: string) => { const u = (cat || '').trim().toUpperCase(); return u.includes('TSMFC') || u.includes('TSECET'); };
         const getCatPaid = (sList: typeof students, zeroTuition: boolean = false) => {
           let tuiPaid = 0, uniPaid = 0, tuiTarget = 0, uniTarget = 0;
           sList.forEach(s => {

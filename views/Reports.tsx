@@ -419,9 +419,9 @@ export const Reports: React.FC = () => {
 
   const getCategoryAnalysisData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
-    const isManagement = (cat: string) => (cat || '').toUpperCase().includes('MANAGEMENT');
-    const isConvenor = (cat: string) => { const u = (cat || '').toUpperCase(); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
-    const isTSMFC = (cat: string) => { const u = (cat || '').toUpperCase(); return u.includes('TSMFC') || u.includes('TSECET'); };
+    const isManagement = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('MANAGEMENT') || u === 'MQ' || u === 'SPOT'; };
+    const isConvenor = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
+    const isTSMFC = (cat: string) => { const u = (cat || '').trim().toUpperCase(); return u.includes('TSMFC') || u.includes('TSECET'); };
 
     const result: Array<{
       department: string; code: string; courseType: string;

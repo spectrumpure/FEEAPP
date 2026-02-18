@@ -109,6 +109,13 @@ export async function initDB() {
       console.log('Default users created with hashed passwords');
     }
 
+    await client.query(`
+      UPDATE students SET admission_category = TRIM(admission_category)
+        WHERE admission_category != TRIM(admission_category);
+      UPDATE students SET admission_category = 'MANAGEMENT'
+        WHERE TRIM(UPPER(admission_category)) IN ('MANAGEMENT.', 'M.Q', 'M.Q.');
+    `);
+
     console.log('Database tables initialized successfully');
   } finally {
     client.release();

@@ -4,6 +4,13 @@ import pool from './db.js';
 
 const router = Router();
 
+const normalizeCategory = (raw: string): string => {
+  const val = raw.trim().toUpperCase().replace(/[^A-Z]/g, '');
+  if (val === 'MQ') return 'MANAGEMENT';
+  if (val.includes('MANAGEMENT')) return 'MANAGEMENT';
+  return raw.trim();
+};
+
 const normalizeDepartment = (raw: string): string => {
   const val = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   const mapping: Record<string, string> = {
@@ -266,7 +273,7 @@ router.post('/api/students', async (req: Request, res: Response) => {
          batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, updated_at=NOW()`,
       [s.hallTicketNumber, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
        s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', normalizeDepartment(s.department||''),
-       s.specialization||'', s.section||'', s.admissionCategory||'', s.admissionYear||'',
+       s.specialization||'', s.section||'', normalizeCategory(s.admissionCategory||''), s.admissionYear||'',
        s.batch||'', s.currentYear||1]
     );
 
@@ -384,7 +391,7 @@ router.put('/api/students/:htn', async (req: Request, res: Response) => {
        WHERE hall_ticket_number=$1`,
       [htn, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
        s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', normalizeDepartment(s.department||''),
-       s.specialization||'', s.section||'', s.admissionCategory||'', s.admissionYear||'',
+       s.specialization||'', s.section||'', normalizeCategory(s.admissionCategory||''), s.admissionYear||'',
        s.batch||'', s.currentYear||1]
     );
 
