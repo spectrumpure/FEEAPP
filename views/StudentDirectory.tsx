@@ -593,6 +593,36 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     document.body.removeChild(link);
   };
 
+  const downloadStudentDataExcel = () => {
+    const headers = ["ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department", "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH", "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME", "CURRENT YEAR"];
+    const wb = XLSX.utils.book_new();
+    const allRows = students.map(s => [
+      s.hallTicketNumber, s.name, s.fatherName, s.sex, s.department,
+      s.admissionCategory, s.admissionYear, s.batch, s.dob,
+      s.mobile, s.fatherMobile, s.address, s.motherName, s.currentYear
+    ]);
+    const allSheet = XLSX.utils.aoa_to_sheet([headers, ...allRows]);
+    const colWidths = [20, 30, 30, 6, 15, 18, 12, 12, 14, 15, 15, 35, 25, 10];
+    allSheet['!cols'] = colWidths.map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, allSheet, 'All Students');
+    const deptGroups: Record<string, typeof allRows> = {};
+    students.forEach((s, i) => {
+      const dept = s.department || 'Unknown';
+      if (!deptGroups[dept]) deptGroups[dept] = [];
+      deptGroups[dept].push(allRows[i]);
+    });
+    DEPARTMENTS.forEach(dept => {
+      const rows = deptGroups[dept.name] || deptGroups[dept.code];
+      if (rows && rows.length > 0) {
+        const sheetName = (dept.code || dept.name).substring(0, 31);
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        ws['!cols'] = colWidths.map(w => ({ wch: w }));
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      }
+    });
+    XLSX.writeFile(wb, `MJCET_Student_Data_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const downloadCombinedTemplate = () => {
     const headers = ["ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department", "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH", "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME", "TUITION FEE CHALLAN No.", "TUITION FEE CHALLAN DATE", "TUTION FEE", "MODE of Paymnet", "CHALLAN No.", "CHALLAN DATE", "University FEE", "CURRENT YEAR"];
     const sampleRow = ["1604-25-732-011", "DUDEKULA YOUSUF", "DUDEKULA BASHEER AHAMMAD", "M", "CIVIL", "CONVENER", "2025", "2025-29", "02.06.2007", "8885378935", "9989578655", "HYDERABAD", "D. BASHEER AHAMMAD", "RTGS Conv- 25-26", "22.09.2025", "125000", "CHALLAN", "RTGS Conv- 25-26", "22.09.2025", "12650", "1"];
@@ -701,6 +731,13 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           </select>
         </div>
         <div className="flex items-center space-x-2">
+          <button 
+            onClick={downloadStudentDataExcel}
+            className="flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+          >
+            <Download size={16} />
+            <span>Export Excel</span>
+          </button>
           <button 
             onClick={() => setShowBulkUpload(!showBulkUpload)}
             className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border ${showBulkUpload ? 'bg-slate-100 text-slate-700 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
