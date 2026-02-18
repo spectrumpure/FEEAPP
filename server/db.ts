@@ -30,6 +30,7 @@ export async function initDB() {
         admission_year VARCHAR(10) DEFAULT '',
         batch VARCHAR(20) DEFAULT '',
         current_year INT DEFAULT 1,
+        aadhaar_number VARCHAR(20) DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );

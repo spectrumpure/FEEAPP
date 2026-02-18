@@ -193,12 +193,13 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     address: '',
     course: 'B.E' as CourseType,
     department: DEPARTMENTS[0].name,
-    specialization: 'General',
-    section: 'A',
+    specialization: '',
+    section: '',
     admissionCategory: 'TSMFC',
     admissionYear: '2025',
     batch: '2025-29',
-    currentYear: 1
+    currentYear: 1,
+    aadhaarNumber: ''
   });
 
   const [departmentFilter, setDepartmentFilter] = useState('');
@@ -228,12 +229,13 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       address: '',
       course: 'B.E',
       department: DEPARTMENTS[0].name,
-      specialization: 'General',
-      section: 'A',
+      specialization: '',
+      section: '',
       admissionCategory: 'TSMFC',
       admissionYear: '2025',
       batch: '2025-29',
-      currentYear: 1
+      currentYear: 1,
+      aadhaarNumber: ''
     });
     setIsEditing(false);
     setEditingHTN(null);
@@ -295,12 +297,13 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       address: student.address,
       course: student.course,
       department: student.department,
-      specialization: student.specialization,
-      section: student.section,
+      specialization: student.specialization || '',
+      section: student.section || '',
       admissionCategory: student.admissionCategory,
       admissionYear: student.admissionYear,
       batch: student.batch,
-      currentYear: student.currentYear
+      currentYear: student.currentYear,
+      aadhaarNumber: student.aadhaarNumber || ''
     });
     setShowManualModal(true);
   };
@@ -339,43 +342,40 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         seenHTNs.add(htnValue);
         if (students.find(s => s.hallTicketNumber === htnValue)) { errors.push(`Row ${idx + 2}: ${htnValue} already exists (skipped)`); return; }
 
-        const admYear = String(cols[6] || '2025');
+        const normalizedDept = normalizeDepartment(String(cols[2] || DEPARTMENTS[0].name));
         const mode = String(cols[5] || 'TSMFC').toUpperCase();
-        const normalizedDept = normalizeDepartment(String(cols[4] || DEPARTMENTS[0].name));
+        const admYear = String(cols[12] || '2025');
         const deptInfo = DEPARTMENTS.find(d => d.code === normalizedDept || d.name === normalizedDept || d.code.toUpperCase() === normalizedDept.toUpperCase());
         const isME = deptInfo?.courseType === 'M.E' || normalizedDept.startsWith('ME-');
         const duration = deptInfo?.duration || (isME ? 2 : 4);
-        const currentYearVal = cols.length > 13 ? (parseInt(String(cols[13] || '1')) || 1) : 1;
-        const clampedYear = Math.max(1, Math.min(currentYearVal, duration));
         const feeLockers = [];
-        for (let yr = 1; yr <= clampedYear; yr++) {
-          const targets = getFeeTargets(normalizedDept, yr);
-          feeLockers.push({
-            year: yr,
-            tuitionTarget: targets.tuition,
-            universityTarget: targets.university,
-            otherTarget: 0,
-            transactions: []
-          });
-        }
+        const targets = getFeeTargets(normalizedDept, 1);
+        feeLockers.push({
+          year: 1,
+          tuitionTarget: targets.tuition,
+          universityTarget: targets.university,
+          otherTarget: 0,
+          transactions: []
+        });
         const studentData: Student = {
           hallTicketNumber: htnValue,
           name: String(cols[1] || '').toUpperCase(),
-          fatherName: String(cols[2] || '').toUpperCase(),
-          sex: String(cols[3] || 'M'),
           department: normalizedDept,
+          sex: String(cols[3] || 'M'),
+          dob: normalizeDate(String(cols[4] || '')),
           admissionCategory: mode,
+          mobile: String(cols[6] || ''),
+          fatherMobile: String(cols[7] || ''),
+          fatherName: String(cols[8] || '').toUpperCase(),
+          motherName: String(cols[9] || '').toUpperCase(),
+          address: String(cols[10] || ''),
+          aadhaarNumber: String(cols[11] || ''),
           admissionYear: admYear,
-          batch: String(cols[7] || `${admYear}-${(parseInt(admYear) + duration).toString().slice(-2)}`),
-          dob: normalizeDate(String(cols[8] || '')),
-          mobile: String(cols[9] || ''),
-          fatherMobile: String(cols[10] || ''),
-          address: String(cols[11] || ''),
-          motherName: String(cols[12] || '').toUpperCase(),
+          batch: `${admYear}-${(parseInt(admYear) + duration).toString().slice(-2)}`,
           course: isME ? 'M.E' : 'B.E',
-          specialization: 'General',
-          section: 'A',
-          currentYear: clampedYear,
+          specialization: '',
+          section: '',
+          currentYear: 1,
           feeLockers
         };
         newStudents.push(studentData);
@@ -403,39 +403,67 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       const newTxs: FeeTransaction[] = [];
 
       dataRows.forEach((cols, idx) => {
-        if (cols.length < 6) { errors.push(`Row ${idx + 2}: Insufficient columns (found ${cols.length}, need 6)`); return; }
+        if (cols.length < 11) { errors.push(`Row ${idx + 2}: Insufficient columns (found ${cols.length}, need 11)`); return; }
         const htnValue = String(cols[0] || '').trim();
         if (!htnValue) { errors.push(`Row ${idx + 2}: Missing Roll Number`); return; }
         const student = students.find(s => s.hallTicketNumber === htnValue);
         if (!student) { errors.push(`Row ${idx + 2}: Student ${htnValue} not found`); return; }
 
-        const feeType = String(cols[1] || 'Tuition');
-        const challanNo = String(cols[2] || '');
-        const challanDate = normalizeDate(String(cols[3] || ''));
-        const amount = parseFloat(String(cols[4] || '0'));
-        const paymentMode = String(cols[5] || 'Challan');
-
-        if (isNaN(amount) || amount <= 0) { errors.push(`Row ${idx + 2}: Invalid amount`); return; }
-
-        const payDate = challanDate || new Date().toISOString().split('T')[0];
-        const fy = computeFY(payDate);
-        if (!fy) { errors.push(`Row ${idx + 2}: Invalid date`); return; }
+        const tuitionChallanDate = normalizeDate(String(cols[3] || ''));
+        const tuitionMode = String(cols[4] || 'Challan').trim();
+        const tuitionAmount = parseFloat(String(cols[5] || '0'));
+        const univMode = String(cols[6] || 'Challan').trim();
+        const univChallanNo = String(cols[7] || '');
+        const univChallanDate = normalizeDate(String(cols[8] || ''));
+        const univAmount = parseFloat(String(cols[9] || '0'));
+        const feeYear = parseInt(String(cols[10] || '1')) || 1;
 
         const admYear = parseInt(student.admissionYear) || 2025;
         const acYear = `${admYear}-${(admYear + 1).toString().slice(-2)}`;
 
-        newTxs.push({
-          id: `tx-fee-${htnValue}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          studentHTN: htnValue,
-          feeType: (['Tuition', 'University', 'Other'].includes(feeType) ? feeType : 'Tuition') as any,
-          amount,
-          challanNumber: challanNo,
-          paymentMode: (['Online', 'Challan', 'DD', 'Cash', 'UPI'].includes(paymentMode) ? paymentMode : 'Challan') as any,
-          paymentDate: payDate,
-          academicYear: acYear,
-          financialYear: fy,
-          status: 'PENDING'
-        });
+        if (!isNaN(tuitionAmount) && tuitionAmount > 0) {
+          const tuitionDate = tuitionChallanDate || new Date().toISOString().split('T')[0];
+          const tuitionFY = computeFY(tuitionDate);
+          if (tuitionFY) {
+            newTxs.push({
+              id: `tx-tui-${htnValue}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              studentHTN: htnValue,
+              feeType: 'Tuition',
+              amount: tuitionAmount,
+              challanNumber: '',
+              paymentMode: (['Online', 'Challan', 'DD', 'Cash', 'UPI'].includes(tuitionMode) ? tuitionMode : 'Challan') as any,
+              paymentDate: tuitionDate,
+              academicYear: acYear,
+              financialYear: tuitionFY,
+              status: 'PENDING',
+              targetYear: feeYear
+            });
+          } else {
+            errors.push(`Row ${idx + 2}: Invalid tuition date`);
+          }
+        }
+
+        if (!isNaN(univAmount) && univAmount > 0) {
+          const univDate = univChallanDate || new Date().toISOString().split('T')[0];
+          const univFY = computeFY(univDate);
+          if (univFY) {
+            newTxs.push({
+              id: `tx-uni-${htnValue}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              studentHTN: htnValue,
+              feeType: 'University',
+              amount: univAmount,
+              challanNumber: univChallanNo,
+              paymentMode: (['Online', 'Challan', 'DD', 'Cash', 'UPI'].includes(univMode) ? univMode : 'Challan') as any,
+              paymentDate: univDate,
+              academicYear: acYear,
+              financialYear: univFY,
+              status: 'PENDING',
+              targetYear: feeYear
+            });
+          } else {
+            errors.push(`Row ${idx + 2}: Invalid university date`);
+          }
+        }
       });
 
       if (newTxs.length > 0) bulkAddTransactions(newTxs);
@@ -468,14 +496,12 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         if (seenHTNs.has(htnValue)) { errors.push(`Row ${idx + 2}: Duplicate ${htnValue} in file (skipped)`); return; }
         seenHTNs.add(htnValue);
 
+        const normalizedDeptC = normalizeDepartment(String(cols[2] || DEPARTMENTS[0].name));
         const mode = String(cols[5] || 'TSMFC').toUpperCase();
-        const admYear = String(cols[6] || '2025');
-        const normalizedDeptC = normalizeDepartment(String(cols[4] || DEPARTMENTS[0].name));
+        const admYear = String(cols[12] || '2025');
         const deptInfoC = DEPARTMENTS.find(d => d.code === normalizedDeptC || d.name === normalizedDeptC || d.code.toUpperCase() === normalizedDeptC.toUpperCase());
         const isMEC = deptInfoC?.courseType === 'M.E' || normalizedDeptC.startsWith('ME-');
         const durationC = deptInfoC?.duration || (isMEC ? 2 : 4);
-        const currentYearValC = cols.length > 20 ? (parseInt(String(cols[20] || '1')) || 1) : 1;
-        const clampedYearC = Math.max(1, Math.min(currentYearValC, durationC));
         const targetsC = getFeeTargets(normalizedDeptC, 1);
 
         const locker: YearLocker = {
@@ -486,10 +512,13 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           transactions: []
         };
 
-        const tuiChallan = String(cols[13] || '');
-        const tuiDate = normalizeDate(String(cols[14] || ''));
+        const tuiDate = normalizeDate(String(cols[13] || ''));
+        const tuiMode = String(cols[14] || 'Challan').trim();
         const tuiAmount = parseFloat(String(cols[15] || '0')) || 0;
-        const payMode = String(cols[16] || 'Challan');
+        const univMode = String(cols[16] || 'Challan').trim();
+        const univChallan = String(cols[17] || '');
+        const univDate = normalizeDate(String(cols[18] || ''));
+        const univAmount = parseFloat(String(cols[19] || '0')) || 0;
 
         if (tuiAmount > 0 && tuiDate) {
           const fy = computeFY(tuiDate);
@@ -499,18 +528,14 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
             studentHTN: htnValue,
             feeType: 'Tuition',
             amount: tuiAmount,
-            challanNumber: tuiChallan,
-            paymentMode: (['Online', 'Challan', 'DD', 'Cash', 'UPI'].includes(payMode) ? payMode : 'Challan') as any,
+            challanNumber: '',
+            paymentMode: (['Online', 'Challan', 'DD', 'Cash', 'UPI'].includes(tuiMode) ? tuiMode : 'Challan') as any,
             paymentDate: tuiDate,
             academicYear: `${admYearNum}-${(admYearNum + 1).toString().slice(-2)}`,
             financialYear: fy || `${admYearNum}-${(admYearNum + 1).toString().slice(-2)}`,
             status: 'PENDING'
           });
         }
-
-        const univChallan = String(cols[17] || '');
-        const univDate = normalizeDate(String(cols[18] || ''));
-        const univAmount = parseFloat(String(cols[19] || '0')) || 0;
 
         if (univAmount > 0 && univDate) {
           const fy = computeFY(univDate);
@@ -521,39 +546,34 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
             feeType: 'University',
             amount: univAmount,
             challanNumber: univChallan,
-            paymentMode: (['Online', 'Challan', 'DD', 'Cash', 'UPI'].includes(payMode) ? payMode : 'Challan') as any,
+            paymentMode: (['Online', 'Challan', 'DD', 'Cash', 'UPI'].includes(univMode) ? univMode : 'Challan') as any,
             paymentDate: univDate,
-            academicYear: `${parseInt(admYear) || 2025}-${((parseInt(admYear) || 2025) + 1).toString().slice(-2)}`,
-            financialYear: fy || `${parseInt(admYear) || 2025}-${((parseInt(admYear) || 2025) + 1).toString().slice(-2)}`,
+            academicYear: `${admYearNum}-${(admYearNum + 1).toString().slice(-2)}`,
+            financialYear: fy || `${admYearNum}-${(admYearNum + 1).toString().slice(-2)}`,
             status: 'PENDING'
           });
-        }
-
-        const combinedLockers: YearLocker[] = [locker];
-        for (let yr = 2; yr <= clampedYearC; yr++) {
-          const yTargets = getFeeTargets(normalizedDeptC, yr);
-          combinedLockers.push({ year: yr, tuitionTarget: yTargets.tuition, universityTarget: yTargets.university, otherTarget: 0, transactions: [] });
         }
 
         const studentData: Student = {
           hallTicketNumber: htnValue,
           name: String(cols[1] || '').toUpperCase(),
-          fatherName: String(cols[2] || '').toUpperCase(),
-          sex: String(cols[3] || 'M'),
           department: normalizedDeptC,
+          sex: String(cols[3] || 'M'),
+          dob: normalizeDate(String(cols[4] || '')),
           admissionCategory: mode,
+          mobile: String(cols[6] || ''),
+          fatherMobile: String(cols[7] || ''),
+          fatherName: String(cols[8] || '').toUpperCase(),
+          motherName: String(cols[9] || '').toUpperCase(),
+          address: String(cols[10] || ''),
+          aadhaarNumber: String(cols[11] || ''),
           admissionYear: admYear,
-          batch: String(cols[7] || `${admYear}-${(parseInt(admYear) + durationC).toString().slice(-2)}`),
-          dob: normalizeDate(String(cols[8] || '')),
-          mobile: String(cols[9] || ''),
-          fatherMobile: String(cols[10] || ''),
-          address: String(cols[11] || ''),
-          motherName: String(cols[12] || '').toUpperCase(),
+          batch: `${admYear}-${(parseInt(admYear) + durationC).toString().slice(-2)}`,
           course: isMEC ? 'M.E' : 'B.E',
-          specialization: 'General',
-          section: 'A',
-          currentYear: clampedYearC,
-          feeLockers: combinedLockers
+          specialization: '',
+          section: '',
+          currentYear: 1,
+          feeLockers: [locker]
         };
         newStudents.push(studentData);
       });
@@ -570,8 +590,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   };
 
   const downloadStudentTemplate = () => {
-    const headers = ["ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department", "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH", "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME", "CURRENT YEAR"];
-    const sampleRow = ["1604-25-732-001", "JOHN DOE", "JAMES DOE", "M", "CIVIL", "TSMFC", "2025", "2025-29", "15.06.2005", "9876543210", "9876543211", "123 Main St", "JANE DOE", "1"];
+    const headers = ["Roll No", "Student Name", "Department", "Sex", "Date of Birth", "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name", "Mother Name", "Address", "Student Aadhaar Card No", "Admission year"];
+    const sampleRow = ["1604-25-732-001", "HIBA PARVEEN", "CSE", "F", "19.05.2008", "CONVENOR", "6309044109", "9030159230", "SYED NIZAM UDDIN FAROOQUI", "HASEENA PARVEEN", "19-4-280/55/D KHAJA NAGAR HYDERABAD-500064", "62548232566", "2025"];
     const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + sampleRow.join(",");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
@@ -582,8 +602,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   };
 
   const downloadFeeTemplate = () => {
-    const headers = ["ROLL NO'S", "FEE TYPE", "CHALLAN No.", "CHALLAN DATE", "AMOUNT", "MODE of Payment"];
-    const sampleRow = ["1604-25-732-001", "Tuition", "RTGS-001", "22.09.2025", "125000", "CHALLAN"];
+    const headers = ["Roll No", "Student Name", "Department", "Tuition Fee Challan Date", "Tuition Fee Mode of Payment", "Tuition Fee", "University Fee Mode of Payment", "University Fee Challan No", "University Fee Challan Date", "University Fee", "Fee Year"];
+    const sampleRow = ["1604-25-732-001", "HIBA PARVEEN", "CSE", "01.08.2025", "Challan", "125000", "Challan", "21471", "01.08.2025", "12650", "1"];
     const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + sampleRow.join(",");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
@@ -595,9 +615,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
 
   const downloadStudentDataExcel = () => {
     const headers = [
-      "ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department",
-      "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH",
-      "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME", "CURRENT YEAR",
+      "Roll No", "Student Name", "Department", "Sex", "Date of Birth",
+      "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name",
+      "Mother Name", "Address", "Student Aadhaar Card No", "Admission year",
       "Y1 Tuition Target", "Y1 Tuition Paid", "Y1 University Target", "Y1 University Paid",
       "Y2 Tuition Target", "Y2 Tuition Paid", "Y2 University Target", "Y2 University Paid",
       "Y3 Tuition Target", "Y3 Tuition Paid", "Y3 University Target", "Y3 University Paid",
@@ -618,9 +638,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       const totalTarget = [y1, y2, y3, y4].reduce((sum, y) => sum + y.tTarget + y.uTarget, 0);
       const totalPaid = [y1, y2, y3, y4].reduce((sum, y) => sum + y.tPaid + y.uPaid, 0);
       return [
-        s.hallTicketNumber, s.name, s.fatherName, s.sex, s.department,
-        s.admissionCategory, s.admissionYear, s.batch, s.dob,
-        s.mobile, s.fatherMobile, s.address, s.motherName, s.currentYear,
+        s.hallTicketNumber, s.name, s.department, s.sex, s.dob,
+        s.admissionCategory, s.mobile, s.fatherMobile, s.fatherName,
+        s.motherName, s.address, s.aadhaarNumber || '', s.admissionYear,
         y1.tTarget, y1.tPaid, y1.uTarget, y1.uPaid,
         y2.tTarget, y2.tPaid, y2.uTarget, y2.uPaid,
         y3.tTarget, y3.tPaid, y3.uTarget, y3.uPaid,
@@ -628,7 +648,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         totalTarget, totalPaid, totalTarget - totalPaid
       ];
     });
-    const colWidths = [20, 30, 30, 6, 15, 18, 12, 12, 14, 15, 15, 35, 25, 10, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 14, 14, 14];
+    const colWidths = [20, 30, 15, 6, 14, 18, 15, 15, 30, 25, 35, 18, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 14, 14, 14];
     const addSheet = (name: string, rows: typeof allRows) => {
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
       ws['!cols'] = colWidths.map(w => ({ wch: w }));
@@ -649,8 +669,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   };
 
   const downloadCombinedTemplate = () => {
-    const headers = ["ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department", "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH", "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME", "TUITION FEE CHALLAN No.", "TUITION FEE CHALLAN DATE", "TUTION FEE", "MODE of Paymnet", "CHALLAN No.", "CHALLAN DATE", "University FEE", "CURRENT YEAR"];
-    const sampleRow = ["1604-25-732-011", "DUDEKULA YOUSUF", "DUDEKULA BASHEER AHAMMAD", "M", "CIVIL", "CONVENER", "2025", "2025-29", "02.06.2007", "8885378935", "9989578655", "HYDERABAD", "D. BASHEER AHAMMAD", "RTGS Conv- 25-26", "22.09.2025", "125000", "CHALLAN", "RTGS Conv- 25-26", "22.09.2025", "12650", "1"];
+    const headers = ["Roll No", "Student Name", "Department", "Sex", "Date of Birth", "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name", "Mother Name", "Address", "Student Aadhaar Card No", "Admission year", "Tuition Fee Challan Date", "Tuition Fee Mode of Payment", "Tuition Fee", "University Fee Mode of Payment", "University Fee Challan No", "University Fee Challan Date", "University Fee"];
+    const sampleRow = ["1604-25-732-001", "HIBA PARVEEN", "CSE", "F", "19.05.2008", "CONVENOR", "6309044109", "9030159230", "SYED NIZAM UDDIN FAROOQUI", "HASEENA PARVEEN", "HYDERABAD-500064", "62548232566", "2025", "01.08.2025", "Challan", "125000", "Challan", "21471", "01.08.2025", "12650"];
     const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + sampleRow.join(",");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
@@ -1114,6 +1134,20 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Mobile</label>
                   <input required type="tel" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" value={formData.mobile} onChange={(e) => setFormData({...formData, mobile: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Father Mobile</label>
+                  <input type="tel" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" value={formData.fatherMobile} onChange={(e) => setFormData({...formData, fatherMobile: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aadhaar Number</label>
+                  <input type="text" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" value={formData.aadhaarNumber} onChange={(e) => setFormData({...formData, aadhaarNumber: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Address</label>
+                  <input type="text" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

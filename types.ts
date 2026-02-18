@@ -79,6 +79,7 @@ export interface Student {
   admissionYear: string;
   batch: string;
   currentYear: number;
+  aadhaarNumber: string;
   feeLockers: YearLocker[];
 }
 
