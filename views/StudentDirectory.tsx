@@ -594,17 +594,47 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   };
 
   const downloadStudentDataExcel = () => {
-    const headers = ["ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department", "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH", "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME", "CURRENT YEAR"];
+    const headers = [
+      "ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department",
+      "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH",
+      "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME", "CURRENT YEAR",
+      "Y1 Tuition Target", "Y1 Tuition Paid", "Y1 University Target", "Y1 University Paid",
+      "Y2 Tuition Target", "Y2 Tuition Paid", "Y2 University Target", "Y2 University Paid",
+      "Y3 Tuition Target", "Y3 Tuition Paid", "Y3 University Target", "Y3 University Paid",
+      "Y4 Tuition Target", "Y4 Tuition Paid", "Y4 University Target", "Y4 University Paid",
+      "Total Target", "Total Paid", "Total Pending"
+    ];
     const wb = XLSX.utils.book_new();
-    const allRows = students.map(s => [
-      s.hallTicketNumber, s.name, s.fatherName, s.sex, s.department,
-      s.admissionCategory, s.admissionYear, s.batch, s.dob,
-      s.mobile, s.fatherMobile, s.address, s.motherName, s.currentYear
-    ]);
-    const allSheet = XLSX.utils.aoa_to_sheet([headers, ...allRows]);
-    const colWidths = [20, 30, 30, 6, 15, 18, 12, 12, 14, 15, 15, 35, 25, 10];
-    allSheet['!cols'] = colWidths.map(w => ({ wch: w }));
-    XLSX.utils.book_append_sheet(wb, allSheet, 'All Students');
+    const getYearFeeData = (s: Student, year: number) => {
+      const locker = s.feeLockers.find(l => l.year === year);
+      if (!locker) return { tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0 };
+      const approved = locker.transactions.filter(tx => tx.status === 'APPROVED');
+      const tPaid = approved.filter(tx => tx.feeType === 'Tuition').reduce((sum, tx) => sum + tx.amount, 0);
+      const uPaid = approved.filter(tx => tx.feeType === 'University').reduce((sum, tx) => sum + tx.amount, 0);
+      return { tTarget: locker.tuitionTarget, tPaid, uTarget: locker.universityTarget, uPaid };
+    };
+    const allRows = students.map(s => {
+      const y1 = getYearFeeData(s, 1), y2 = getYearFeeData(s, 2), y3 = getYearFeeData(s, 3), y4 = getYearFeeData(s, 4);
+      const totalTarget = [y1, y2, y3, y4].reduce((sum, y) => sum + y.tTarget + y.uTarget, 0);
+      const totalPaid = [y1, y2, y3, y4].reduce((sum, y) => sum + y.tPaid + y.uPaid, 0);
+      return [
+        s.hallTicketNumber, s.name, s.fatherName, s.sex, s.department,
+        s.admissionCategory, s.admissionYear, s.batch, s.dob,
+        s.mobile, s.fatherMobile, s.address, s.motherName, s.currentYear,
+        y1.tTarget, y1.tPaid, y1.uTarget, y1.uPaid,
+        y2.tTarget, y2.tPaid, y2.uTarget, y2.uPaid,
+        y3.tTarget, y3.tPaid, y3.uTarget, y3.uPaid,
+        y4.tTarget, y4.tPaid, y4.uTarget, y4.uPaid,
+        totalTarget, totalPaid, totalTarget - totalPaid
+      ];
+    });
+    const colWidths = [20, 30, 30, 6, 15, 18, 12, 12, 14, 15, 15, 35, 25, 10, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 14, 14, 14];
+    const addSheet = (name: string, rows: typeof allRows) => {
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      ws['!cols'] = colWidths.map(w => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, ws, name.substring(0, 31));
+    };
+    addSheet('All Students', allRows);
     const deptGroups: Record<string, typeof allRows> = {};
     students.forEach((s, i) => {
       const dept = s.department || 'Unknown';
@@ -613,12 +643,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     });
     DEPARTMENTS.forEach(dept => {
       const rows = deptGroups[dept.name] || deptGroups[dept.code];
-      if (rows && rows.length > 0) {
-        const sheetName = (dept.code || dept.name).substring(0, 31);
-        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-        ws['!cols'] = colWidths.map(w => ({ wch: w }));
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      }
+      if (rows && rows.length > 0) addSheet(dept.code || dept.name, rows);
     });
     XLSX.writeFile(wb, `MJCET_Student_Data_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
