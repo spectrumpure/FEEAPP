@@ -562,6 +562,79 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {(() => {
+        const isManagement = (cat: string) => (cat || '').toUpperCase().includes('MANAGEMENT');
+        const isConvenor = (cat: string) => { const u = (cat || '').toUpperCase(); return u.includes('CONVENOR') || u.includes('CONVENER'); };
+        const catData = DEPARTMENTS.map(dept => {
+          const ds = students.filter(s => matchDept(s.department, dept));
+          const mgmt = ds.filter(s => isManagement(s.admissionCategory));
+          const conv = ds.filter(s => isConvenor(s.admissionCategory));
+          let mTarget = 0, mPaid = 0, cTarget = 0, cPaid = 0;
+          mgmt.forEach(s => { const t = getStudentTotalTarget(s); mTarget += t; mPaid += s.feeLockers.reduce((sum, l) => sum + l.transactions.filter(tx => tx.status === 'APPROVED').reduce((ts, tx) => ts + tx.amount, 0), 0); });
+          conv.forEach(s => { const t = getStudentTotalTarget(s); cTarget += t; cPaid += s.feeLockers.reduce((sum, l) => sum + l.transactions.filter(tx => tx.status === 'APPROVED').reduce((ts, tx) => ts + tx.amount, 0), 0); });
+          return { name: deptShort(dept.name), code: dept.code, courseType: dept.courseType, mgmtCount: mgmt.length, mTarget, mPaid, mBal: mTarget - mPaid, convCount: conv.length, cTarget, cPaid, cBal: cTarget - cPaid };
+        }).filter(d => d.mgmtCount > 0 || d.convCount > 0);
+        const catTotals = catData.reduce((a, d) => ({ mc: a.mc + d.mgmtCount, mt: a.mt + d.mTarget, mp: a.mp + d.mPaid, mb: a.mb + d.mBal, cc: a.cc + d.convCount, ct: a.ct + d.cTarget, cp: a.cp + d.cPaid, cb: a.cb + d.cBal }), { mc: 0, mt: 0, mp: 0, mb: 0, cc: 0, ct: 0, cp: 0, cb: 0 });
+        if (catData.length === 0) return null;
+        return (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-6 pb-4">
+              <h3 className="text-lg font-bold text-slate-800">Category Analysis</h3>
+              <p className="text-sm text-slate-400">Management Quota vs Convenor - Fee payment & pending summary</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80">
+                    <th className="px-4 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100" rowSpan={2}>Dept</th>
+                    <th className="px-4 py-2 text-[10px] font-bold text-amber-800 uppercase tracking-wider bg-amber-50 text-center border-b border-amber-200" colSpan={4}>Management Quota</th>
+                    <th className="px-4 py-2 text-[10px] font-bold text-purple-800 uppercase tracking-wider bg-purple-50 text-center border-b border-purple-200" colSpan={4}>Convenor</th>
+                  </tr>
+                  <tr className="bg-slate-50/80">
+                    <th className="px-3 py-2 text-[10px] font-bold text-amber-700 bg-amber-50/50 text-center">Count</th>
+                    <th className="px-3 py-2 text-[10px] font-bold text-amber-700 bg-amber-50/50 text-right">Target</th>
+                    <th className="px-3 py-2 text-[10px] font-bold text-amber-700 bg-amber-50/50 text-right">Paid</th>
+                    <th className="px-3 py-2 text-[10px] font-bold text-amber-700 bg-amber-50/50 text-right">Pending</th>
+                    <th className="px-3 py-2 text-[10px] font-bold text-purple-700 bg-purple-50/50 text-center">Count</th>
+                    <th className="px-3 py-2 text-[10px] font-bold text-purple-700 bg-purple-50/50 text-right">Target</th>
+                    <th className="px-3 py-2 text-[10px] font-bold text-purple-700 bg-purple-50/50 text-right">Paid</th>
+                    <th className="px-3 py-2 text-[10px] font-bold text-purple-700 bg-purple-50/50 text-right">Pending</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {catData.map((d, i) => (
+                    <tr key={d.code} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                      <td className="px-4 py-2.5 text-xs font-bold text-slate-800">{d.courseType}({d.code})</td>
+                      <td className="px-3 py-2.5 text-xs text-amber-700 font-semibold text-center bg-amber-50/20">{d.mgmtCount}</td>
+                      <td className="px-3 py-2.5 text-xs text-slate-600 text-right bg-amber-50/20">{formatCurrency(d.mTarget)}</td>
+                      <td className="px-3 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-amber-50/20">{formatCurrency(d.mPaid)}</td>
+                      <td className="px-3 py-2.5 text-xs font-bold text-right bg-amber-50/20" style={{ color: d.mBal > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.mBal)}</td>
+                      <td className="px-3 py-2.5 text-xs text-purple-700 font-semibold text-center bg-purple-50/20">{d.convCount}</td>
+                      <td className="px-3 py-2.5 text-xs text-slate-600 text-right bg-purple-50/20">{formatCurrency(d.cTarget)}</td>
+                      <td className="px-3 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-purple-50/20">{formatCurrency(d.cPaid)}</td>
+                      <td className="px-3 py-2.5 text-xs font-bold text-right bg-purple-50/20" style={{ color: d.cBal > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.cBal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gradient-to-r from-[#1a365d] to-[#2c5282] text-white font-bold">
+                    <td className="px-4 py-3 text-xs">TOTAL</td>
+                    <td className="px-3 py-3 text-xs text-center">{catTotals.mc}</td>
+                    <td className="px-3 py-3 text-xs text-right">{formatCurrency(catTotals.mt)}</td>
+                    <td className="px-3 py-3 text-xs text-right text-emerald-200">{formatCurrency(catTotals.mp)}</td>
+                    <td className="px-3 py-3 text-xs text-right text-red-200">{formatCurrency(catTotals.mb)}</td>
+                    <td className="px-3 py-3 text-xs text-center">{catTotals.cc}</td>
+                    <td className="px-3 py-3 text-xs text-right">{formatCurrency(catTotals.ct)}</td>
+                    <td className="px-3 py-3 text-xs text-right text-emerald-200">{formatCurrency(catTotals.cp)}</td>
+                    <td className="px-3 py-3 text-xs text-right text-red-200">{formatCurrency(catTotals.cb)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div className="mb-6">
