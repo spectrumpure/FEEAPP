@@ -57,6 +57,8 @@ export const Dashboard: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
+  const [deptYearFilter, setDeptYearFilter] = useState<string>('all');
+
   const [remarkHTN, setRemarkHTN] = useState('');
   const [remarkText, setRemarkText] = useState('');
   const [remarkError, setRemarkError] = useState('');
@@ -182,11 +184,19 @@ export const Dashboard: React.FC = () => {
   };
 
   const deptTableData = DEPARTMENTS.map(dept => {
-    const deptStudents = students.filter(s => matchDept(s.department, dept));
+    const allDeptStudents = students.filter(s => matchDept(s.department, dept));
+    const yr = deptYearFilter === 'all' ? 0 : parseInt(deptYearFilter);
+    const deptStudents = yr === 0 ? allDeptStudents : allDeptStudents.filter(s => s.feeLockers.some(l => l.year === yr));
     const count = deptStudents.length;
-    const target = deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0);
+    const target = yr === 0
+      ? deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0)
+      : deptStudents.reduce((sum, s) => {
+          const locker = s.feeLockers.find(l => l.year === yr);
+          return sum + (locker ? locker.tuitionTarget + locker.universityTarget + locker.otherTarget : 0);
+        }, 0);
     const collection = deptStudents.reduce((sum, s) => {
-      return sum + s.feeLockers.reduce((lSum, l) => {
+      const lockers = yr === 0 ? s.feeLockers : s.feeLockers.filter(l => l.year === yr);
+      return sum + lockers.reduce((lSum, l) => {
         return lSum + l.transactions
           .filter(t => t.status === 'APPROVED')
           .reduce((tSum, t) => tSum + t.amount, 0);
@@ -194,8 +204,9 @@ export const Dashboard: React.FC = () => {
     }, 0);
     const balance = target - collection;
     const defaulters = deptStudents.filter(s => {
-      const st = getStudentTotalTarget(s);
-      const sp = s.feeLockers.reduce((sum, l) => sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0), 0);
+      const lockers = yr === 0 ? s.feeLockers : s.feeLockers.filter(l => l.year === yr);
+      const st = yr === 0 ? getStudentTotalTarget(s) : lockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget + l.otherTarget, 0);
+      const sp = lockers.reduce((sum, l) => sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0), 0);
       return st > 0 && sp < st;
     }).length;
     const pct = target > 0 ? ((collection / target) * 100) : 0;
@@ -469,9 +480,25 @@ export const Dashboard: React.FC = () => {
 
       {deptTableData.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 pb-4">
-            <h3 className="text-lg font-bold text-slate-800">Department Summary</h3>
-            <p className="text-sm text-slate-400">Complete department-wise fee overview</p>
+          <div className="p-6 pb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Department Summary</h3>
+              <p className="text-sm text-slate-400">Complete department-wise fee overview</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-500">Year:</span>
+              <select
+                value={deptYearFilter}
+                onChange={(e) => setDeptYearFilter(e.target.value)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+              >
+                <option value="all">All Years</option>
+                <option value="1">1st Year</option>
+                <option value="2">2nd Year</option>
+                <option value="3">3rd Year</option>
+                <option value="4">4th Year</option>
+              </select>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

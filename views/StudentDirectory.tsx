@@ -345,7 +345,19 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         const deptInfo = DEPARTMENTS.find(d => d.code === normalizedDept || d.name === normalizedDept || d.code.toUpperCase() === normalizedDept.toUpperCase());
         const isME = deptInfo?.courseType === 'M.E' || normalizedDept.startsWith('ME-');
         const duration = deptInfo?.duration || (isME ? 2 : 4);
-        const targets = getFeeTargets(normalizedDept, 1);
+        const currentYearVal = cols.length > 13 ? (parseInt(String(cols[13] || '1')) || 1) : 1;
+        const clampedYear = Math.max(1, Math.min(currentYearVal, duration));
+        const feeLockers = [];
+        for (let yr = 1; yr <= clampedYear; yr++) {
+          const targets = getFeeTargets(normalizedDept, yr);
+          feeLockers.push({
+            year: yr,
+            tuitionTarget: targets.tuition,
+            universityTarget: targets.university,
+            otherTarget: 0,
+            transactions: []
+          });
+        }
         const studentData: Student = {
           hallTicketNumber: htnValue,
           name: String(cols[1] || '').toUpperCase(),
@@ -363,14 +375,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           course: isME ? 'M.E' : 'B.E',
           specialization: 'General',
           section: 'A',
-          currentYear: 1,
-          feeLockers: [{
-            year: 1,
-            tuitionTarget: targets.tuition,
-            universityTarget: targets.university,
-            otherTarget: 0,
-            transactions: []
-          }]
+          currentYear: clampedYear,
+          feeLockers
         };
         newStudents.push(studentData);
       });
@@ -468,6 +474,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         const deptInfoC = DEPARTMENTS.find(d => d.code === normalizedDeptC || d.name === normalizedDeptC || d.code.toUpperCase() === normalizedDeptC.toUpperCase());
         const isMEC = deptInfoC?.courseType === 'M.E' || normalizedDeptC.startsWith('ME-');
         const durationC = deptInfoC?.duration || (isMEC ? 2 : 4);
+        const currentYearValC = cols.length > 20 ? (parseInt(String(cols[20] || '1')) || 1) : 1;
+        const clampedYearC = Math.max(1, Math.min(currentYearValC, durationC));
         const targetsC = getFeeTargets(normalizedDeptC, 1);
 
         const locker: YearLocker = {
@@ -521,6 +529,12 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           });
         }
 
+        const combinedLockers: YearLocker[] = [locker];
+        for (let yr = 2; yr <= clampedYearC; yr++) {
+          const yTargets = getFeeTargets(normalizedDeptC, yr);
+          combinedLockers.push({ year: yr, tuitionTarget: yTargets.tuition, universityTarget: yTargets.university, otherTarget: 0, transactions: [] });
+        }
+
         const studentData: Student = {
           hallTicketNumber: htnValue,
           name: String(cols[1] || '').toUpperCase(),
@@ -538,8 +552,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           course: isMEC ? 'M.E' : 'B.E',
           specialization: 'General',
           section: 'A',
-          currentYear: 1,
-          feeLockers: [locker]
+          currentYear: clampedYearC,
+          feeLockers: combinedLockers
         };
         newStudents.push(studentData);
       });
@@ -556,8 +570,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   };
 
   const downloadStudentTemplate = () => {
-    const headers = ["ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department", "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH", "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME"];
-    const sampleRow = ["1604-25-732-001", "JOHN DOE", "JAMES DOE", "M", "CIVIL", "TSMFC", "2025", "2025-29", "15.06.2005", "9876543210", "9876543211", "123 Main St", "JANE DOE"];
+    const headers = ["ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department", "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH", "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME", "CURRENT YEAR"];
+    const sampleRow = ["1604-25-732-001", "JOHN DOE", "JAMES DOE", "M", "CIVIL", "TSMFC", "2025", "2025-29", "15.06.2005", "9876543210", "9876543211", "123 Main St", "JANE DOE", "1"];
     const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + sampleRow.join(",");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
@@ -580,8 +594,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   };
 
   const downloadCombinedTemplate = () => {
-    const headers = ["ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department", "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH", "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME", "TUITION FEE CHALLAN No.", "TUITION FEE CHALLAN DATE", "TUTION FEE", "MODE of Paymnet", "CHALLAN No.", "CHALLAN DATE", "University FEE"];
-    const sampleRow = ["1604-25-732-011", "DUDEKULA YOUSUF", "DUDEKULA BASHEER AHAMMAD", "M", "CIVIL", "CONVENER", "2025", "2025-29", "02.06.2007", "8885378935", "9989578655", "HYDERABAD", "D. BASHEER AHAMMAD", "RTGS Conv- 25-26", "22.09.2025", "125000", "CHALLAN", "RTGS Conv- 25-26", "22.09.2025", "12650"];
+    const headers = ["ROLL NO'S", "NAME OF THE STUDENTS", "FATHERS NAME", "SEX", "Department", "MODE OF ADMISSION", "YEAR OF ADMISSION", "BATCH", "DATE OF BIRTH", "STUDENTS MOBILE NO", "FATHER MOBILE NO", "ADDRESS", "MOTHER'S NAME", "TUITION FEE CHALLAN No.", "TUITION FEE CHALLAN DATE", "TUTION FEE", "MODE of Paymnet", "CHALLAN No.", "CHALLAN DATE", "University FEE", "CURRENT YEAR"];
+    const sampleRow = ["1604-25-732-011", "DUDEKULA YOUSUF", "DUDEKULA BASHEER AHAMMAD", "M", "CIVIL", "CONVENER", "2025", "2025-29", "02.06.2007", "8885378935", "9989578655", "HYDERABAD", "D. BASHEER AHAMMAD", "RTGS Conv- 25-26", "22.09.2025", "125000", "CHALLAN", "RTGS Conv- 25-26", "22.09.2025", "12650", "1"];
     const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + sampleRow.join(",");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));

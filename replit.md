@@ -68,6 +68,10 @@ A centralized college fee management and governance system built with React, Typ
 - **xlsx**: For parsing Excel (.xlsx/.xls) files in the browser for bulk uploads
 
 ## Recent Changes
+- 2026-02-18: Added Year filter dropdown to Dashboard Department Summary table (All Years, 1st-4th Year); filters by students who have fee lockers for selected year
+- 2026-02-18: Added Current Year column (optional) to bulk student import and combined student+fee import; creates year lockers for all years up to the current year
+- 2026-02-18: Fixed server-side fee target calculation to read department groupings from config instead of hardcoded arrays (was causing wrong university targets for CS-AI, CS-DS, CS-AIML)
+- 2026-02-18: Uploaded 460 CSE students from CSV with fee transactions
 - 2026-02-16: Added password-based authentication with bcrypt hashing, login form with username/password, reset password page, admin remarks/notes for students displayed in fee summary
 - 2026-02-16: Connected PostgreSQL database - migrated from localStorage to server-backed persistence with Express API, 6 database tables
 - 2026-02-16: Added department-wise Fee Defaulter List for Exam Cell role with collapsible department sections, search, and year-wise status badges
