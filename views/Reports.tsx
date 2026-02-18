@@ -425,10 +425,22 @@ export const Reports: React.FC = () => {
 
     const result: Array<{
       department: string; code: string; courseType: string;
-      tsmfcCount: number; tsmfcTarget: number; tsmfcPaid: number; tsmfcBalance: number;
-      mgmtCount: number; mgmtTarget: number; mgmtPaid: number; mgmtBalance: number;
-      convCount: number; convTarget: number; convPaid: number; convBalance: number;
+      tsmfcCount: number; tsmfcTarget: number; tsmfcTuiPaid: number; tsmfcUniPaid: number; tsmfcBalance: number;
+      mgmtCount: number; mgmtTarget: number; mgmtTuiPaid: number; mgmtUniPaid: number; mgmtBalance: number;
+      convCount: number; convTarget: number; convTuiPaid: number; convUniPaid: number; convBalance: number;
+      totalCount: number;
     }> = [];
+
+    const getCatFees = (sList: typeof students, fy: number | null) => {
+      let target = 0, tuiPaid = 0, uniPaid = 0;
+      sList.forEach(s => {
+        const t = getStudentTargets(s, fy);
+        target += t.tTarget + t.uTarget;
+        tuiPaid += t.tPaid;
+        uniPaid += t.uPaid;
+      });
+      return { target, tuiPaid, uniPaid, balance: target - tuiPaid - uniPaid };
+    };
 
     DEPARTMENTS.forEach(dept => {
       const deptStudents = students.filter(s => matchesDept(s.department, dept));
@@ -436,29 +448,17 @@ export const Reports: React.FC = () => {
       const mgmtStudents = deptStudents.filter(s => isManagement(s.admissionCategory));
       const convStudents = deptStudents.filter(s => isConvenor(s.admissionCategory));
 
-      let tsmfcTarget = 0, tsmfcPaid = 0, mgmtTarget = 0, mgmtPaid = 0, convTarget = 0, convPaid = 0;
-      tsmfcStudents.forEach(s => {
-        const t = getStudentTargets(s, filterYear);
-        tsmfcTarget += t.tTarget + t.uTarget;
-        tsmfcPaid += t.tPaid + t.uPaid;
-      });
-      mgmtStudents.forEach(s => {
-        const t = getStudentTargets(s, filterYear);
-        mgmtTarget += t.tTarget + t.uTarget;
-        mgmtPaid += t.tPaid + t.uPaid;
-      });
-      convStudents.forEach(s => {
-        const t = getStudentTargets(s, filterYear);
-        convTarget += t.tTarget + t.uTarget;
-        convPaid += t.tPaid + t.uPaid;
-      });
+      const tf = getCatFees(tsmfcStudents, filterYear);
+      const mf = getCatFees(mgmtStudents, filterYear);
+      const cf = getCatFees(convStudents, filterYear);
 
       if (tsmfcStudents.length > 0 || mgmtStudents.length > 0 || convStudents.length > 0) {
         result.push({
           department: dept.name, code: dept.code, courseType: dept.courseType,
-          tsmfcCount: tsmfcStudents.length, tsmfcTarget, tsmfcPaid, tsmfcBalance: tsmfcTarget - tsmfcPaid,
-          mgmtCount: mgmtStudents.length, mgmtTarget, mgmtPaid, mgmtBalance: mgmtTarget - mgmtPaid,
-          convCount: convStudents.length, convTarget, convPaid, convBalance: convTarget - convPaid,
+          tsmfcCount: tsmfcStudents.length, tsmfcTarget: tf.target, tsmfcTuiPaid: tf.tuiPaid, tsmfcUniPaid: tf.uniPaid, tsmfcBalance: tf.balance,
+          mgmtCount: mgmtStudents.length, mgmtTarget: mf.target, mgmtTuiPaid: mf.tuiPaid, mgmtUniPaid: mf.uniPaid, mgmtBalance: mf.balance,
+          convCount: convStudents.length, convTarget: cf.target, convTuiPaid: cf.tuiPaid, convUniPaid: cf.uniPaid, convBalance: cf.balance,
+          totalCount: tsmfcStudents.length + mgmtStudents.length + convStudents.length,
         });
       }
     });
@@ -469,45 +469,52 @@ export const Reports: React.FC = () => {
     const data = getCategoryAnalysisData();
     const total = data.reduce((acc, d) => ({
       tsmfcCount: acc.tsmfcCount + d.tsmfcCount, tsmfcTarget: acc.tsmfcTarget + d.tsmfcTarget,
-      tsmfcPaid: acc.tsmfcPaid + d.tsmfcPaid, tsmfcBalance: acc.tsmfcBalance + d.tsmfcBalance,
+      tsmfcTuiPaid: acc.tsmfcTuiPaid + d.tsmfcTuiPaid, tsmfcUniPaid: acc.tsmfcUniPaid + d.tsmfcUniPaid, tsmfcBalance: acc.tsmfcBalance + d.tsmfcBalance,
       mgmtCount: acc.mgmtCount + d.mgmtCount, mgmtTarget: acc.mgmtTarget + d.mgmtTarget,
-      mgmtPaid: acc.mgmtPaid + d.mgmtPaid, mgmtBalance: acc.mgmtBalance + d.mgmtBalance,
+      mgmtTuiPaid: acc.mgmtTuiPaid + d.mgmtTuiPaid, mgmtUniPaid: acc.mgmtUniPaid + d.mgmtUniPaid, mgmtBalance: acc.mgmtBalance + d.mgmtBalance,
       convCount: acc.convCount + d.convCount, convTarget: acc.convTarget + d.convTarget,
-      convPaid: acc.convPaid + d.convPaid, convBalance: acc.convBalance + d.convBalance,
-    }), { tsmfcCount: 0, tsmfcTarget: 0, tsmfcPaid: 0, tsmfcBalance: 0, mgmtCount: 0, mgmtTarget: 0, mgmtPaid: 0, mgmtBalance: 0, convCount: 0, convTarget: 0, convPaid: 0, convBalance: 0 });
+      convTuiPaid: acc.convTuiPaid + d.convTuiPaid, convUniPaid: acc.convUniPaid + d.convUniPaid, convBalance: acc.convBalance + d.convBalance,
+      all: acc.all + d.totalCount,
+    }), { tsmfcCount: 0, tsmfcTarget: 0, tsmfcTuiPaid: 0, tsmfcUniPaid: 0, tsmfcBalance: 0, mgmtCount: 0, mgmtTarget: 0, mgmtTuiPaid: 0, mgmtUniPaid: 0, mgmtBalance: 0, convCount: 0, convTarget: 0, convTuiPaid: 0, convUniPaid: 0, convBalance: 0, all: 0 });
     const rows = data.map(d => `<tr>
       <td class="font-bold">${d.courseType}(${d.code})</td>
       <td class="text-center">${d.tsmfcCount}</td>
       <td class="text-right">${formatCurrency(d.tsmfcTarget)}</td>
-      <td class="text-right text-green">${formatCurrency(d.tsmfcPaid)}</td>
+      <td class="text-right text-green">${formatCurrency(d.tsmfcTuiPaid)}</td>
+      <td class="text-right text-green">${formatCurrency(d.tsmfcUniPaid)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(d.tsmfcBalance)}</td>
       <td class="text-center">${d.mgmtCount}</td>
       <td class="text-right">${formatCurrency(d.mgmtTarget)}</td>
-      <td class="text-right text-green">${formatCurrency(d.mgmtPaid)}</td>
+      <td class="text-right text-green">${formatCurrency(d.mgmtTuiPaid)}</td>
+      <td class="text-right text-green">${formatCurrency(d.mgmtUniPaid)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(d.mgmtBalance)}</td>
       <td class="text-center">${d.convCount}</td>
       <td class="text-right">${formatCurrency(d.convTarget)}</td>
-      <td class="text-right text-green">${formatCurrency(d.convPaid)}</td>
+      <td class="text-right text-green">${formatCurrency(d.convTuiPaid)}</td>
+      <td class="text-right text-green">${formatCurrency(d.convUniPaid)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(d.convBalance)}</td>
+      <td class="text-center font-bold">${d.totalCount}</td>
     </tr>`).join('');
     const html = `<table><thead><tr>
       <th rowspan="2">Department</th>
-      <th colspan="4" class="text-center" style="background:#dbeafe;color:#1e40af">TSMFC</th>
-      <th colspan="4" class="text-center" style="background:#fef3c7;color:#92400e">Management Quota</th>
-      <th colspan="4" class="text-center" style="background:#ede9fe;color:#5b21b6">Convenor</th>
+      <th colspan="5" class="text-center" style="background:#dbeafe;color:#1e40af">TSMFC</th>
+      <th colspan="5" class="text-center" style="background:#fef3c7;color:#92400e">Management Quota</th>
+      <th colspan="5" class="text-center" style="background:#ede9fe;color:#5b21b6">Convenor</th>
+      <th rowspan="2" class="text-center">Total</th>
     </tr><tr>
-      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Paid</th><th class="text-right">Pending</th>
-      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Paid</th><th class="text-right">Pending</th>
-      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Paid</th><th class="text-right">Pending</th>
+      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Tui. Paid</th><th class="text-right">Uni. Paid</th><th class="text-right">Pending</th>
+      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Tui. Paid</th><th class="text-right">Uni. Paid</th><th class="text-right">Pending</th>
+      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Tui. Paid</th><th class="text-right">Uni. Paid</th><th class="text-right">Pending</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row">
       <td class="font-bold">GRAND TOTAL</td>
       <td class="text-center">${total.tsmfcCount}</td><td class="text-right">${formatCurrency(total.tsmfcTarget)}</td>
-      <td class="text-right">${formatCurrency(total.tsmfcPaid)}</td><td class="text-right">${formatCurrency(total.tsmfcBalance)}</td>
+      <td class="text-right">${formatCurrency(total.tsmfcTuiPaid)}</td><td class="text-right">${formatCurrency(total.tsmfcUniPaid)}</td><td class="text-right">${formatCurrency(total.tsmfcBalance)}</td>
       <td class="text-center">${total.mgmtCount}</td><td class="text-right">${formatCurrency(total.mgmtTarget)}</td>
-      <td class="text-right">${formatCurrency(total.mgmtPaid)}</td><td class="text-right">${formatCurrency(total.mgmtBalance)}</td>
+      <td class="text-right">${formatCurrency(total.mgmtTuiPaid)}</td><td class="text-right">${formatCurrency(total.mgmtUniPaid)}</td><td class="text-right">${formatCurrency(total.mgmtBalance)}</td>
       <td class="text-center">${total.convCount}</td><td class="text-right">${formatCurrency(total.convTarget)}</td>
-      <td class="text-right">${formatCurrency(total.convPaid)}</td><td class="text-right">${formatCurrency(total.convBalance)}</td>
+      <td class="text-right">${formatCurrency(total.convTuiPaid)}</td><td class="text-right">${formatCurrency(total.convUniPaid)}</td><td class="text-right">${formatCurrency(total.convBalance)}</td>
+      <td class="text-center font-bold">${total.all}</td>
     </tr></tbody></table>`;
     exportPDF(`Admission Category Fee Analysis${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
   };
@@ -968,16 +975,17 @@ export const Reports: React.FC = () => {
     const data = getCategoryAnalysisData();
     const total = data.reduce((acc, d) => ({
       tsmfcCount: acc.tsmfcCount + d.tsmfcCount, tsmfcTarget: acc.tsmfcTarget + d.tsmfcTarget,
-      tsmfcPaid: acc.tsmfcPaid + d.tsmfcPaid, tsmfcBalance: acc.tsmfcBalance + d.tsmfcBalance,
+      tsmfcTuiPaid: acc.tsmfcTuiPaid + d.tsmfcTuiPaid, tsmfcUniPaid: acc.tsmfcUniPaid + d.tsmfcUniPaid, tsmfcBalance: acc.tsmfcBalance + d.tsmfcBalance,
       mgmtCount: acc.mgmtCount + d.mgmtCount, mgmtTarget: acc.mgmtTarget + d.mgmtTarget,
-      mgmtPaid: acc.mgmtPaid + d.mgmtPaid, mgmtBalance: acc.mgmtBalance + d.mgmtBalance,
+      mgmtTuiPaid: acc.mgmtTuiPaid + d.mgmtTuiPaid, mgmtUniPaid: acc.mgmtUniPaid + d.mgmtUniPaid, mgmtBalance: acc.mgmtBalance + d.mgmtBalance,
       convCount: acc.convCount + d.convCount, convTarget: acc.convTarget + d.convTarget,
-      convPaid: acc.convPaid + d.convPaid, convBalance: acc.convBalance + d.convBalance,
-    }), { tsmfcCount: 0, tsmfcTarget: 0, tsmfcPaid: 0, tsmfcBalance: 0, mgmtCount: 0, mgmtTarget: 0, mgmtPaid: 0, mgmtBalance: 0, convCount: 0, convTarget: 0, convPaid: 0, convBalance: 0 });
+      convTuiPaid: acc.convTuiPaid + d.convTuiPaid, convUniPaid: acc.convUniPaid + d.convUniPaid, convBalance: acc.convBalance + d.convBalance,
+      all: acc.all + d.totalCount,
+    }), { tsmfcCount: 0, tsmfcTarget: 0, tsmfcTuiPaid: 0, tsmfcUniPaid: 0, tsmfcBalance: 0, mgmtCount: 0, mgmtTarget: 0, mgmtTuiPaid: 0, mgmtUniPaid: 0, mgmtBalance: 0, convCount: 0, convTarget: 0, convTuiPaid: 0, convUniPaid: 0, convBalance: 0, all: 0 });
 
     return (
       <div>
-        <FilterBar count={total.tsmfcCount + total.mgmtCount + total.convCount} countLabel="students">
+        <FilterBar count={total.all} countLabel="students">
           <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
             <option value="all">All Years</option>
             <option value="1">1st Year</option>
@@ -991,23 +999,27 @@ export const Reports: React.FC = () => {
             <thead>
               <tr className="bg-slate-50/80">
                 <th className={thClass} rowSpan={2}>Department</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-blue-800 uppercase tracking-wider bg-blue-50 text-center border-b border-blue-200" colSpan={4}>TSMFC</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-amber-800 uppercase tracking-wider bg-amber-50 text-center border-b border-amber-200" colSpan={4}>Management Quota</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-purple-800 uppercase tracking-wider bg-purple-50 text-center border-b border-purple-200" colSpan={4}>Convenor</th>
+                <th className="px-2 py-2 text-[9px] font-bold text-blue-800 uppercase tracking-wider bg-blue-50 text-center border-b border-blue-200" colSpan={5}>TSMFC</th>
+                <th className="px-2 py-2 text-[9px] font-bold text-amber-800 uppercase tracking-wider bg-amber-50 text-center border-b border-amber-200" colSpan={5}>Management Quota</th>
+                <th className="px-2 py-2 text-[9px] font-bold text-purple-800 uppercase tracking-wider bg-purple-50 text-center border-b border-purple-200" colSpan={5}>Convenor</th>
+                <th className="px-2 py-2 text-[9px] font-bold text-slate-700 uppercase tracking-wider bg-slate-100 text-center border-b border-slate-300" rowSpan={2}>Total</th>
               </tr>
               <tr className="bg-slate-50/80">
-                <th className="px-2 py-2 text-[9px] font-bold text-blue-700 bg-blue-50/50 text-center">Count</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-blue-700 bg-blue-50/50 text-right">Target</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-blue-700 bg-blue-50/50 text-right">Paid</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-blue-700 bg-blue-50/50 text-right">Pending</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-amber-700 bg-amber-50/50 text-center">Count</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-amber-700 bg-amber-50/50 text-right">Target</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-amber-700 bg-amber-50/50 text-right">Paid</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-amber-700 bg-amber-50/50 text-right">Pending</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-purple-700 bg-purple-50/50 text-center">Count</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-purple-700 bg-purple-50/50 text-right">Target</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-purple-700 bg-purple-50/50 text-right">Paid</th>
-                <th className="px-2 py-2 text-[9px] font-bold text-purple-700 bg-purple-50/50 text-right">Pending</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-center">Count</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Target</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Tui. Paid</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Uni. Paid</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Pending</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-center">Count</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Target</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Tui. Paid</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Uni. Paid</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Pending</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-center">Count</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Target</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Tui. Paid</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Uni. Paid</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Pending</th>
               </tr>
             </thead>
             <tbody>
@@ -1015,35 +1027,43 @@ export const Reports: React.FC = () => {
               {data.map((d, i) => (
                 <tr key={d.code} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className="px-3 py-2.5 text-xs font-bold text-slate-800">{d.courseType}({d.code})</td>
-                  <td className="px-2 py-2.5 text-xs text-blue-700 font-semibold text-center bg-blue-50/20">{d.tsmfcCount}</td>
-                  <td className="px-2 py-2.5 text-xs text-slate-600 text-right bg-blue-50/20">{formatCurrency(d.tsmfcTarget)}</td>
-                  <td className="px-2 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-blue-50/20">{formatCurrency(d.tsmfcPaid)}</td>
-                  <td className="px-2 py-2.5 text-xs font-bold text-right bg-blue-50/20" style={{ color: d.tsmfcBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.tsmfcBalance)}</td>
-                  <td className="px-2 py-2.5 text-xs text-amber-700 font-semibold text-center bg-amber-50/20">{d.mgmtCount}</td>
-                  <td className="px-2 py-2.5 text-xs text-slate-600 text-right bg-amber-50/20">{formatCurrency(d.mgmtTarget)}</td>
-                  <td className="px-2 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-amber-50/20">{formatCurrency(d.mgmtPaid)}</td>
-                  <td className="px-2 py-2.5 text-xs font-bold text-right bg-amber-50/20" style={{ color: d.mgmtBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.mgmtBalance)}</td>
-                  <td className="px-2 py-2.5 text-xs text-purple-700 font-semibold text-center bg-purple-50/20">{d.convCount}</td>
-                  <td className="px-2 py-2.5 text-xs text-slate-600 text-right bg-purple-50/20">{formatCurrency(d.convTarget)}</td>
-                  <td className="px-2 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-purple-50/20">{formatCurrency(d.convPaid)}</td>
-                  <td className="px-2 py-2.5 text-xs font-bold text-right bg-purple-50/20" style={{ color: d.convBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.convBalance)}</td>
+                  <td className="px-1.5 py-2.5 text-xs text-blue-700 font-semibold text-center bg-blue-50/20">{d.tsmfcCount}</td>
+                  <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-blue-50/20">{formatCurrency(d.tsmfcTarget)}</td>
+                  <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-blue-50/20">{formatCurrency(d.tsmfcTuiPaid)}</td>
+                  <td className="px-1.5 py-2.5 text-xs font-semibold text-teal-600 text-right bg-blue-50/20">{formatCurrency(d.tsmfcUniPaid)}</td>
+                  <td className="px-1.5 py-2.5 text-xs font-bold text-right bg-blue-50/20" style={{ color: d.tsmfcBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.tsmfcBalance)}</td>
+                  <td className="px-1.5 py-2.5 text-xs text-amber-700 font-semibold text-center bg-amber-50/20">{d.mgmtCount}</td>
+                  <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-amber-50/20">{formatCurrency(d.mgmtTarget)}</td>
+                  <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-amber-50/20">{formatCurrency(d.mgmtTuiPaid)}</td>
+                  <td className="px-1.5 py-2.5 text-xs font-semibold text-teal-600 text-right bg-amber-50/20">{formatCurrency(d.mgmtUniPaid)}</td>
+                  <td className="px-1.5 py-2.5 text-xs font-bold text-right bg-amber-50/20" style={{ color: d.mgmtBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.mgmtBalance)}</td>
+                  <td className="px-1.5 py-2.5 text-xs text-purple-700 font-semibold text-center bg-purple-50/20">{d.convCount}</td>
+                  <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-purple-50/20">{formatCurrency(d.convTarget)}</td>
+                  <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-purple-50/20">{formatCurrency(d.convTuiPaid)}</td>
+                  <td className="px-1.5 py-2.5 text-xs font-semibold text-teal-600 text-right bg-purple-50/20">{formatCurrency(d.convUniPaid)}</td>
+                  <td className="px-1.5 py-2.5 text-xs font-bold text-right bg-purple-50/20" style={{ color: d.convBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.convBalance)}</td>
+                  <td className="px-1.5 py-2.5 text-xs font-bold text-slate-800 text-center bg-slate-50">{d.totalCount}</td>
                 </tr>
               ))}
               {data.length > 0 && (
                 <tr className="bg-[#1a365d] text-white">
                   <td className="px-3 py-3 text-xs font-bold">GRAND TOTAL</td>
-                  <td className="px-2 py-3 text-xs font-bold text-center">{total.tsmfcCount}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-right">{formatCurrency(total.tsmfcTarget)}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(total.tsmfcPaid)}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(total.tsmfcBalance)}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-center">{total.mgmtCount}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-right">{formatCurrency(total.mgmtTarget)}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(total.mgmtPaid)}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(total.mgmtBalance)}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-center">{total.convCount}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-right">{formatCurrency(total.convTarget)}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(total.convPaid)}</td>
-                  <td className="px-2 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(total.convBalance)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-center">{total.tsmfcCount}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right">{formatCurrency(total.tsmfcTarget)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(total.tsmfcTuiPaid)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right text-teal-200">{formatCurrency(total.tsmfcUniPaid)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(total.tsmfcBalance)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-center">{total.mgmtCount}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right">{formatCurrency(total.mgmtTarget)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(total.mgmtTuiPaid)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right text-teal-200">{formatCurrency(total.mgmtUniPaid)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(total.mgmtBalance)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-center">{total.convCount}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right">{formatCurrency(total.convTarget)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right text-emerald-200">{formatCurrency(total.convTuiPaid)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right text-teal-200">{formatCurrency(total.convUniPaid)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-right text-red-200">{formatCurrency(total.convBalance)}</td>
+                  <td className="px-1.5 py-3 text-xs font-bold text-center text-yellow-200">{total.all}</td>
                 </tr>
               )}
             </tbody>
