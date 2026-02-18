@@ -566,22 +566,35 @@ export const Dashboard: React.FC = () => {
         const isManagement = (cat: string) => (cat || '').toUpperCase().includes('MANAGEMENT');
         const isConvenor = (cat: string) => { const u = (cat || '').toUpperCase(); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
         const isTSMFC = (cat: string) => { const u = (cat || '').toUpperCase(); return u.includes('TSMFC') || u.includes('TSECET'); };
-        const getCatPaid = (sList: typeof students) => {
-          let tuiPaid = 0, uniPaid = 0, target = 0;
+        const getCatPaid = (sList: typeof students, zeroTuition: boolean = false) => {
+          let tuiPaid = 0, uniPaid = 0, tuiTarget = 0, uniTarget = 0;
           sList.forEach(s => {
-            target += getStudentTotalTarget(s);
-            s.feeLockers.forEach(l => l.transactions.filter(tx => tx.status === 'APPROVED').forEach(tx => {
-              if (tx.feeType === 'University') uniPaid += tx.amount; else tuiPaid += tx.amount;
-            }));
+            s.feeLockers.forEach(l => {
+              if (!zeroTuition) tuiTarget += l.tuitionTarget;
+              uniTarget += l.universityTarget;
+              l.transactions.filter(tx => tx.status === 'APPROVED').forEach(tx => {
+                if (tx.feeType === 'University') uniPaid += tx.amount; else tuiPaid += tx.amount;
+              });
+            });
+            if (s.feeLockers.length === 0) {
+              const dept = DEPARTMENTS.find(d => matchDept(s.department, d));
+              const duration = dept?.duration || 4;
+              for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
+                const targets = getFeeTargets(s.department, y);
+                if (!zeroTuition) tuiTarget += targets.tuition;
+                uniTarget += targets.university;
+              }
+            }
           });
-          return { target, tuiPaid, uniPaid, totalPaid: tuiPaid + uniPaid };
+          const target = tuiTarget + uniTarget;
+          return { target, tuiTarget, uniTarget, tuiPaid, uniPaid, totalPaid: tuiPaid + uniPaid };
         };
         const catData = DEPARTMENTS.map(dept => {
           const ds = students.filter(s => matchDept(s.department, dept));
           const mgmt = ds.filter(s => isManagement(s.admissionCategory));
           const conv = ds.filter(s => isConvenor(s.admissionCategory));
           const tsmfc = ds.filter(s => isTSMFC(s.admissionCategory));
-          const mp = getCatPaid(mgmt), cp = getCatPaid(conv), tp = getCatPaid(tsmfc);
+          const mp = getCatPaid(mgmt), cp = getCatPaid(conv), tp = getCatPaid(tsmfc, true);
           return { name: deptShort(dept.name), code: dept.code, courseType: dept.courseType,
             tsmfcCount: tsmfc.length, tTarget: tp.target, tTuiPaid: tp.tuiPaid, tUniPaid: tp.uniPaid, tBal: tp.target - tp.totalPaid,
             mgmtCount: mgmt.length, mTarget: mp.target, mTuiPaid: mp.tuiPaid, mUniPaid: mp.uniPaid, mBal: mp.target - mp.totalPaid,
