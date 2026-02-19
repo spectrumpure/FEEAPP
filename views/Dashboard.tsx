@@ -58,6 +58,7 @@ export const Dashboard: React.FC = () => {
   const searchRef = useRef<HTMLDivElement>(null);
 
   const [deptYearFilter, setDeptYearFilter] = useState<string>('all');
+  const [catYearFilter, setCatYearFilter] = useState<string>('all');
 
   const [remarkHTN, setRemarkHTN] = useState('');
   const [remarkText, setRemarkText] = useState('');
@@ -566,17 +567,20 @@ export const Dashboard: React.FC = () => {
         const isManagement = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('MANAGEMENT') || u === 'MQ' || u === 'SPOT'; };
         const isConvenor = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
         const isTSMFC = (cat: string) => { const u = (cat || '').trim().toUpperCase(); return u.includes('TSMFC') || u.includes('TSECET'); };
+        const catYr = catYearFilter === 'all' ? 0 : parseInt(catYearFilter);
         const getCatPaid = (sList: typeof students) => {
           let tuiPaid = 0, uniPaid = 0, tuiTarget = 0, uniTarget = 0;
-          sList.forEach(s => {
-            s.feeLockers.forEach(l => {
+          const filtered = catYr > 0 ? sList.filter(s => s.feeLockers.some(l => l.year === catYr)) : sList;
+          filtered.forEach(s => {
+            const lockers = catYr > 0 ? s.feeLockers.filter(l => l.year === catYr) : s.feeLockers;
+            lockers.forEach(l => {
               tuiTarget += l.tuitionTarget;
               uniTarget += l.universityTarget;
               l.transactions.filter(tx => tx.status === 'APPROVED').forEach(tx => {
                 if (tx.feeType === 'University') uniPaid += tx.amount; else tuiPaid += tx.amount;
               });
             });
-            if (s.feeLockers.length === 0) {
+            if (lockers.length === 0 && catYr === 0) {
               const dept = DEPARTMENTS.find(d => matchDept(s.department, d));
               const duration = dept?.duration || 4;
               for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
@@ -587,7 +591,7 @@ export const Dashboard: React.FC = () => {
             }
           });
           const target = tuiTarget + uniTarget;
-          return { target, tuiTarget, uniTarget, tuiPaid, uniPaid, totalPaid: tuiPaid + uniPaid };
+          return { target, tuiTarget, uniTarget, tuiPaid, uniPaid, totalPaid: tuiPaid + uniPaid, count: filtered.length };
         };
         const catData = DEPARTMENTS.map(dept => {
           const ds = students.filter(s => matchDept(s.department, dept));
@@ -596,10 +600,10 @@ export const Dashboard: React.FC = () => {
           const tsmfc = ds.filter(s => isTSMFC(s.admissionCategory));
           const mp = getCatPaid(mgmt), cp = getCatPaid(conv), tp = getCatPaid(tsmfc);
           return { name: deptShort(dept.name), code: dept.code, courseType: dept.courseType,
-            tsmfcCount: tsmfc.length, tTarget: tp.target, tTuiPaid: tp.tuiPaid, tUniPaid: tp.uniPaid, tBal: tp.target - tp.totalPaid,
-            mgmtCount: mgmt.length, mTarget: mp.target, mTuiPaid: mp.tuiPaid, mUniPaid: mp.uniPaid, mBal: mp.target - mp.totalPaid,
-            convCount: conv.length, cTarget: cp.target, cTuiPaid: cp.tuiPaid, cUniPaid: cp.uniPaid, cBal: cp.target - cp.totalPaid,
-            totalCount: tsmfc.length + mgmt.length + conv.length };
+            tsmfcCount: tp.count, tTarget: tp.target, tTuiPaid: tp.tuiPaid, tUniPaid: tp.uniPaid, tBal: tp.target - tp.totalPaid,
+            mgmtCount: mp.count, mTarget: mp.target, mTuiPaid: mp.tuiPaid, mUniPaid: mp.uniPaid, mBal: mp.target - mp.totalPaid,
+            convCount: cp.count, cTarget: cp.target, cTuiPaid: cp.tuiPaid, cUniPaid: cp.uniPaid, cBal: cp.target - cp.totalPaid,
+            totalCount: tp.count + mp.count + cp.count };
         }).filter(d => d.mgmtCount > 0 || d.convCount > 0 || d.tsmfcCount > 0);
         const catTotals = catData.reduce((a, d) => ({
           tc: a.tc + d.tsmfcCount, tt: a.tt + d.tTarget, ttp: a.ttp + d.tTuiPaid, tup: a.tup + d.tUniPaid, tb: a.tb + d.tBal,
@@ -610,9 +614,18 @@ export const Dashboard: React.FC = () => {
         if (catData.length === 0) return null;
         return (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 pb-4">
-              <h3 className="text-lg font-bold text-slate-800">Category Analysis</h3>
-              <p className="text-sm text-slate-400">TSMFC vs Management Quota vs Convenor - Fee payment & pending summary</p>
+            <div className="p-6 pb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Category Analysis</h3>
+                <p className="text-sm text-slate-400">TSMFC vs Management Quota vs Convenor - Fee payment & pending summary</p>
+              </div>
+              <select value={catYearFilter} onChange={e => setCatYearFilter(e.target.value)} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="all">All Years</option>
+                <option value="1">1st Year</option>
+                <option value="2">2nd Year</option>
+                <option value="3">3rd Year</option>
+                <option value="4">4th Year</option>
+              </select>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
