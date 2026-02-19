@@ -80,6 +80,7 @@ export interface Student {
   batch: string;
   currentYear: number;
   aadhaarNumber: string;
+  entryType: 'REGULAR' | 'LATERAL';
   feeLockers: YearLocker[];
 }
 

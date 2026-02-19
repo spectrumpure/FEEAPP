@@ -31,6 +31,7 @@ export async function initDB() {
         batch VARCHAR(20) DEFAULT '',
         current_year INT DEFAULT 1,
         aadhaar_number VARCHAR(20) DEFAULT '',
+        entry_type VARCHAR(10) DEFAULT 'REGULAR',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );
@@ -111,6 +112,7 @@ export async function initDB() {
     }
 
     await client.query(`
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS entry_type VARCHAR(10) DEFAULT 'REGULAR';
       UPDATE students SET admission_category = TRIM(admission_category)
         WHERE admission_category != TRIM(admission_category);
       UPDATE students SET admission_category = 'MANAGEMENT'

@@ -199,7 +199,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     admissionYear: '2025',
     batch: '2025-29',
     currentYear: 1,
-    aadhaarNumber: ''
+    aadhaarNumber: '',
+    entryType: 'REGULAR' as 'REGULAR' | 'LATERAL'
   });
 
   const [departmentFilter, setDepartmentFilter] = useState('');
@@ -235,7 +236,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       admissionYear: '2025',
       batch: '2025-29',
       currentYear: 1,
-      aadhaarNumber: ''
+      aadhaarNumber: '',
+      entryType: 'REGULAR' as 'REGULAR' | 'LATERAL'
     });
     setIsEditing(false);
     setEditingHTN(null);
@@ -258,9 +260,10 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         alert("Error: Roll Number already exists!");
         return;
       }
-      const manualTargets = getFeeTargets(formData.department, 1);
+      const startYear = formData.entryType === 'LATERAL' ? 2 : 1;
+      const manualTargets = getFeeTargets(formData.department, startYear);
       const locker: YearLocker = {
-        year: 1,
+        year: startYear,
         tuitionTarget: manualTargets.tuition,
         universityTarget: manualTargets.university,
         otherTarget: 0,
@@ -303,7 +306,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       admissionYear: student.admissionYear,
       batch: student.batch,
       currentYear: student.currentYear,
-      aadhaarNumber: student.aadhaarNumber || ''
+      aadhaarNumber: student.aadhaarNumber || '',
+      entryType: student.entryType || 'REGULAR'
     });
     setShowManualModal(true);
   };
@@ -345,13 +349,17 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         const normalizedDept = normalizeDepartment(String(cols[2] || DEPARTMENTS[0].name));
         const mode = String(cols[5] || 'TSMFC').toUpperCase();
         const admYear = String(cols[12] || '2025');
+        const entryTypeRaw = String(cols[13] || 'REGULAR').toUpperCase().trim();
+        const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw === 'LATERAL' ? 'LATERAL' : 'REGULAR';
         const deptInfo = DEPARTMENTS.find(d => d.code === normalizedDept || d.name === normalizedDept || d.code.toUpperCase() === normalizedDept.toUpperCase());
         const isME = deptInfo?.courseType === 'M.E' || normalizedDept.startsWith('ME-');
-        const duration = deptInfo?.duration || (isME ? 2 : 4);
+        const fullDuration = deptInfo?.duration || (isME ? 2 : 4);
+        const duration = entryType === 'LATERAL' ? fullDuration - 1 : fullDuration;
+        const startYear = entryType === 'LATERAL' ? 2 : 1;
         const feeLockers = [];
-        const targets = getFeeTargets(normalizedDept, 1);
+        const targets = getFeeTargets(normalizedDept, startYear);
         feeLockers.push({
-          year: 1,
+          year: startYear,
           tuitionTarget: targets.tuition,
           universityTarget: targets.university,
           otherTarget: 0,
@@ -371,11 +379,12 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           address: String(cols[10] || ''),
           aadhaarNumber: String(cols[11] || ''),
           admissionYear: admYear,
+          entryType,
           batch: `${admYear}-${(parseInt(admYear) + duration).toString().slice(-2)}`,
           course: isME ? 'M.E' : 'B.E',
           specialization: '',
           section: '',
-          currentYear: 1,
+          currentYear: startYear,
           feeLockers
         };
         newStudents.push(studentData);
@@ -489,7 +498,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       const seenHTNs = new Set<string>();
 
       dataRows.forEach((cols, idx) => {
-        if (cols.length < 20) { errors.push(`Row ${idx + 2}: Insufficient columns (found ${cols.length}, need 20)`); return; }
+        if (cols.length < 21) { errors.push(`Row ${idx + 2}: Insufficient columns (found ${cols.length}, need 21)`); return; }
 
         const htnValue = String(cols[0] || '').trim();
         if (!htnValue) { errors.push(`Row ${idx + 2}: Missing Roll Number`); return; }
@@ -499,26 +508,30 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         const normalizedDeptC = normalizeDepartment(String(cols[2] || DEPARTMENTS[0].name));
         const mode = String(cols[5] || 'TSMFC').toUpperCase();
         const admYear = String(cols[12] || '2025');
+        const entryTypeRawC = String(cols[13] || 'REGULAR').toUpperCase().trim();
+        const entryTypeC: 'REGULAR' | 'LATERAL' = entryTypeRawC === 'LATERAL' ? 'LATERAL' : 'REGULAR';
         const deptInfoC = DEPARTMENTS.find(d => d.code === normalizedDeptC || d.name === normalizedDeptC || d.code.toUpperCase() === normalizedDeptC.toUpperCase());
         const isMEC = deptInfoC?.courseType === 'M.E' || normalizedDeptC.startsWith('ME-');
-        const durationC = deptInfoC?.duration || (isMEC ? 2 : 4);
-        const targetsC = getFeeTargets(normalizedDeptC, 1);
+        const fullDurationC = deptInfoC?.duration || (isMEC ? 2 : 4);
+        const durationC = entryTypeC === 'LATERAL' ? fullDurationC - 1 : fullDurationC;
+        const startYearC = entryTypeC === 'LATERAL' ? 2 : 1;
+        const targetsC = getFeeTargets(normalizedDeptC, startYearC);
 
         const locker: YearLocker = {
-          year: 1,
+          year: startYearC,
           tuitionTarget: targetsC.tuition,
           universityTarget: targetsC.university,
           otherTarget: 0,
           transactions: []
         };
 
-        const tuiDate = normalizeDate(String(cols[13] || ''));
-        const tuiMode = String(cols[14] || 'Challan').trim();
-        const tuiAmount = parseFloat(String(cols[15] || '0')) || 0;
-        const univMode = String(cols[16] || 'Challan').trim();
-        const univChallan = String(cols[17] || '');
-        const univDate = normalizeDate(String(cols[18] || ''));
-        const univAmount = parseFloat(String(cols[19] || '0')) || 0;
+        const tuiDate = normalizeDate(String(cols[14] || ''));
+        const tuiMode = String(cols[15] || 'Challan').trim();
+        const tuiAmount = parseFloat(String(cols[16] || '0')) || 0;
+        const univMode = String(cols[17] || 'Challan').trim();
+        const univChallan = String(cols[18] || '');
+        const univDate = normalizeDate(String(cols[19] || ''));
+        const univAmount = parseFloat(String(cols[20] || '0')) || 0;
 
         if (tuiAmount > 0 && tuiDate) {
           const fy = computeFY(tuiDate);
@@ -568,11 +581,12 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           address: String(cols[10] || ''),
           aadhaarNumber: String(cols[11] || ''),
           admissionYear: admYear,
+          entryType: entryTypeC,
           batch: `${admYear}-${(parseInt(admYear) + durationC).toString().slice(-2)}`,
           course: isMEC ? 'M.E' : 'B.E',
           specialization: '',
           section: '',
-          currentYear: 1,
+          currentYear: startYearC,
           feeLockers: [locker]
         };
         newStudents.push(studentData);
@@ -590,8 +604,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   };
 
   const downloadStudentTemplate = () => {
-    const headers = ["Roll No", "Student Name", "Department", "Sex", "Date of Birth", "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name", "Mother Name", "Address", "Student Aadhaar Card No", "Admission year"];
-    const sampleRow = ["1604-25-732-001", "HIBA PARVEEN", "CSE", "F", "19.05.2008", "CONVENOR", "6309044109", "9030159230", "SYED NIZAM UDDIN FAROOQUI", "HASEENA PARVEEN", "19-4-280/55/D KHAJA NAGAR HYDERABAD-500064", "62548232566", "2025"];
+    const headers = ["Roll No", "Student Name", "Department", "Sex", "Date of Birth", "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name", "Mother Name", "Address", "Student Aadhaar Card No", "Admission year", "Entry Type"];
+    const sampleRow = ["1604-25-732-001", "HIBA PARVEEN", "CSE", "F", "19.05.2008", "CONVENOR", "6309044109", "9030159230", "SYED NIZAM UDDIN FAROOQUI", "HASEENA PARVEEN", "19-4-280/55/D KHAJA NAGAR HYDERABAD-500064", "62548232566", "2025", "REGULAR"];
     const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + sampleRow.join(",");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
@@ -617,7 +631,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     const headers = [
       "Roll No", "Student Name", "Department", "Sex", "Date of Birth",
       "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name",
-      "Mother Name", "Address", "Student Aadhaar Card No", "Admission year",
+      "Mother Name", "Address", "Student Aadhaar Card No", "Admission year", "Entry Type",
       "Y1 Tuition Target", "Y1 Tuition Paid", "Y1 University Target", "Y1 University Paid",
       "Y2 Tuition Target", "Y2 Tuition Paid", "Y2 University Target", "Y2 University Paid",
       "Y3 Tuition Target", "Y3 Tuition Paid", "Y3 University Target", "Y3 University Paid",
@@ -640,7 +654,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       return [
         s.hallTicketNumber, s.name, s.department, s.sex, s.dob,
         s.admissionCategory, s.mobile, s.fatherMobile, s.fatherName,
-        s.motherName, s.address, s.aadhaarNumber || '', s.admissionYear,
+        s.motherName, s.address, s.aadhaarNumber || '', s.admissionYear, s.entryType || 'REGULAR',
         y1.tTarget, y1.tPaid, y1.uTarget, y1.uPaid,
         y2.tTarget, y2.tPaid, y2.uTarget, y2.uPaid,
         y3.tTarget, y3.tPaid, y3.uTarget, y3.uPaid,
@@ -648,7 +662,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         totalTarget, totalPaid, totalTarget - totalPaid
       ];
     });
-    const colWidths = [20, 30, 15, 6, 14, 18, 15, 15, 30, 25, 35, 18, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 14, 14, 14];
+    const colWidths = [20, 30, 15, 6, 14, 18, 15, 15, 30, 25, 35, 18, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 14, 14, 14];
     const addSheet = (name: string, rows: typeof allRows) => {
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
       ws['!cols'] = colWidths.map(w => ({ wch: w }));
@@ -669,8 +683,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   };
 
   const downloadCombinedTemplate = () => {
-    const headers = ["Roll No", "Student Name", "Department", "Sex", "Date of Birth", "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name", "Mother Name", "Address", "Student Aadhaar Card No", "Admission year", "Tuition Fee Challan Date", "Tuition Fee Mode of Payment", "Tuition Fee", "University Fee Mode of Payment", "University Fee Challan No", "University Fee Challan Date", "University Fee"];
-    const sampleRow = ["1604-25-732-001", "HIBA PARVEEN", "CSE", "F", "19.05.2008", "CONVENOR", "6309044109", "9030159230", "SYED NIZAM UDDIN FAROOQUI", "HASEENA PARVEEN", "HYDERABAD-500064", "62548232566", "2025", "01.08.2025", "Challan", "125000", "Challan", "21471", "01.08.2025", "12650"];
+    const headers = ["Roll No", "Student Name", "Department", "Sex", "Date of Birth", "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name", "Mother Name", "Address", "Student Aadhaar Card No", "Admission year", "Entry Type", "Tuition Fee Challan Date", "Tuition Fee Mode of Payment", "Tuition Fee", "University Fee Mode of Payment", "University Fee Challan No", "University Fee Challan Date", "University Fee"];
+    const sampleRow = ["1604-25-732-001", "HIBA PARVEEN", "CSE", "F", "19.05.2008", "CONVENOR", "6309044109", "9030159230", "SYED NIZAM UDDIN FAROOQUI", "HASEENA PARVEEN", "HYDERABAD-500064", "62548232566", "2025", "REGULAR", "01.08.2025", "Challan", "125000", "Challan", "21471", "01.08.2025", "12650"];
     const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + sampleRow.join(",");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
@@ -953,6 +967,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                       }`}>
                         {student.admissionCategory}
                       </span>
+                      {student.entryType === 'LATERAL' && (
+                        <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200 inline-block">LE</span>
+                      )}
                     </td>
                     <td className="px-5 py-3">
                       <div className="w-full max-w-[110px]">
@@ -1167,6 +1184,13 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                     <option>LATERAL ENTRY TSMFC</option>
                     <option>LATERAL ENTRY TSECET</option>
                     <option>LATERAL ENTRY MANAGEMENT</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Type</label>
+                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" value={formData.entryType} onChange={(e) => setFormData({...formData, entryType: e.target.value as 'REGULAR' | 'LATERAL'})}>
+                    <option value="REGULAR">REGULAR</option>
+                    <option value="LATERAL">LATERAL ENTRY</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">

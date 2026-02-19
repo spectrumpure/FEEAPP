@@ -68,16 +68,17 @@ A centralized college fee management and governance system built with React, Typ
 - **xlsx**: For parsing Excel (.xlsx/.xls) files in the browser for bulk uploads
 
 ## Import Templates
-### Student Data Sheet (13 columns)
-Roll No, Student Name, Department, Sex, Date of Birth, Mode of Admission, Student Mobile No, Father Mobile No, Father Name, Mother Name, Address, Student Aadhaar Card No, Admission year
+### Student Data Sheet (14 columns)
+Roll No, Student Name, Department, Sex, Date of Birth, Mode of Admission, Student Mobile No, Father Mobile No, Father Name, Mother Name, Address, Student Aadhaar Card No, Admission year, Entry Type
 
 ### Fee Data Sheet (11 columns) - creates 2 transactions per row
 Roll No, Student Name, Department, Tuition Fee Challan Date, Tuition Fee Mode of Payment, Tuition Fee, University Fee Mode of Payment, University Fee Challan No, University Fee Challan Date, University Fee, Fee Year
 
-### Combined Template (20 columns)
-Student columns (13) + Tuition Fee Challan Date, Tuition Fee Mode of Payment, Tuition Fee, University Fee Mode of Payment, University Fee Challan No, University Fee Challan Date, University Fee
+### Combined Template (21 columns)
+Student columns (14) + Tuition Fee Challan Date, Tuition Fee Mode of Payment, Tuition Fee, University Fee Mode of Payment, University Fee Challan No, University Fee Challan Date, University Fee
 
 ## Recent Changes
+- 2026-02-19: Added lateral entry student support - Entry Type field (REGULAR/LATERAL) in database, forms, bulk import (14-col student, 21-col combined templates), exports; lateral students start from year 2 with 3-year duration (batch computed as admission+3); "LE" badge shown in student list
 - 2026-02-18: Updated student & fee import templates to match user-provided Excel formats; added Student Aadhaar Card No field; fee import creates separate Tuition + University transactions per row with individual payment modes and challan info
 - 2026-02-18: Added Year filter dropdown to Dashboard Department Summary table (All Years, 1st-4th Year); filters by students who have fee lockers for selected year
 - 2026-02-18: Added Current Year column (optional) to bulk student import and combined student+fee import; creates year lockers for all years up to the current year

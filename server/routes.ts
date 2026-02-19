@@ -177,6 +177,7 @@ function mapStudentRow(row: any) {
     batch: row.batch,
     currentYear: row.current_year,
     aadhaarNumber: row.aadhaar_number || '',
+    entryType: row.entry_type || 'REGULAR',
   };
 }
 
@@ -263,19 +264,19 @@ router.post('/api/students', async (req: Request, res: Response) => {
   try {
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO students (hall_ticket_number, name, father_name, mother_name, sex, dob, mobile, father_mobile, address, course, department, specialization, section, admission_category, admission_year, batch, current_year, aadhaar_number)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+      `INSERT INTO students (hall_ticket_number, name, father_name, mother_name, sex, dob, mobile, father_mobile, address, course, department, specialization, section, admission_category, admission_year, batch, current_year, aadhaar_number, entry_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
        ON CONFLICT (hall_ticket_number) DO UPDATE SET
          name=EXCLUDED.name, father_name=EXCLUDED.father_name, mother_name=EXCLUDED.mother_name,
          sex=EXCLUDED.sex, dob=EXCLUDED.dob, mobile=EXCLUDED.mobile, father_mobile=EXCLUDED.father_mobile,
          address=EXCLUDED.address, course=EXCLUDED.course, department=EXCLUDED.department,
          specialization=EXCLUDED.specialization, section=EXCLUDED.section,
          admission_category=EXCLUDED.admission_category, admission_year=EXCLUDED.admission_year,
-         batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, aadhaar_number=EXCLUDED.aadhaar_number, updated_at=NOW()`,
+         batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, aadhaar_number=EXCLUDED.aadhaar_number, entry_type=EXCLUDED.entry_type, updated_at=NOW()`,
       [s.hallTicketNumber, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
        s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', normalizeDepartment(s.department||''),
        s.specialization||'', s.section||'', normalizeCategory(s.admissionCategory||''), s.admissionYear||'',
-       s.batch||'', s.currentYear||1, s.aadhaarNumber||'']
+       s.batch||'', s.currentYear||1, s.aadhaarNumber||'', s.entryType||'REGULAR']
     );
 
     if (s.feeLockers && Array.isArray(s.feeLockers)) {
@@ -326,19 +327,19 @@ router.post('/api/students/bulk', async (req: Request, res: Response) => {
     await client.query('BEGIN');
     for (const s of students) {
       await client.query(
-        `INSERT INTO students (hall_ticket_number, name, father_name, mother_name, sex, dob, mobile, father_mobile, address, course, department, specialization, section, admission_category, admission_year, batch, current_year, aadhaar_number)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+        `INSERT INTO students (hall_ticket_number, name, father_name, mother_name, sex, dob, mobile, father_mobile, address, course, department, specialization, section, admission_category, admission_year, batch, current_year, aadhaar_number, entry_type)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
          ON CONFLICT (hall_ticket_number) DO UPDATE SET
            name=EXCLUDED.name, father_name=EXCLUDED.father_name, mother_name=EXCLUDED.mother_name,
            sex=EXCLUDED.sex, dob=EXCLUDED.dob, mobile=EXCLUDED.mobile, father_mobile=EXCLUDED.father_mobile,
            address=EXCLUDED.address, course=EXCLUDED.course, department=EXCLUDED.department,
            specialization=EXCLUDED.specialization, section=EXCLUDED.section,
            admission_category=EXCLUDED.admission_category, admission_year=EXCLUDED.admission_year,
-           batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, aadhaar_number=EXCLUDED.aadhaar_number, updated_at=NOW()`,
+           batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, aadhaar_number=EXCLUDED.aadhaar_number, entry_type=EXCLUDED.entry_type, updated_at=NOW()`,
         [s.hallTicketNumber, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
          s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', normalizeDepartment(s.department||''),
          s.specialization||'', s.section||'', normalizeCategory(s.admissionCategory||''), s.admissionYear||'',
-         s.batch||'', s.currentYear||1, s.aadhaarNumber||'']
+         s.batch||'', s.currentYear||1, s.aadhaarNumber||'', s.entryType||'REGULAR']
       );
 
       if (s.feeLockers && Array.isArray(s.feeLockers)) {
@@ -388,12 +389,12 @@ router.put('/api/students/:htn', async (req: Request, res: Response) => {
   try {
     await client.query('BEGIN');
     await client.query(
-      `UPDATE students SET name=$2, father_name=$3, mother_name=$4, sex=$5, dob=$6, mobile=$7, father_mobile=$8, address=$9, course=$10, department=$11, specialization=$12, section=$13, admission_category=$14, admission_year=$15, batch=$16, current_year=$17, updated_at=NOW()
+      `UPDATE students SET name=$2, father_name=$3, mother_name=$4, sex=$5, dob=$6, mobile=$7, father_mobile=$8, address=$9, course=$10, department=$11, specialization=$12, section=$13, admission_category=$14, admission_year=$15, batch=$16, current_year=$17, aadhaar_number=$18, entry_type=$19, updated_at=NOW()
        WHERE hall_ticket_number=$1`,
       [htn, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
        s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', normalizeDepartment(s.department||''),
        s.specialization||'', s.section||'', normalizeCategory(s.admissionCategory||''), s.admissionYear||'',
-       s.batch||'', s.currentYear||1]
+       s.batch||'', s.currentYear||1, s.aadhaarNumber||'', s.entryType||'REGULAR']
     );
 
     if (s.feeLockers && Array.isArray(s.feeLockers)) {
