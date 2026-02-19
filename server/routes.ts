@@ -35,6 +35,9 @@ const getFeeTargetsServer = (department: string, year: number, config: any): { t
   const isME = groupCDepts.includes(code) || code.startsWith('ME-');
   const duration = isME ? 2 : 4;
   if (year > duration) return { tuition: 0, university: 0 };
+  if (config?.deptYearTargets?.[code]?.[String(year)]) {
+    return config.deptYearTargets[code][String(year)];
+  }
   if (isME && config?.groupC) {
     return year === 1
       ? { tuition: config.groupC.year1Tuition || 130000, university: config.groupC.year1University || 11650 }
@@ -548,27 +551,45 @@ router.put('/api/fee-config', async (req: Request, res: Response) => {
       [JSON.stringify(config)]
     );
 
+    const deptYearTargets = config.deptYearTargets;
     const studentsRes = await pool.query('SELECT hall_ticket_number, department FROM students');
+    const lockersRes = await pool.query('SELECT student_htn, year FROM year_lockers');
+    const studentLockers: Record<string, number[]> = {};
+    for (const row of lockersRes.rows) {
+      if (!studentLockers[row.student_htn]) studentLockers[row.student_htn] = [];
+      studentLockers[row.student_htn].push(row.year);
+    }
+
     for (const s of studentsRes.rows) {
       const dept = s.department.toUpperCase();
-      let groupADepts = (config.groupA?.departments || []).map((d: string) => d.toUpperCase());
-      let groupBDepts = (config.groupB?.departments || []).map((d: string) => d.toUpperCase());
-      let groupCDepts = (config.groupC?.departments || []).map((d: string) => d.toUpperCase());
+      const years = studentLockers[s.hall_ticket_number] || [];
 
-      if (groupCDepts.includes(dept) || dept.startsWith('ME-') || s.department.startsWith('M.E')) {
+      for (const yr of years) {
+        let tuition = 0, university = 0;
+
+        if (deptYearTargets && deptYearTargets[dept] && deptYearTargets[dept][String(yr)]) {
+          tuition = deptYearTargets[dept][String(yr)].tuition || 0;
+          university = deptYearTargets[dept][String(yr)].university || 0;
+        } else {
+          const groupADepts = (config.groupA?.departments || []).map((d: string) => d.toUpperCase());
+          const groupBDepts = (config.groupB?.departments || []).map((d: string) => d.toUpperCase());
+          const groupCDepts = (config.groupC?.departments || []).map((d: string) => d.toUpperCase());
+
+          if (groupCDepts.includes(dept) || dept.startsWith('ME-') || s.department.startsWith('M.E')) {
+            tuition = yr === 1 ? config.groupC.year1Tuition : config.groupC.year2Tuition;
+            university = yr === 1 ? config.groupC.year1University : config.groupC.year2University;
+          } else if (groupBDepts.includes(dept)) {
+            tuition = config.groupB.tuition;
+            university = config.groupB.university;
+          } else if (groupADepts.includes(dept)) {
+            tuition = config.groupA.tuition;
+            university = config.groupA.university;
+          }
+        }
+
         await pool.query(
-          `UPDATE year_lockers SET tuition_target = CASE WHEN year = 1 THEN $1 ELSE $2 END, university_target = CASE WHEN year = 1 THEN $3 ELSE $4 END WHERE student_htn = $5`,
-          [config.groupC.year1Tuition, config.groupC.year2Tuition, config.groupC.year1University, config.groupC.year2University, s.hall_ticket_number]
-        );
-      } else if (groupBDepts.includes(dept)) {
-        await pool.query(
-          `UPDATE year_lockers SET tuition_target = $1, university_target = $2 WHERE student_htn = $3`,
-          [config.groupB.tuition, config.groupB.university, s.hall_ticket_number]
-        );
-      } else {
-        await pool.query(
-          `UPDATE year_lockers SET tuition_target = $1, university_target = $2 WHERE student_htn = $3`,
-          [config.groupA.tuition, config.groupA.university, s.hall_ticket_number]
+          `UPDATE year_lockers SET tuition_target = $1, university_target = $2 WHERE student_htn = $3 AND year = $4`,
+          [tuition, university, s.hall_ticket_number, yr]
         );
       }
     }

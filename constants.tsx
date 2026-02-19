@@ -93,6 +93,8 @@ const generateStudentData = (data: any): Student => {
     admissionYear: '2025',
     batch: '2025-29',
     currentYear: 1,
+    aadhaarNumber: '',
+    entryType: 'REGULAR' as const,
     feeLockers: [
       {
         year: 1,

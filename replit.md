@@ -78,6 +78,7 @@ Roll No, Student Name, Department, Tuition Fee Challan Date, Tuition Fee Mode of
 Student columns (14) + Tuition Fee Challan Date, Tuition Fee Mode of Payment, Tuition Fee, University Fee Mode of Payment, University Fee Challan No, University Fee Challan Date, University Fee
 
 ## Recent Changes
+- 2026-02-19: Redesigned Fee Locker Configuration from group-based (A/B/C) to department-wise year-wise individual targets; each of 14 departments has its own tuition & university targets per year (1-4 for B.E, 1-2 for M.E); Dashboard shows clear department x year table; config modal allows editing all targets individually; backward compatible with old group config via migration
 - 2026-02-19: Added lateral entry student support - Entry Type field (REGULAR/LATERAL) in database, forms, bulk import (14-col student, 21-col combined templates), exports; lateral students start from year 2 with 3-year duration (batch computed as admission+3); "LE" badge shown in student list
 - 2026-02-18: Updated student & fee import templates to match user-provided Excel formats; added Student Aadhaar Card No field; fee import creates separate Tuition + University transactions per row with individual payment modes and challan info
 - 2026-02-18: Added Year filter dropdown to Dashboard Department Summary table (All Years, 1st-4th Year); filters by students who have fee lockers for selected year

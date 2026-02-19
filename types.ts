@@ -84,6 +84,11 @@ export interface Student {
   feeLockers: YearLocker[];
 }
 
+export interface DeptYearTarget {
+  tuition: number;
+  university: number;
+}
+
 export interface FeeLockerConfig {
   groupA: { tuition: number; university: number; departments: string[] };
   groupB: { tuition: number; university: number; departments: string[] };
@@ -91,6 +96,11 @@ export interface FeeLockerConfig {
     year1Tuition: number; year1University: number;
     year2Tuition: number; year2University: number;
     departments: string[];
+  };
+  deptYearTargets?: {
+    [deptCode: string]: {
+      [year: string]: DeptYearTarget;
+    };
   };
 }
 

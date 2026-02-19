@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Student, User, UserRole, FeeTransaction, Department, CertificateTemplate, PaymentStatus, FeeLockerConfig } from './types';
+import { Student, User, UserRole, FeeTransaction, Department, CertificateTemplate, PaymentStatus, FeeLockerConfig, DeptYearTarget } from './types';
 import { DEPARTMENTS } from './constants';
 
 interface AppState {
@@ -31,11 +31,53 @@ interface AppState {
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
+function buildDeptYearTargets(config: FeeLockerConfig): { [deptCode: string]: { [year: string]: DeptYearTarget } } {
+  const targets: { [deptCode: string]: { [year: string]: DeptYearTarget } } = {};
+  for (const dept of DEPARTMENTS) {
+    const code = dept.code;
+    const duration = dept.duration;
+    targets[code] = {};
+    const isME = config.groupC.departments.includes(code) || code.startsWith('ME-');
+    for (let y = 1; y <= duration; y++) {
+      if (isME) {
+        targets[code][String(y)] = {
+          tuition: y === 1 ? config.groupC.year1Tuition : config.groupC.year2Tuition,
+          university: y === 1 ? config.groupC.year1University : config.groupC.year2University
+        };
+      } else if (config.groupB.departments.includes(code)) {
+        targets[code][String(y)] = { tuition: config.groupB.tuition, university: config.groupB.university };
+      } else {
+        targets[code][String(y)] = { tuition: config.groupA.tuition, university: config.groupA.university };
+      }
+    }
+  }
+  return targets;
+}
+
 const DEFAULT_FEE_CONFIG: FeeLockerConfig = {
   groupA: { tuition: 100000, university: 25000, departments: ['CSE', 'CIVIL', 'MECH', 'ECE'] },
   groupB: { tuition: 125000, university: 30000, departments: ['CS-AI', 'CS-DS', 'CS-AIML', 'IT', 'EEE', 'PROD'] },
   groupC: { year1Tuition: 130000, year1University: 11650, year2Tuition: 130000, year2University: 4500, departments: ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'] }
 };
+DEFAULT_FEE_CONFIG.deptYearTargets = buildDeptYearTargets(DEFAULT_FEE_CONFIG);
+
+function ensureDeptYearTargets(config: FeeLockerConfig): FeeLockerConfig {
+  if (config.deptYearTargets && Object.keys(config.deptYearTargets).length > 0) {
+    for (const dept of DEPARTMENTS) {
+      if (!config.deptYearTargets[dept.code]) {
+        config.deptYearTargets[dept.code] = {};
+      }
+      for (let y = 1; y <= dept.duration; y++) {
+        if (!config.deptYearTargets[dept.code][String(y)]) {
+          config.deptYearTargets[dept.code][String(y)] = { tuition: 0, university: 0 };
+        }
+      }
+    }
+    return config;
+  }
+  config.deptYearTargets = buildDeptYearTargets(config);
+  return config;
+}
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -59,7 +101,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setStudents(data.students || []);
           setTransactions(data.transactions || []);
           if (data.feeLockerConfig) {
-            setFeeLockerConfig(data.feeLockerConfig);
+            setFeeLockerConfig(ensureDeptYearTargets(data.feeLockerConfig));
           }
         }
       } catch (err) {
@@ -81,6 +123,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const duration = dept?.duration || 4;
     if (year > duration) {
       return { tuition: 0, university: 0 };
+    }
+    if (feeLockerConfig.deptYearTargets && feeLockerConfig.deptYearTargets[code] && feeLockerConfig.deptYearTargets[code][String(year)]) {
+      return feeLockerConfig.deptYearTargets[code][String(year)];
     }
     const isME = feeLockerConfig.groupC.departments.includes(code) || 
       department.startsWith('M.E') || code.startsWith('ME-');
