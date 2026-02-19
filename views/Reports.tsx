@@ -431,11 +431,11 @@ export const Reports: React.FC = () => {
       totalCount: number;
     }> = [];
 
-    const getCatFees = (sList: typeof students, fy: number | null, zeroTuition: boolean = false) => {
+    const getCatFees = (sList: typeof students, fy: number | null) => {
       let tuiTarget = 0, uniTarget = 0, tuiPaid = 0, uniPaid = 0;
       sList.forEach(s => {
         const t = getStudentTargets(s, fy);
-        if (!zeroTuition) tuiTarget += t.tTarget;
+        tuiTarget += t.tTarget;
         uniTarget += t.uTarget;
         tuiPaid += t.tPaid;
         uniPaid += t.uPaid;
@@ -450,7 +450,7 @@ export const Reports: React.FC = () => {
       const mgmtStudents = deptStudents.filter(s => isManagement(s.admissionCategory));
       const convStudents = deptStudents.filter(s => isConvenor(s.admissionCategory));
 
-      const tf = getCatFees(tsmfcStudents, filterYear, true);
+      const tf = getCatFees(tsmfcStudents, filterYear);
       const mf = getCatFees(mgmtStudents, filterYear);
       const cf = getCatFees(convStudents, filterYear);
 
