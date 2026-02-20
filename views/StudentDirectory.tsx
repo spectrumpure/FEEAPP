@@ -498,7 +498,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       const seenHTNs = new Set<string>();
 
       dataRows.forEach((cols, idx) => {
-        if (cols.length < 21) { errors.push(`Row ${idx + 2}: Insufficient columns (found ${cols.length}, need 21)`); return; }
+        if (cols.length < 21) { errors.push(`Row ${idx + 2}: Insufficient columns (found ${cols.length}, need at least 21)`); return; }
 
         const htnValue = String(cols[0] || '').trim();
         if (!htnValue) { errors.push(`Row ${idx + 2}: Missing Roll Number`); return; }
@@ -514,24 +514,39 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         const isMEC = deptInfoC?.courseType === 'M.E' || normalizedDeptC.startsWith('ME-');
         const fullDurationC = deptInfoC?.duration || (isMEC ? 2 : 4);
         const durationC = entryTypeC === 'LATERAL' ? fullDurationC - 1 : fullDurationC;
-        const startYearC = entryTypeC === 'LATERAL' ? 2 : 1;
-        const targetsC = getFeeTargets(normalizedDeptC, startYearC, entryTypeC);
+        const defaultStartYear = entryTypeC === 'LATERAL' ? 2 : 1;
+
+        const has24Cols = cols.length >= 24;
+        const currentYearVal = has24Cols ? (parseInt(String(cols[14] || '')) || defaultStartYear) : defaultStartYear;
+        const feeYearVal = has24Cols ? (parseInt(String(cols[23] || '')) || currentYearVal) : currentYearVal;
+
+        const tuiChallanIdx = has24Cols ? 15 : 14;
+        const tuiDateIdx = has24Cols ? 16 : 14;
+        const tuiModeIdx = has24Cols ? 17 : 15;
+        const tuiAmountIdx = has24Cols ? 18 : 16;
+        const univModeIdx = has24Cols ? 19 : 17;
+        const univChallanIdx = has24Cols ? 20 : 18;
+        const univDateIdx = has24Cols ? 21 : 19;
+        const univAmountIdx = has24Cols ? 22 : 20;
+
+        const targetsC = getFeeTargets(normalizedDeptC, feeYearVal, entryTypeC);
 
         const locker: YearLocker = {
-          year: startYearC,
+          year: feeYearVal,
           tuitionTarget: targetsC.tuition,
           universityTarget: targetsC.university,
           otherTarget: 0,
           transactions: []
         };
 
-        const tuiDate = normalizeDate(String(cols[14] || ''));
-        const tuiMode = String(cols[15] || 'Challan').trim();
-        const tuiAmount = parseFloat(String(cols[16] || '0')) || 0;
-        const univMode = String(cols[17] || 'Challan').trim();
-        const univChallan = String(cols[18] || '');
-        const univDate = normalizeDate(String(cols[19] || ''));
-        const univAmount = parseFloat(String(cols[20] || '0')) || 0;
+        const tuiChallan = has24Cols ? String(cols[tuiChallanIdx] || '') : '';
+        const tuiDate = normalizeDate(String(cols[tuiDateIdx] || ''));
+        const tuiMode = String(cols[tuiModeIdx] || 'Challan').trim();
+        const tuiAmount = parseFloat(String(cols[tuiAmountIdx] || '0')) || 0;
+        const univMode = String(cols[univModeIdx] || 'Challan').trim();
+        const univChallan = String(cols[univChallanIdx] || '');
+        const univDate = normalizeDate(String(cols[univDateIdx] || ''));
+        const univAmount = parseFloat(String(cols[univAmountIdx] || '0')) || 0;
 
         if (tuiAmount > 0 && tuiDate) {
           const fy = computeFY(tuiDate);
@@ -541,7 +556,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
             studentHTN: htnValue,
             feeType: 'Tuition',
             amount: tuiAmount,
-            challanNumber: '',
+            challanNumber: tuiChallan,
             paymentMode: (['Online', 'Challan', 'DD', 'Cash', 'UPI'].includes(tuiMode) ? tuiMode : 'Challan') as any,
             paymentDate: tuiDate,
             academicYear: `${admYearNum}-${(admYearNum + 1).toString().slice(-2)}`,
@@ -586,7 +601,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           course: isMEC ? 'M.E' : 'B.E',
           specialization: '',
           section: '',
-          currentYear: startYearC,
+          currentYear: currentYearVal,
           feeLockers: [locker]
         };
         newStudents.push(studentData);
@@ -683,8 +698,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   };
 
   const downloadCombinedTemplate = () => {
-    const headers = ["Roll No", "Student Name", "Department", "Sex", "Date of Birth", "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name", "Mother Name", "Address", "Student Aadhaar Card No", "Admission year", "Entry Type", "Tuition Fee Challan Date", "Tuition Fee Mode of Payment", "Tuition Fee", "University Fee Mode of Payment", "University Fee Challan No", "University Fee Challan Date", "University Fee"];
-    const sampleRow = ["1604-25-732-001", "HIBA PARVEEN", "CSE", "F", "19.05.2008", "CONVENOR", "6309044109", "9030159230", "SYED NIZAM UDDIN FAROOQUI", "HASEENA PARVEEN", "HYDERABAD-500064", "62548232566", "2025", "REGULAR", "01.08.2025", "Challan", "125000", "Challan", "21471", "01.08.2025", "12650"];
+    const headers = ["Roll No", "Student Name", "Department", "Sex", "Date of Birth", "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name", "Mother Name", "Address", "Student Aadhaar Card No", "Admission year", "Entry Type", "Current Year", "Tuition Fee Challan No", "Tuition Fee Challan Date", "Tuition Fee Mode of Payment", "Tuition Fee", "University Fee Mode of Payment", "University Fee Challan No", "University Fee Challan Date", "University Fee", "Fee Year"];
+    const sampleRow = ["1604-25-732-001", "HIBA PARVEEN", "CSE", "F", "19.05.2008", "CONVENOR", "6309044109", "9030159230", "SYED NIZAM UDDIN FAROOQUI", "HASEENA PARVEEN", "HYDERABAD-500064", "62548232566", "2025", "REGULAR", "1", "98765", "01.08.2025", "Challan", "125000", "Challan", "21471", "01.08.2025", "12650", "1"];
     const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + sampleRow.join(",");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));

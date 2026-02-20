@@ -74,8 +74,9 @@ Roll No, Student Name, Department, Sex, Date of Birth, Mode of Admission, Studen
 ### Fee Data Sheet (11 columns) - creates 2 transactions per row
 Roll No, Student Name, Department, Tuition Fee Challan Date, Tuition Fee Mode of Payment, Tuition Fee, University Fee Mode of Payment, University Fee Challan No, University Fee Challan Date, University Fee, Fee Year
 
-### Combined Template (21 columns)
-Student columns (14) + Tuition Fee Challan Date, Tuition Fee Mode of Payment, Tuition Fee, University Fee Mode of Payment, University Fee Challan No, University Fee Challan Date, University Fee
+### Combined Template (24 columns)
+Student columns (14) + Current Year, Tuition Fee Challan No, Tuition Fee Challan Date, Tuition Fee Mode of Payment, Tuition Fee, University Fee Mode of Payment, University Fee Challan No, University Fee Challan Date, University Fee, Fee Year
+Note: Also backward-compatible with old 21-column format (without Current Year, Tuition Fee Challan No, Fee Year)
 
 ## Recent Changes
 - 2026-02-19: Redesigned Fee Locker Configuration from group-based (A/B/C) to department-wise year-wise individual targets; each of 14 departments has its own tuition & university targets per year (1-4 for B.E, 1-2 for M.E); Dashboard shows clear department x year table; config modal allows editing all targets individually; backward compatible with old group config via migration
