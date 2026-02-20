@@ -119,6 +119,12 @@ export async function initDB() {
         WHERE TRIM(UPPER(admission_category)) IN ('MANAGEMENT.', 'M.Q', 'M.Q.');
       UPDATE students SET batch = CONCAT(SPLIT_PART(batch, '-', 1), '-', '20', SPLIT_PART(batch, '-', 2))
         WHERE batch LIKE '%-%' AND LENGTH(SPLIT_PART(batch, '-', 2)) = 2;
+      UPDATE students SET course = 'M.E'
+        WHERE department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI') AND course != 'M.E';
+      UPDATE students SET batch = CONCAT(admission_year, '-', CAST(CAST(admission_year AS INT) + 2 AS TEXT))
+        WHERE department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI')
+        AND admission_year ~ '^\d{4}$'
+        AND batch != CONCAT(admission_year, '-', CAST(CAST(admission_year AS INT) + 2 AS TEXT));
     `);
 
     console.log('Database tables initialized successfully');
