@@ -17,7 +17,8 @@ import {
   StickyNote,
   Trash2,
   Send,
-  AlertCircle
+  AlertCircle,
+  Download
 } from 'lucide-react';
 import { Student } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -240,12 +241,18 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="bg-gradient-to-r from-[#1a365d] via-[#2c5282] to-[#2b6cb0] rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
-        <div className="flex items-center gap-4 relative z-10">
+        <div className="flex items-center justify-between relative z-10">
           <div>
             <h1 className="text-xl font-bold tracking-tight">Muffakham Jah College of Engineering & Technology</h1>
             <p className="text-blue-200 text-xs mt-0.5">Autonomous & Accredited by NAAC with A+ and NBA | Affiliated to Osmania University & Approved by AICTE</p>
             <p className="text-blue-300/70 text-[10px] mt-0.5 font-medium uppercase tracking-wider">Sultan-Ul-Uloom Education Society | Fee Management System</p>
           </div>
+          {isAdmin && (
+            <a href="/api/export/students-csv" download className="flex items-center gap-2 px-4 py-2.5 bg-white/15 hover:bg-white/25 border border-white/30 rounded-xl text-sm font-semibold transition-all backdrop-blur-sm cursor-pointer shrink-0">
+              <Download size={16} />
+              <span>Export Data</span>
+            </a>
+          )}
         </div>
       </div>
 
