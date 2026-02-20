@@ -223,6 +223,8 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
           specialization: 'General',
           section: 'A',
           currentYear: 1,
+          aadhaarNumber: '',
+          entryType: 'REGULAR',
           feeLockers: []
         };
 

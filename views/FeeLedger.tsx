@@ -223,7 +223,7 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
             const existingYears = new Set(student.feeLockers.map(l => l.year));
             const emptyYears = Array.from({ length: maxYears }, (_, i) => i + 1).filter(y => !existingYears.has(y));
             return emptyYears.map(y => {
-              const targets = getFeeTargets(student.department, y);
+              const targets = getFeeTargets(student.department, y, student.entryType);
               const emptyLocker: YearLocker = {
                 year: y,
                 tuitionTarget: targets.tuition,

@@ -128,12 +128,12 @@ export const Reports: React.FC = () => {
       });
     } else {
       if (filterYear) {
-        const targets = getFeeTargets(s.department, filterYear);
+        const targets = getFeeTargets(s.department, filterYear, s.entryType);
         tTarget = targets.tuition;
         uTarget = targets.university;
       } else {
         for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
-          const targets = getFeeTargets(s.department, y);
+          const targets = getFeeTargets(s.department, y, s.entryType);
           tTarget += targets.tuition;
           uTarget += targets.university;
         }

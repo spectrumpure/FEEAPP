@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../store';
-import { FeeLockerConfig, StudentRemark, UserRole } from '../types';
+import { StudentRemark, UserRole } from '../types';
 import { DEPARTMENTS } from '../constants';
 import { 
   Users, 
@@ -10,14 +10,9 @@ import {
   ArrowUpRight,
   TrendingUp,
   CreditCard,
-  Settings,
-  XCircle,
-  Save,
-  Lock,
   Search,
   X,
   FileText,
-  Download,
   MessageSquarePlus,
   StickyNote,
   Trash2,
@@ -49,9 +44,7 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string, 
 );
 
 export const Dashboard: React.FC = () => {
-  const { students, transactions, feeLockerConfig, updateFeeLockerConfig, currentUser, getFeeTargets } = useApp();
-  const [showLockerConfig, setShowLockerConfig] = useState(false);
-  const [editConfig, setEditConfig] = useState<FeeLockerConfig>(feeLockerConfig);
+  const { students, transactions, currentUser, getFeeTargets } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -161,7 +154,7 @@ export const Dashboard: React.FC = () => {
     const duration = dept?.duration || 4;
     let total = 0;
     for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
-      const targets = getFeeTargets(s.department, y);
+      const targets = getFeeTargets(s.department, y, s.entryType);
       total += targets.tuition + targets.university;
     }
     return total;
@@ -584,7 +577,7 @@ export const Dashboard: React.FC = () => {
               const dept = DEPARTMENTS.find(d => matchDept(s.department, d));
               const duration = dept?.duration || 4;
               for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
-                const targets = getFeeTargets(s.department, y);
+                const targets = getFeeTargets(s.department, y, s.entryType);
                 tuiTarget += targets.tuition;
                 uniTarget += targets.university;
               }
@@ -855,240 +848,6 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-violet-50 text-violet-600 rounded-xl">
-              <Lock size={20} />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Fee Locker Configuration</h3>
-              <p className="text-sm text-slate-400">Department-wise and year-wise tuition & university fee targets</p>
-            </div>
-          </div>
-          <button
-            onClick={() => { setEditConfig(JSON.parse(JSON.stringify(feeLockerConfig))); setShowLockerConfig(true); }}
-            className="flex items-center space-x-2 px-5 py-2.5 bg-[#2c5282] text-white rounded-xl font-medium text-sm hover:bg-[#1a365d] transition-colors shadow-sm"
-          >
-            <Settings size={16} />
-            <span>Configure Fee Lockers</span>
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-slate-50">
-                <th className="text-left px-3 py-2 font-bold text-slate-600 uppercase tracking-wider text-[10px] border-b border-slate-200">Department</th>
-                <th className="text-center px-2 py-2 font-bold text-slate-600 uppercase tracking-wider text-[10px] border-b border-slate-200">Type</th>
-                {[1,2,3,4].map(y => (
-                  <th key={y} colSpan={2} className="text-center px-2 py-2 font-bold text-indigo-600 uppercase tracking-wider text-[10px] border-b border-slate-200 border-l border-slate-100">Year {y}</th>
-                ))}
-              </tr>
-              <tr className="bg-slate-50/50">
-                <th className="border-b border-slate-100"></th>
-                <th className="border-b border-slate-100"></th>
-                {[1,2,3,4].map(y => (
-                  <React.Fragment key={y}>
-                    <th className="text-center px-2 py-1 font-semibold text-slate-400 text-[9px] border-b border-slate-100 border-l border-slate-100">Tuition</th>
-                    <th className="text-center px-2 py-1 font-semibold text-slate-400 text-[9px] border-b border-slate-100">University</th>
-                  </React.Fragment>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {DEPARTMENTS.map((dept, idx) => {
-                const targets = feeLockerConfig.deptYearTargets?.[dept.code] || {};
-                return (
-                  <tr key={dept.code} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                    <td className="px-3 py-2 font-semibold text-slate-700 whitespace-nowrap border-b border-slate-50">{dept.code}</td>
-                    <td className="px-2 py-2 text-center border-b border-slate-50">
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${dept.courseType === 'M.E' ? 'bg-teal-50 text-teal-700' : 'bg-indigo-50 text-indigo-700'}`}>{dept.courseType}</span>
-                    </td>
-                    {[1,2,3,4].map(y => {
-                      const t = targets[String(y)];
-                      const isActive = y <= dept.duration;
-                      return (
-                        <React.Fragment key={y}>
-                          <td className={`text-center px-2 py-2 font-bold border-b border-slate-50 border-l border-slate-50 ${isActive ? 'text-slate-800' : 'text-slate-200'}`}>
-                            {isActive ? formatCurrency(t?.tuition || 0) : '-'}
-                          </td>
-                          <td className={`text-center px-2 py-2 font-bold border-b border-slate-50 ${isActive ? 'text-slate-600' : 'text-slate-200'}`}>
-                            {isActive ? formatCurrency(t?.university || 0) : '-'}
-                          </td>
-                        </React.Fragment>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {showLockerConfig && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl my-8">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">Configure Fee Lockers</h3>
-                <p className="text-xs text-slate-400 mt-1">Set tuition and university fee targets for each department and year</p>
-              </div>
-              <button onClick={() => setShowLockerConfig(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-full transition-colors">
-                <XCircle size={20} />
-              </button>
-            </div>
-            <div className="p-6 max-h-[70vh] overflow-y-auto">
-              <div className="space-y-4">
-                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                  <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-3">B.E Programs (4 Years)</h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr>
-                          <th className="text-left px-2 py-2 font-bold text-slate-600 text-[10px]">Department</th>
-                          {[1,2,3,4].map(y => (
-                            <th key={y} colSpan={2} className="text-center px-1 py-2 font-bold text-indigo-600 text-[10px] border-l border-indigo-100">Year {y}</th>
-                          ))}
-                        </tr>
-                        <tr>
-                          <th></th>
-                          {[1,2,3,4].map(y => (
-                            <React.Fragment key={y}>
-                              <th className="text-center px-1 py-1 font-semibold text-slate-400 text-[9px] border-l border-indigo-100">Tuition</th>
-                              <th className="text-center px-1 py-1 font-semibold text-slate-400 text-[9px]">Univ</th>
-                            </React.Fragment>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {DEPARTMENTS.filter(d => d.courseType === 'B.E').map(dept => {
-                          const deptTargets = editConfig.deptYearTargets?.[dept.code] || {};
-                          return (
-                            <tr key={dept.code} className="border-t border-indigo-50">
-                              <td className="px-2 py-2 font-bold text-slate-700 whitespace-nowrap">{dept.code}</td>
-                              {[1,2,3,4].map(y => (
-                                <React.Fragment key={y}>
-                                  <td className="px-1 py-1 border-l border-indigo-50">
-                                    <input type="number" className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center outline-none focus:ring-1 focus:ring-indigo-200" 
-                                      value={deptTargets[String(y)]?.tuition || 0}
-                                      onChange={e => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        const newConfig = JSON.parse(JSON.stringify(editConfig));
-                                        if (!newConfig.deptYearTargets) newConfig.deptYearTargets = {};
-                                        if (!newConfig.deptYearTargets[dept.code]) newConfig.deptYearTargets[dept.code] = {};
-                                        if (!newConfig.deptYearTargets[dept.code][String(y)]) newConfig.deptYearTargets[dept.code][String(y)] = { tuition: 0, university: 0 };
-                                        newConfig.deptYearTargets[dept.code][String(y)].tuition = val;
-                                        setEditConfig(newConfig);
-                                      }}
-                                    />
-                                  </td>
-                                  <td className="px-1 py-1">
-                                    <input type="number" className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center outline-none focus:ring-1 focus:ring-indigo-200"
-                                      value={deptTargets[String(y)]?.university || 0}
-                                      onChange={e => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        const newConfig = JSON.parse(JSON.stringify(editConfig));
-                                        if (!newConfig.deptYearTargets) newConfig.deptYearTargets = {};
-                                        if (!newConfig.deptYearTargets[dept.code]) newConfig.deptYearTargets[dept.code] = {};
-                                        if (!newConfig.deptYearTargets[dept.code][String(y)]) newConfig.deptYearTargets[dept.code][String(y)] = { tuition: 0, university: 0 };
-                                        newConfig.deptYearTargets[dept.code][String(y)].university = val;
-                                        setEditConfig(newConfig);
-                                      }}
-                                    />
-                                  </td>
-                                </React.Fragment>
-                              ))}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-teal-50 rounded-xl border border-teal-100">
-                  <h4 className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-3">M.E Programs (2 Years)</h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr>
-                          <th className="text-left px-2 py-2 font-bold text-slate-600 text-[10px]">Department</th>
-                          {[1,2].map(y => (
-                            <th key={y} colSpan={2} className="text-center px-1 py-2 font-bold text-teal-600 text-[10px] border-l border-teal-100">Year {y}</th>
-                          ))}
-                        </tr>
-                        <tr>
-                          <th></th>
-                          {[1,2].map(y => (
-                            <React.Fragment key={y}>
-                              <th className="text-center px-1 py-1 font-semibold text-slate-400 text-[9px] border-l border-teal-100">Tuition</th>
-                              <th className="text-center px-1 py-1 font-semibold text-slate-400 text-[9px]">Univ</th>
-                            </React.Fragment>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {DEPARTMENTS.filter(d => d.courseType === 'M.E').map(dept => {
-                          const deptTargets = editConfig.deptYearTargets?.[dept.code] || {};
-                          return (
-                            <tr key={dept.code} className="border-t border-teal-50">
-                              <td className="px-2 py-2 font-bold text-slate-700 whitespace-nowrap">{dept.code}</td>
-                              {[1,2].map(y => (
-                                <React.Fragment key={y}>
-                                  <td className="px-1 py-1 border-l border-teal-50">
-                                    <input type="number" className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center outline-none focus:ring-1 focus:ring-teal-200"
-                                      value={deptTargets[String(y)]?.tuition || 0}
-                                      onChange={e => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        const newConfig = JSON.parse(JSON.stringify(editConfig));
-                                        if (!newConfig.deptYearTargets) newConfig.deptYearTargets = {};
-                                        if (!newConfig.deptYearTargets[dept.code]) newConfig.deptYearTargets[dept.code] = {};
-                                        if (!newConfig.deptYearTargets[dept.code][String(y)]) newConfig.deptYearTargets[dept.code][String(y)] = { tuition: 0, university: 0 };
-                                        newConfig.deptYearTargets[dept.code][String(y)].tuition = val;
-                                        setEditConfig(newConfig);
-                                      }}
-                                    />
-                                  </td>
-                                  <td className="px-1 py-1">
-                                    <input type="number" className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center outline-none focus:ring-1 focus:ring-teal-200"
-                                      value={deptTargets[String(y)]?.university || 0}
-                                      onChange={e => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        const newConfig = JSON.parse(JSON.stringify(editConfig));
-                                        if (!newConfig.deptYearTargets) newConfig.deptYearTargets = {};
-                                        if (!newConfig.deptYearTargets[dept.code]) newConfig.deptYearTargets[dept.code] = {};
-                                        if (!newConfig.deptYearTargets[dept.code][String(y)]) newConfig.deptYearTargets[dept.code][String(y)] = { tuition: 0, university: 0 };
-                                        newConfig.deptYearTargets[dept.code][String(y)].university = val;
-                                        setEditConfig(newConfig);
-                                      }}
-                                    />
-                                  </td>
-                                </React.Fragment>
-                              ))}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 border-t border-slate-100 flex justify-end space-x-3">
-              <button onClick={() => setShowLockerConfig(false)} className="px-6 py-2.5 bg-slate-100 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-200 transition-colors">Cancel</button>
-              <button
-                onClick={() => { updateFeeLockerConfig(editConfig); setShowLockerConfig(false); }}
-                className="px-8 py-2.5 bg-[#2c5282] text-white rounded-xl font-medium text-sm shadow-sm hover:bg-[#1a365d] transition-colors flex items-center space-x-2"
-              >
-                <Save size={16} />
-                <span>Save Configuration</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

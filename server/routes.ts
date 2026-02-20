@@ -28,13 +28,16 @@ const normalizeDepartment = (raw: string): string => {
   return mapping[val] || raw.trim();
 };
 
-const getFeeTargetsServer = (department: string, year: number, config: any): { tuition: number; university: number } => {
+const getFeeTargetsServer = (department: string, year: number, config: any, entryType?: string): { tuition: number; university: number } => {
   const code = normalizeDepartment(department);
   const groupCDepts = config?.groupC?.departments || ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'];
   const groupBDepts = config?.groupB?.departments || ['CS-AI', 'CS-DS', 'CS-AIML', 'IT', 'EEE', 'PROD'];
   const isME = groupCDepts.includes(code) || code.startsWith('ME-');
   const duration = isME ? 2 : 4;
   if (year > duration) return { tuition: 0, university: 0 };
+  if (entryType?.toUpperCase() === 'LATERAL' && config?.lateralDeptYearTargets?.[code]?.[String(year)]) {
+    return config.lateralDeptYearTargets[code][String(year)];
+  }
   if (config?.deptYearTargets?.[code]?.[String(year)]) {
     return config.deptYearTargets[code][String(year)];
   }
@@ -230,8 +233,10 @@ router.get('/api/bootstrap', async (_req: Request, res: Response) => {
     const config = configRes.rows.length > 0 ? configRes.rows[0].config : null;
 
     const studentDeptMap: Record<string, string> = {};
+    const studentEntryTypeMap: Record<string, string> = {};
     for (const row of studentsRes.rows) {
       studentDeptMap[row.hall_ticket_number] = row.department;
+      studentEntryTypeMap[row.hall_ticket_number] = row.entry_type || 'REGULAR';
     }
 
     const lockersByHTN: Record<string, any[]> = {};
@@ -240,7 +245,8 @@ router.get('/api/bootstrap', async (_req: Request, res: Response) => {
       if (!lockersByHTN[htn]) lockersByHTN[htn] = [];
       const locker = mapLockerRow(row);
       const dept = studentDeptMap[htn] || '';
-      const targets = getFeeTargetsServer(dept, row.year, config);
+      const entryType = studentEntryTypeMap[htn] || 'REGULAR';
+      const targets = getFeeTargetsServer(dept, row.year, config, entryType);
       locker.tuitionTarget = targets.tuition;
       locker.universityTarget = targets.university;
       (locker as any).transactions = txsByHTN[htn]?.[row.year] || [];
@@ -552,7 +558,8 @@ router.put('/api/fee-config', async (req: Request, res: Response) => {
     );
 
     const deptYearTargets = config.deptYearTargets;
-    const studentsRes = await pool.query('SELECT hall_ticket_number, department FROM students');
+    const lateralDeptYearTargets = config.lateralDeptYearTargets;
+    const studentsRes = await pool.query('SELECT hall_ticket_number, department, entry_type FROM students');
     const lockersRes = await pool.query('SELECT student_htn, year FROM year_lockers');
     const studentLockers: Record<string, number[]> = {};
     for (const row of lockersRes.rows) {
@@ -562,12 +569,16 @@ router.put('/api/fee-config', async (req: Request, res: Response) => {
 
     for (const s of studentsRes.rows) {
       const dept = s.department.toUpperCase();
+      const isLateral = (s.entry_type || '').toUpperCase() === 'LATERAL';
       const years = studentLockers[s.hall_ticket_number] || [];
 
       for (const yr of years) {
         let tuition = 0, university = 0;
 
-        if (deptYearTargets && deptYearTargets[dept] && deptYearTargets[dept][String(yr)]) {
+        if (isLateral && lateralDeptYearTargets && lateralDeptYearTargets[dept] && lateralDeptYearTargets[dept][String(yr)]) {
+          tuition = lateralDeptYearTargets[dept][String(yr)].tuition || 0;
+          university = lateralDeptYearTargets[dept][String(yr)].university || 0;
+        } else if (deptYearTargets && deptYearTargets[dept] && deptYearTargets[dept][String(yr)]) {
           tuition = deptYearTargets[dept][String(yr)].tuition || 0;
           university = deptYearTargets[dept][String(yr)].university || 0;
         } else {

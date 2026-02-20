@@ -25,7 +25,7 @@ interface AppState {
   deleteTemplate: (id: string) => void;
   feeLockerConfig: FeeLockerConfig;
   updateFeeLockerConfig: (config: FeeLockerConfig) => void;
-  getFeeTargets: (department: string, year: number) => { tuition: number; university: number };
+  getFeeTargets: (department: string, year: number, entryType?: 'REGULAR' | 'LATERAL') => { tuition: number; university: number };
   isLoading: boolean;
 }
 
@@ -61,6 +61,21 @@ const DEFAULT_FEE_CONFIG: FeeLockerConfig = {
 };
 DEFAULT_FEE_CONFIG.deptYearTargets = buildDeptYearTargets(DEFAULT_FEE_CONFIG);
 
+function buildLateralDeptYearTargets(config: FeeLockerConfig): { [deptCode: string]: { [year: string]: DeptYearTarget } } {
+  const targets: { [deptCode: string]: { [year: string]: DeptYearTarget } } = {};
+  const beDepts = DEPARTMENTS.filter(d => d.courseType === 'B.E');
+  for (const dept of beDepts) {
+    targets[dept.code] = {};
+    for (let y = 2; y <= dept.duration; y++) {
+      const regular = config.deptYearTargets?.[dept.code]?.[String(y)];
+      targets[dept.code][String(y)] = regular ? { ...regular } : { tuition: 0, university: 0 };
+    }
+  }
+  return targets;
+}
+
+DEFAULT_FEE_CONFIG.lateralDeptYearTargets = buildLateralDeptYearTargets(DEFAULT_FEE_CONFIG);
+
 function ensureDeptYearTargets(config: FeeLockerConfig): FeeLockerConfig {
   if (config.deptYearTargets && Object.keys(config.deptYearTargets).length > 0) {
     for (const dept of DEPARTMENTS) {
@@ -73,9 +88,24 @@ function ensureDeptYearTargets(config: FeeLockerConfig): FeeLockerConfig {
         }
       }
     }
-    return config;
+  } else {
+    config.deptYearTargets = buildDeptYearTargets(config);
   }
-  config.deptYearTargets = buildDeptYearTargets(config);
+  if (!config.lateralDeptYearTargets || Object.keys(config.lateralDeptYearTargets).length === 0) {
+    config.lateralDeptYearTargets = buildLateralDeptYearTargets(config);
+  } else {
+    const beDepts = DEPARTMENTS.filter(d => d.courseType === 'B.E');
+    for (const dept of beDepts) {
+      if (!config.lateralDeptYearTargets[dept.code]) {
+        config.lateralDeptYearTargets[dept.code] = {};
+      }
+      for (let y = 2; y <= dept.duration; y++) {
+        if (!config.lateralDeptYearTargets[dept.code][String(y)]) {
+          config.lateralDeptYearTargets[dept.code][String(y)] = { tuition: 0, university: 0 };
+        }
+      }
+    }
+  }
   return config;
 }
 
@@ -117,12 +147,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('ef_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
-  const getFeeTargets = useCallback((department: string, year: number): { tuition: number; university: number } => {
+  const getFeeTargets = useCallback((department: string, year: number, entryType?: 'REGULAR' | 'LATERAL'): { tuition: number; university: number } => {
     const dept = DEPARTMENTS.find(d => d.name === department || d.code === department || d.code.toUpperCase() === department.toUpperCase());
     const code = dept?.code || '';
     const duration = dept?.duration || 4;
     if (year > duration) {
       return { tuition: 0, university: 0 };
+    }
+    if (entryType === 'LATERAL' && feeLockerConfig.lateralDeptYearTargets?.[code]?.[String(year)]) {
+      return feeLockerConfig.lateralDeptYearTargets[code][String(year)];
     }
     if (feeLockerConfig.deptYearTargets && feeLockerConfig.deptYearTargets[code] && feeLockerConfig.deptYearTargets[code][String(year)]) {
       return feeLockerConfig.deptYearTargets[code][String(year)];
@@ -263,7 +296,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const year = tx.targetYear || s.currentYear;
         let lockerIndex = updatedLockers.findIndex(l => l.year === year);
         if (lockerIndex === -1) {
-          const targets = getFeeTargets(s.department, year);
+          const targets = getFeeTargets(s.department, year, s.entryType);
           updatedLockers.push({
             year,
             tuitionTarget: targets.tuition,
@@ -309,7 +342,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const year = tx.targetYear || s.currentYear;
         let lockerIndex = updatedLockers.findIndex(l => l.year === year);
         if (lockerIndex === -1) {
-          const targets = getFeeTargets(s.department, year);
+          const targets = getFeeTargets(s.department, year, s.entryType);
           updatedLockers.push({
             year,
             tuitionTarget: targets.tuition,

@@ -102,6 +102,11 @@ export interface FeeLockerConfig {
       [year: string]: DeptYearTarget;
     };
   };
+  lateralDeptYearTargets?: {
+    [deptCode: string]: {
+      [year: string]: DeptYearTarget;
+    };
+  };
 }
 
 export interface CertificateTemplate {
