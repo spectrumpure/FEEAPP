@@ -797,20 +797,24 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
             <Download size={16} />
             <span>Export Excel</span>
           </button>
-          <button 
-            onClick={() => setShowBulkUpload(!showBulkUpload)}
-            className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border ${showBulkUpload ? 'bg-slate-100 text-slate-700 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-          >
-            <Upload size={16} />
-            <span>Bulk Upload</span>
-          </button>
-          <button 
-            onClick={() => { resetForm(); setShowManualModal(true); }}
-            className="flex items-center space-x-2 px-5 py-2.5 bg-[#2c5282] text-white rounded-lg font-medium text-sm hover:bg-[#1a365d] transition-colors shadow-sm"
-          >
-            <Plus size={16} />
-            <span>New Admission</span>
-          </button>
+          {currentUser?.role === 'ADMIN' && (
+            <>
+              <button 
+                onClick={() => setShowBulkUpload(!showBulkUpload)}
+                className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border ${showBulkUpload ? 'bg-slate-100 text-slate-700 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+              >
+                <Upload size={16} />
+                <span>Bulk Upload</span>
+              </button>
+              <button 
+                onClick={() => { resetForm(); setShowManualModal(true); }}
+                className="flex items-center space-x-2 px-5 py-2.5 bg-[#2c5282] text-white rounded-lg font-medium text-sm hover:bg-[#1a365d] transition-colors shadow-sm"
+              >
+                <Plus size={16} />
+                <span>New Admission</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -989,13 +993,15 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-center space-x-1">
-                        <button 
-                          onClick={(e) => handleCollect(e, student.hallTicketNumber)}
-                          className="p-1.5 text-[#2c5282] bg-blue-50 border border-blue-100 rounded-md transition-all hover:bg-[#2c5282] hover:text-white hover:border-[#2c5282]"
-                          title="Collect Fee"
-                        >
-                          <Wallet size={14} />
-                        </button>
+                        {currentUser?.role === 'ADMIN' && (
+                          <button 
+                            onClick={(e) => handleCollect(e, student.hallTicketNumber)}
+                            className="p-1.5 text-[#2c5282] bg-blue-50 border border-blue-100 rounded-md transition-all hover:bg-[#2c5282] hover:text-white hover:border-[#2c5282]"
+                            title="Collect Fee"
+                          >
+                            <Wallet size={14} />
+                          </button>
+                        )}
                         <button 
                           onClick={(e) => handleView(e, student.hallTicketNumber)}
                           className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-slate-700 hover:bg-slate-50"
@@ -1010,20 +1016,24 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                         >
                           <StickyNote size={14} />
                         </button>
-                        <button 
-                          onClick={(e) => handleEditClick(e, student)}
-                          className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200"
-                          title="Edit"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button 
-                          onClick={(e) => handleDelete(e, student.hallTicketNumber, student.name)}
-                          className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200"
-                          title="Delete"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {currentUser?.role === 'ADMIN' && (
+                          <>
+                            <button 
+                              onClick={(e) => handleEditClick(e, student)}
+                              className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200"
+                              title="Edit"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button 
+                              onClick={(e) => handleDelete(e, student.hallTicketNumber, student.name)}
+                              className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200"
+                              title="Delete"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
