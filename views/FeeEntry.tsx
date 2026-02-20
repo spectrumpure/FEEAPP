@@ -213,7 +213,7 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
           department: normalizedDept,
           admissionCategory: mode,
           admissionYear: admYear,
-          batch: cleanCols[7] || `${admYear}-${(admYearNum + duration).toString().slice(-2)}`,
+          batch: cleanCols[7] || `${admYear}-${admYearNum + duration}`,
           dob: normalizeDate(cleanCols[8]),
           mobile: cleanCols[9],
           fatherMobile: cleanCols[10],
