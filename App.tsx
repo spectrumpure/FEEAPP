@@ -284,7 +284,13 @@ const LoginPage: React.FC = () => {
 
 const MainApp: React.FC = () => {
   const { currentUser, students } = useApp();
-  const [activeView, setActiveView] = useState(currentUser?.role === UserRole.EXAM_CELL ? 'defaulters' : 'dashboard');
+  const getDefaultView = () => {
+    if (currentUser?.role === UserRole.EXAM_CELL) return 'defaulters';
+    if (currentUser?.role === UserRole.ACCOUNTANT) return 'students';
+    if (currentUser?.role === UserRole.PRINCIPAL) return 'students';
+    return 'dashboard';
+  };
+  const [activeView, setActiveView] = useState(getDefaultView());
   const [selectedStudentHTN, setSelectedStudentHTN] = useState<string | null>(null);
   const [preSelectedFeeHTN, setPreSelectedFeeHTN] = useState<string | null>(null);
 

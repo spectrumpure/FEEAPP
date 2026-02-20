@@ -55,14 +55,14 @@ export const Layout: React.FC<{ children: React.ReactNode, activeView: string, o
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PRINCIPAL] },
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: [UserRole.ADMIN] },
     { id: 'students', label: 'Student Directory', icon: <Users size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PRINCIPAL] },
-    { id: 'fee-entry', label: 'Fee Entry', icon: <CreditCard size={20} />, roles: [UserRole.ACCOUNTANT] },
-    { id: 'approvals', label: 'Approvals', icon: <CheckCircle size={20} />, roles: [UserRole.ACCOUNTANT] },
+    { id: 'fee-entry', label: 'Fee Entry', icon: <CreditCard size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT] },
+    { id: 'approvals', label: 'Approvals', icon: <CheckCircle size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT] },
     { id: 'reports', label: 'Reports', icon: <BarChart3 size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PRINCIPAL] },
-    { id: 'certificates', label: 'Certificates', icon: <FileText size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT] },
-    { id: 'fee-lockers', label: 'Fee Lockers', icon: <Lock size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PRINCIPAL] },
-    { id: 'defaulters', label: 'Defaulter List', icon: <AlertCircle size={20} />, roles: [UserRole.ADMIN, UserRole.EXAM_CELL, UserRole.PRINCIPAL, UserRole.ACCOUNTANT] },
+    { id: 'certificates', label: 'Certificates', icon: <FileText size={20} />, roles: [UserRole.ADMIN] },
+    { id: 'fee-lockers', label: 'Fee Lockers', icon: <Lock size={20} />, roles: [UserRole.ADMIN] },
+    { id: 'defaulters', label: 'Defaulter List', icon: <AlertCircle size={20} />, roles: [UserRole.ADMIN, UserRole.EXAM_CELL] },
     { id: 'database', label: 'Database', icon: <Database size={20} />, roles: [UserRole.ADMIN] },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} />, roles: [UserRole.ADMIN] },
   ];
