@@ -51,7 +51,11 @@ export const Dashboard: React.FC = () => {
   const searchRef = useRef<HTMLDivElement>(null);
 
   const [deptYearFilter, setDeptYearFilter] = useState<string>('all');
+  const [deptBatchFilter, setDeptBatchFilter] = useState<string>('all');
   const [catYearFilter, setCatYearFilter] = useState<string>('all');
+  const [catBatchFilter, setCatBatchFilter] = useState<string>('all');
+
+  const allBatches = Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort();
 
   const [remarkHTN, setRemarkHTN] = useState('');
   const [remarkText, setRemarkText] = useState('');
@@ -178,7 +182,8 @@ export const Dashboard: React.FC = () => {
   };
 
   const deptTableData = DEPARTMENTS.map(dept => {
-    const allDeptStudents = students.filter(s => matchDept(s.department, dept));
+    let allDeptStudents = students.filter(s => matchDept(s.department, dept));
+    if (deptBatchFilter !== 'all') allDeptStudents = allDeptStudents.filter(s => s.batch === deptBatchFilter);
     const yr = deptYearFilter === 'all' ? 0 : parseInt(deptYearFilter);
     const deptStudents = yr === 0 ? allDeptStudents : allDeptStudents.filter(s => s.feeLockers.some(l => l.year === yr));
     const count = deptStudents.length;
@@ -475,19 +480,32 @@ export const Dashboard: React.FC = () => {
               <h3 className="text-lg font-bold text-slate-800">Department Summary</h3>
               <p className="text-sm text-slate-400">Complete department-wise fee overview</p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500">Year:</span>
-              <select
-                value={deptYearFilter}
-                onChange={(e) => setDeptYearFilter(e.target.value)}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-              >
-                <option value="all">All Years</option>
-                <option value="1">1st Year</option>
-                <option value="2">2nd Year</option>
-                <option value="3">3rd Year</option>
-                <option value="4">4th Year</option>
-              </select>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-slate-500">Batch:</span>
+                <select
+                  value={deptBatchFilter}
+                  onChange={(e) => setDeptBatchFilter(e.target.value)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                >
+                  <option value="all">All Batches</option>
+                  {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-slate-500">Year:</span>
+                <select
+                  value={deptYearFilter}
+                  onChange={(e) => setDeptYearFilter(e.target.value)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                >
+                  <option value="all">All Years</option>
+                  <option value="1">1st Year</option>
+                  <option value="2">2nd Year</option>
+                  <option value="3">3rd Year</option>
+                  <option value="4">4th Year</option>
+                </select>
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -563,7 +581,8 @@ export const Dashboard: React.FC = () => {
         const catYr = catYearFilter === 'all' ? 0 : parseInt(catYearFilter);
         const getCatPaid = (sList: typeof students) => {
           let tuiPaid = 0, uniPaid = 0, tuiTarget = 0, uniTarget = 0;
-          const filtered = catYr > 0 ? sList.filter(s => s.feeLockers.some(l => l.year === catYr)) : sList;
+          let batchFiltered = catBatchFilter !== 'all' ? sList.filter(s => s.batch === catBatchFilter) : sList;
+          const filtered = catYr > 0 ? batchFiltered.filter(s => s.feeLockers.some(l => l.year === catYr)) : batchFiltered;
           filtered.forEach(s => {
             const lockers = catYr > 0 ? s.feeLockers.filter(l => l.year === catYr) : s.feeLockers;
             lockers.forEach(l => {
@@ -612,13 +631,25 @@ export const Dashboard: React.FC = () => {
                 <h3 className="text-lg font-bold text-slate-800">Category Analysis</h3>
                 <p className="text-sm text-slate-400">TSMFC vs Management Quota vs Convenor - Fee payment & pending summary</p>
               </div>
-              <select value={catYearFilter} onChange={e => setCatYearFilter(e.target.value)} className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="all">All Years</option>
-                <option value="1">1st Year</option>
-                <option value="2">2nd Year</option>
-                <option value="3">3rd Year</option>
-                <option value="4">4th Year</option>
-              </select>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-slate-500">Batch:</span>
+                  <select value={catBatchFilter} onChange={e => setCatBatchFilter(e.target.value)} className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                    <option value="all">All Batches</option>
+                    {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-slate-500">Year:</span>
+                  <select value={catYearFilter} onChange={e => setCatYearFilter(e.target.value)} className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                    <option value="all">All Years</option>
+                    <option value="1">1st Year</option>
+                    <option value="2">2nd Year</option>
+                    <option value="3">3rd Year</option>
+                    <option value="4">4th Year</option>
+                  </select>
+                </div>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">

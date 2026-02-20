@@ -145,7 +145,8 @@ export const Reports: React.FC = () => {
   const getDeptSummaryData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     return DEPARTMENTS.map(dept => {
-      const deptStudents = students.filter(s => matchesDept(s.department, dept));
+      let deptStudents = students.filter(s => matchesDept(s.department, dept));
+      if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
       const count = deptStudents.length;
       let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
       deptStudents.forEach(s => {
@@ -227,6 +228,7 @@ export const Reports: React.FC = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     const filterDeptObj = deptFilter === 'all' ? null : DEPARTMENTS.find(d => d.name === deptFilter);
     return students.filter(s => {
+      if (batchFilter !== 'all' && s.batch !== batchFilter) return false;
       if (filterDeptObj && !matchesDept(s.department, filterDeptObj)) return false;
       const t = getStudentTargets(s, filterYear);
       const totalTarget = t.tTarget + t.uTarget;
@@ -445,7 +447,8 @@ export const Reports: React.FC = () => {
     };
 
     DEPARTMENTS.forEach(dept => {
-      const deptStudents = students.filter(s => matchesDept(s.department, dept));
+      let deptStudents = students.filter(s => matchesDept(s.department, dept));
+      if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
       const tsmfcStudents = deptStudents.filter(s => isTSMFC(s.admissionCategory));
       const mgmtStudents = deptStudents.filter(s => isManagement(s.admissionCategory));
       const convStudents = deptStudents.filter(s => isConvenor(s.admissionCategory));
@@ -581,6 +584,10 @@ export const Reports: React.FC = () => {
     return (
       <div>
         <FilterBar>
+          <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
+            <option value="all">All Batches</option>
+            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+          </SelectFilter>
           <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
             <option value="all">All Years</option>
             <option value="1">1st Year</option>
@@ -905,6 +912,10 @@ export const Reports: React.FC = () => {
     return (
       <div>
         <FilterBar count={data.length} countLabel="defaulters">
+          <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
+            <option value="all">All Batches</option>
+            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+          </SelectFilter>
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
             {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
@@ -988,6 +999,10 @@ export const Reports: React.FC = () => {
     return (
       <div>
         <FilterBar count={total.all} countLabel="students">
+          <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
+            <option value="all">All Batches</option>
+            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+          </SelectFilter>
           <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
             <option value="all">All Years</option>
             <option value="1">1st Year</option>
