@@ -117,6 +117,8 @@ export async function initDB() {
         WHERE admission_category != TRIM(admission_category);
       UPDATE students SET admission_category = 'MANAGEMENT'
         WHERE TRIM(UPPER(admission_category)) IN ('MANAGEMENT.', 'M.Q', 'M.Q.');
+      UPDATE students SET batch = CONCAT(SPLIT_PART(batch, '-', 1), '-', '20', SPLIT_PART(batch, '-', 2))
+        WHERE batch LIKE '%-%' AND LENGTH(SPLIT_PART(batch, '-', 2)) = 2;
     `);
 
     console.log('Database tables initialized successfully');
