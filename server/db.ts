@@ -125,6 +125,10 @@ export async function initDB() {
         WHERE department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI')
         AND admission_year ~ '^\d{4}$'
         AND batch != CONCAT(admission_year, '-', CAST(CAST(admission_year AS INT) + 2 AS TEXT));
+      UPDATE students SET current_year = 2
+        WHERE entry_type = 'LATERAL' AND current_year = 1;
+      DELETE FROM year_lockers
+        WHERE year = 1 AND student_htn IN (SELECT hall_ticket_number FROM students WHERE entry_type = 'LATERAL');
     `);
 
     console.log('Database tables initialized successfully');
