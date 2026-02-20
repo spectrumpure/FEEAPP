@@ -248,10 +248,23 @@ export const Dashboard: React.FC = () => {
             <p className="text-blue-300/70 text-[10px] mt-0.5 font-medium uppercase tracking-wider">Sultan-Ul-Uloom Education Society | Fee Management System</p>
           </div>
           {isAdmin && (
-            <a href="/api/export/students-csv" download className="flex items-center gap-2 px-4 py-2.5 bg-white/15 hover:bg-white/25 border border-white/30 rounded-xl text-sm font-semibold transition-all backdrop-blur-sm cursor-pointer shrink-0">
+            <button onClick={() => {
+              fetch('/api/export/students-csv')
+                .then(r => r.blob())
+                .then(blob => {
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'students_export.csv';
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                });
+            }} className="flex items-center gap-2 px-4 py-2.5 bg-white/15 hover:bg-white/25 border border-white/30 rounded-xl text-sm font-semibold transition-all backdrop-blur-sm cursor-pointer shrink-0">
               <Download size={16} />
               <span>Export Data</span>
-            </a>
+            </button>
           )}
         </div>
       </div>
