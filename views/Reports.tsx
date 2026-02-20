@@ -144,24 +144,32 @@ export const Reports: React.FC = () => {
 
   const getDeptSummaryData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
-    return DEPARTMENTS.map(dept => {
+    const rows: { department: string; code: string; courseType: string; entryLabel: string; count: number; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalReceived: number; totalBalance: number }[] = [];
+    DEPARTMENTS.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
-      const count = deptStudents.length;
-      let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
-      deptStudents.forEach(s => {
-        const t = getStudentTargets(s, filterYear);
-        tTarget += t.tTarget;
-        uTarget += t.uTarget;
-        tPaid += t.tPaid;
-        uPaid += t.uPaid;
-      });
-      return {
-        department: dept.name, code: dept.code, courseType: dept.courseType,
-        count, tTarget, uTarget, tPaid, uPaid,
-        totalReceived: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
+      const regularStudents = deptStudents.filter(s => s.entryType !== 'LATERAL');
+      const lateralStudents = deptStudents.filter(s => s.entryType === 'LATERAL');
+      const calcRow = (subset: typeof deptStudents, label: string) => {
+        let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
+        subset.forEach(s => {
+          const t = getStudentTargets(s, filterYear);
+          tTarget += t.tTarget; uTarget += t.uTarget; tPaid += t.tPaid; uPaid += t.uPaid;
+        });
+        rows.push({
+          department: dept.name, code: dept.code, courseType: dept.courseType, entryLabel: label,
+          count: subset.length, tTarget, uTarget, tPaid, uPaid,
+          totalReceived: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
+        });
       };
+      if (lateralStudents.length > 0) {
+        calcRow(regularStudents, 'Regular');
+        calcRow(lateralStudents, 'Lateral');
+      } else {
+        calcRow(deptStudents, '');
+      }
     });
+    return rows;
   };
 
   const getFinancialYearData = () => {
@@ -426,7 +434,7 @@ export const Reports: React.FC = () => {
     const isTSMFC = (cat: string) => { const u = (cat || '').trim().toUpperCase(); return u.includes('TSMFC') || u.includes('TSECET'); };
 
     const result: Array<{
-      department: string; code: string; courseType: string;
+      department: string; code: string; courseType: string; entryLabel: string;
       tsmfcCount: number; tsmfcTarget: number; tsmfcTuiPaid: number; tsmfcUniPaid: number; tsmfcBalance: number;
       mgmtCount: number; mgmtTarget: number; mgmtTuiPaid: number; mgmtUniPaid: number; mgmtBalance: number;
       convCount: number; convTarget: number; convTuiPaid: number; convUniPaid: number; convBalance: number;
@@ -446,25 +454,33 @@ export const Reports: React.FC = () => {
       return { target, tuiPaid, uniPaid, balance: target - tuiPaid - uniPaid };
     };
 
-    DEPARTMENTS.forEach(dept => {
-      let deptStudents = students.filter(s => matchesDept(s.department, dept));
-      if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
-      const tsmfcStudents = deptStudents.filter(s => isTSMFC(s.admissionCategory));
-      const mgmtStudents = deptStudents.filter(s => isManagement(s.admissionCategory));
-      const convStudents = deptStudents.filter(s => isConvenor(s.admissionCategory));
-
+    const pushRow = (subset: typeof students, dept: { name: string; code: string; courseType: string }, label: string) => {
+      const tsmfcStudents = subset.filter(s => isTSMFC(s.admissionCategory));
+      const mgmtStudents = subset.filter(s => isManagement(s.admissionCategory));
+      const convStudents = subset.filter(s => isConvenor(s.admissionCategory));
       const tf = getCatFees(tsmfcStudents, filterYear);
       const mf = getCatFees(mgmtStudents, filterYear);
       const cf = getCatFees(convStudents, filterYear);
-
       if (tsmfcStudents.length > 0 || mgmtStudents.length > 0 || convStudents.length > 0) {
         result.push({
-          department: dept.name, code: dept.code, courseType: dept.courseType,
+          department: dept.name, code: dept.code, courseType: dept.courseType, entryLabel: label,
           tsmfcCount: tsmfcStudents.length, tsmfcTarget: tf.target, tsmfcTuiPaid: tf.tuiPaid, tsmfcUniPaid: tf.uniPaid, tsmfcBalance: tf.balance,
           mgmtCount: mgmtStudents.length, mgmtTarget: mf.target, mgmtTuiPaid: mf.tuiPaid, mgmtUniPaid: mf.uniPaid, mgmtBalance: mf.balance,
           convCount: convStudents.length, convTarget: cf.target, convTuiPaid: cf.tuiPaid, convUniPaid: cf.uniPaid, convBalance: cf.balance,
           totalCount: tsmfcStudents.length + mgmtStudents.length + convStudents.length,
         });
+      }
+    };
+
+    DEPARTMENTS.forEach(dept => {
+      let deptStudents = students.filter(s => matchesDept(s.department, dept));
+      if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
+      const lateralStudents = deptStudents.filter(s => s.entryType === 'LATERAL');
+      if (lateralStudents.length > 0) {
+        pushRow(deptStudents.filter(s => s.entryType !== 'LATERAL'), dept, 'Regular');
+        pushRow(lateralStudents, dept, 'Lateral');
+      } else {
+        pushRow(deptStudents, dept, '');
       }
     });
     return result;
@@ -612,8 +628,8 @@ export const Reports: React.FC = () => {
             </thead>
             <tbody>
               {data.map((d, i) => (
-                <tr key={d.code} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                  <td className={`${tdClass} font-semibold text-slate-800`}>{d.courseType}({d.code})</td>
+                <tr key={`${d.code}-${d.entryLabel}`} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <td className={`${tdClass} font-semibold text-slate-800`}>{d.courseType}({d.code}){d.entryLabel ? <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${d.entryLabel === 'Lateral' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{d.entryLabel}</span> : ''}</td>
                   <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
                   <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tTarget)}</td>
                   <td className={`${tdClass} font-semibold text-amber-600 text-right`}>{formatCurrency(d.tPaid)}</td>
@@ -956,7 +972,7 @@ export const Reports: React.FC = () => {
                 <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-red-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className="px-4 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
                   <td className="px-4 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
-                  <td className="px-4 py-2.5 text-sm font-semibold text-slate-800">{s.name}</td>
+                  <td className="px-4 py-2.5 text-sm font-semibold text-slate-800">{s.name}{s.entryType === 'LATERAL' && <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-purple-100 text-purple-700">LE</span>}</td>
                   <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
                   <td className="px-4 py-2.5 text-center">
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : s.admissionCategory?.includes('CONVENOR') || s.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
@@ -1042,8 +1058,8 @@ export const Reports: React.FC = () => {
             <tbody>
               {data.length === 0 && <EmptyState message="No TSMFC, Management or Convenor students found." />}
               {data.map((d, i) => (
-                <tr key={d.code} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                  <td className="px-3 py-2.5 text-xs font-bold text-slate-800">{d.courseType}({d.code})</td>
+                <tr key={`${d.code}-${d.entryLabel}`} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <td className="px-3 py-2.5 text-xs font-bold text-slate-800">{d.courseType}({d.code}){d.entryLabel ? <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${d.entryLabel === 'Lateral' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{d.entryLabel}</span> : ''}</td>
                   <td className="px-1.5 py-2.5 text-xs text-blue-700 font-semibold text-center bg-blue-50/20">{d.tsmfcCount}</td>
                   <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-blue-50/20">{formatCurrency(d.tsmfcTarget)}</td>
                   <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-blue-50/20">{formatCurrency(d.tsmfcTuiPaid)}</td>

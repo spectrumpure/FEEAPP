@@ -181,36 +181,47 @@ export const Dashboard: React.FC = () => {
     return m ? m[1] : d.replace('B.E ', '').replace('M.E ', '').slice(0, 6);
   };
 
-  const deptTableData = DEPARTMENTS.map(dept => {
-    let allDeptStudents = students.filter(s => matchDept(s.department, dept));
-    if (deptBatchFilter !== 'all') allDeptStudents = allDeptStudents.filter(s => s.batch === deptBatchFilter);
+  const deptTableData = (() => {
+    const rows: { name: string; fullName: string; code: string; courseType: string; entryLabel: string; count: number; target: number; collection: number; balance: number; defaulters: number; pct: number }[] = [];
     const yr = deptYearFilter === 'all' ? 0 : parseInt(deptYearFilter);
-    const deptStudents = yr === 0 ? allDeptStudents : allDeptStudents.filter(s => s.feeLockers.some(l => l.year === yr));
-    const count = deptStudents.length;
-    const target = yr === 0
-      ? deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0)
-      : deptStudents.reduce((sum, s) => {
-          const locker = s.feeLockers.find(l => l.year === yr);
-          return sum + (locker ? locker.tuitionTarget + locker.universityTarget + locker.otherTarget : 0);
+    const calcRow = (deptStudents: typeof students, dept: typeof DEPARTMENTS[0], label: string) => {
+      const count = deptStudents.length;
+      const target = yr === 0
+        ? deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0)
+        : deptStudents.reduce((sum, s) => {
+            const locker = s.feeLockers.find(l => l.year === yr);
+            return sum + (locker ? locker.tuitionTarget + locker.universityTarget + locker.otherTarget : 0);
+          }, 0);
+      const collection = deptStudents.reduce((sum, s) => {
+        const lockers = yr === 0 ? s.feeLockers : s.feeLockers.filter(l => l.year === yr);
+        return sum + lockers.reduce((lSum, l) => {
+          return lSum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tSum, t) => tSum + t.amount, 0);
         }, 0);
-    const collection = deptStudents.reduce((sum, s) => {
-      const lockers = yr === 0 ? s.feeLockers : s.feeLockers.filter(l => l.year === yr);
-      return sum + lockers.reduce((lSum, l) => {
-        return lSum + l.transactions
-          .filter(t => t.status === 'APPROVED')
-          .reduce((tSum, t) => tSum + t.amount, 0);
       }, 0);
-    }, 0);
-    const balance = target - collection;
-    const defaulters = deptStudents.filter(s => {
-      const lockers = yr === 0 ? s.feeLockers : s.feeLockers.filter(l => l.year === yr);
-      const st = yr === 0 ? getStudentTotalTarget(s) : lockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget + l.otherTarget, 0);
-      const sp = lockers.reduce((sum, l) => sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0), 0);
-      return st > 0 && sp < st;
-    }).length;
-    const pct = target > 0 ? ((collection / target) * 100) : 0;
-    return { name: deptShort(dept.name), fullName: dept.name, code: dept.code, courseType: dept.courseType, count, target, collection, balance, defaulters, pct };
-  }).filter(d => d.count > 0);
+      const balance = target - collection;
+      const defaulters = deptStudents.filter(s => {
+        const lockers = yr === 0 ? s.feeLockers : s.feeLockers.filter(l => l.year === yr);
+        const st = yr === 0 ? getStudentTotalTarget(s) : lockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget + l.otherTarget, 0);
+        const sp = lockers.reduce((sum, l) => sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0), 0);
+        return st > 0 && sp < st;
+      }).length;
+      const pct = target > 0 ? ((collection / target) * 100) : 0;
+      rows.push({ name: deptShort(dept.name), fullName: dept.name, code: dept.code, courseType: dept.courseType, entryLabel: label, count, target, collection, balance, defaulters, pct });
+    };
+    DEPARTMENTS.forEach(dept => {
+      let allDeptStudents = students.filter(s => matchDept(s.department, dept));
+      if (deptBatchFilter !== 'all') allDeptStudents = allDeptStudents.filter(s => s.batch === deptBatchFilter);
+      const filtered = yr === 0 ? allDeptStudents : allDeptStudents.filter(s => s.feeLockers.some(l => l.year === yr));
+      const lateralStudents = filtered.filter(s => s.entryType === 'LATERAL');
+      if (lateralStudents.length > 0) {
+        calcRow(filtered.filter(s => s.entryType !== 'LATERAL'), dept, 'Regular');
+        calcRow(lateralStudents, dept, 'Lateral');
+      } else {
+        calcRow(filtered, dept, '');
+      }
+    });
+    return rows.filter(d => d.count > 0);
+  })();
 
   const deptTableTotals = deptTableData.reduce((acc, d) => ({
     count: acc.count + d.count, target: acc.target + d.target, collection: acc.collection + d.collection,
@@ -525,11 +536,13 @@ export const Dashboard: React.FC = () => {
               </thead>
               <tbody>
                 {deptTableData.map((d, idx) => (
-                  <tr key={d.code} className={`border-t border-slate-100 hover:bg-blue-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                  <tr key={d.code + d.entryLabel} className={`border-t border-slate-100 hover:bg-blue-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
                     <td className="px-4 py-3 text-slate-400 font-medium">{idx + 1}</td>
                     <td className="px-4 py-3">
                       <span className="font-semibold text-slate-800">{d.code}</span>
                       <span className="text-slate-400 ml-1 text-xs hidden lg:inline">({d.fullName.match(/\(([^)]+)\)/)?.[1] || d.fullName})</span>
+                      {d.entryLabel === 'Regular' && <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">Regular</span>}
+                      {d.entryLabel === 'Lateral' && <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200">Lateral</span>}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${d.courseType === 'B.E' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
@@ -605,18 +618,30 @@ export const Dashboard: React.FC = () => {
           const target = tuiTarget + uniTarget;
           return { target, tuiTarget, uniTarget, tuiPaid, uniPaid, totalPaid: tuiPaid + uniPaid, count: filtered.length };
         };
-        const catData = DEPARTMENTS.map(dept => {
+        const catData: { name: string; code: string; courseType: string; entryLabel: string; tsmfcCount: number; tTarget: number; tTuiPaid: number; tUniPaid: number; tBal: number; mgmtCount: number; mTarget: number; mTuiPaid: number; mUniPaid: number; mBal: number; convCount: number; cTarget: number; cTuiPaid: number; cUniPaid: number; cBal: number; totalCount: number }[] = [];
+        DEPARTMENTS.forEach(dept => {
           const ds = students.filter(s => matchDept(s.department, dept));
-          const mgmt = ds.filter(s => isManagement(s.admissionCategory));
-          const conv = ds.filter(s => isConvenor(s.admissionCategory));
-          const tsmfc = ds.filter(s => isTSMFC(s.admissionCategory));
-          const mp = getCatPaid(mgmt), cp = getCatPaid(conv), tp = getCatPaid(tsmfc);
-          return { name: deptShort(dept.name), code: dept.code, courseType: dept.courseType,
-            tsmfcCount: tp.count, tTarget: tp.target, tTuiPaid: tp.tuiPaid, tUniPaid: tp.uniPaid, tBal: tp.target - tp.totalPaid,
-            mgmtCount: mp.count, mTarget: mp.target, mTuiPaid: mp.tuiPaid, mUniPaid: mp.uniPaid, mBal: mp.target - mp.totalPaid,
-            convCount: cp.count, cTarget: cp.target, cTuiPaid: cp.tuiPaid, cUniPaid: cp.uniPaid, cBal: cp.target - cp.totalPaid,
-            totalCount: tp.count + mp.count + cp.count };
-        }).filter(d => d.mgmtCount > 0 || d.convCount > 0 || d.tsmfcCount > 0);
+          const buildRow = (subset: typeof students, label: string) => {
+            const mgmt = subset.filter(s => isManagement(s.admissionCategory));
+            const conv = subset.filter(s => isConvenor(s.admissionCategory));
+            const tsmfc = subset.filter(s => isTSMFC(s.admissionCategory));
+            const mp = getCatPaid(mgmt), cp = getCatPaid(conv), tp = getCatPaid(tsmfc);
+            if (mp.count > 0 || cp.count > 0 || tp.count > 0) {
+              catData.push({ name: deptShort(dept.name), code: dept.code, courseType: dept.courseType, entryLabel: label,
+                tsmfcCount: tp.count, tTarget: tp.target, tTuiPaid: tp.tuiPaid, tUniPaid: tp.uniPaid, tBal: tp.target - tp.totalPaid,
+                mgmtCount: mp.count, mTarget: mp.target, mTuiPaid: mp.tuiPaid, mUniPaid: mp.uniPaid, mBal: mp.target - mp.totalPaid,
+                convCount: cp.count, cTarget: cp.target, cTuiPaid: cp.tuiPaid, cUniPaid: cp.uniPaid, cBal: cp.target - cp.totalPaid,
+                totalCount: tp.count + mp.count + cp.count });
+            }
+          };
+          const lateralStudents = ds.filter(s => s.entryType === 'LATERAL');
+          if (lateralStudents.length > 0) {
+            buildRow(ds.filter(s => s.entryType !== 'LATERAL'), 'Regular');
+            buildRow(lateralStudents, 'Lateral');
+          } else {
+            buildRow(ds, '');
+          }
+        });
         const catTotals = catData.reduce((a, d) => ({
           tc: a.tc + d.tsmfcCount, tt: a.tt + d.tTarget, ttp: a.ttp + d.tTuiPaid, tup: a.tup + d.tUniPaid, tb: a.tb + d.tBal,
           mc: a.mc + d.mgmtCount, mt: a.mt + d.mTarget, mtp: a.mtp + d.mTuiPaid, mup: a.mup + d.mUniPaid, mb: a.mb + d.mBal,
@@ -681,8 +706,8 @@ export const Dashboard: React.FC = () => {
                 </thead>
                 <tbody>
                   {catData.map((d, i) => (
-                    <tr key={d.code} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                      <td className="px-3 py-2.5 text-xs font-bold text-slate-800">{d.courseType}({d.code})</td>
+                    <tr key={d.code + d.entryLabel} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                      <td className="px-3 py-2.5 text-xs font-bold text-slate-800">{d.courseType}({d.code}){d.entryLabel === 'Regular' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-blue-50 text-blue-600">R</span>}{d.entryLabel === 'Lateral' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-purple-100 text-purple-700">LE</span>}</td>
                       <td className="px-1.5 py-2.5 text-xs text-blue-700 font-semibold text-center bg-blue-50/20">{d.tsmfcCount}</td>
                       <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-blue-50/20">{formatCurrency(d.tTarget)}</td>
                       <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-blue-50/20">{formatCurrency(d.tTuiPaid)}</td>

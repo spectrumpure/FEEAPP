@@ -215,13 +215,14 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
 
         {/* 4-Year Grid */}
         <div className="year-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {student.feeLockers.map((locker) => (
+          {student.feeLockers.filter(l => !(student.entryType === 'LATERAL' && l.year === 1)).map((locker) => (
             <YearSummaryCard key={locker.year} locker={locker} currentYear={student.currentYear} isCurrent={locker.year === student.currentYear} />
           ))}
           {(() => {
             const maxYears = student.department.startsWith('M.E') || student.course === 'M.E' ? 2 : 4;
+            const startYear = student.entryType === 'LATERAL' ? 2 : 1;
             const existingYears = new Set(student.feeLockers.map(l => l.year));
-            const emptyYears = Array.from({ length: maxYears }, (_, i) => i + 1).filter(y => !existingYears.has(y));
+            const emptyYears = Array.from({ length: maxYears - startYear + 1 }, (_, i) => i + startYear).filter(y => !existingYears.has(y));
             return emptyYears.map(y => {
               const targets = getFeeTargets(student.department, y, student.entryType);
               const emptyLocker: YearLocker = {
