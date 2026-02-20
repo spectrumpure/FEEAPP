@@ -113,8 +113,10 @@ export const Reports: React.FC = () => {
     let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
     const dept = DEPARTMENTS.find(d => matchesDept(s.department, d));
     const duration = dept?.duration || 4;
+    const isLateral = s.entryType === 'LATERAL';
+    const startYear = isLateral ? 2 : 1;
     const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
-    if (filterYear && filterYear > duration) {
+    if (filterYear && (filterYear > duration || (isLateral && filterYear < startYear))) {
       return { tTarget: 0, uTarget: 0, tPaid: 0, uPaid: 0 };
     }
     if (lockers.length > 0) {
@@ -132,7 +134,7 @@ export const Reports: React.FC = () => {
         tTarget = targets.tuition;
         uTarget = targets.university;
       } else {
-        for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
+        for (let y = startYear; y <= Math.min(s.currentYear, duration); y++) {
           const targets = getFeeTargets(s.department, y, s.entryType);
           tTarget += targets.tuition;
           uTarget += targets.university;
@@ -149,7 +151,7 @@ export const Reports: React.FC = () => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
       const regularStudents = deptStudents.filter(s => s.entryType !== 'LATERAL');
-      const lateralStudents = deptStudents.filter(s => s.entryType === 'LATERAL');
+      const lateralStudents = (filterYear === 1) ? [] : deptStudents.filter(s => s.entryType === 'LATERAL');
       const calcRow = (subset: typeof deptStudents, label: string) => {
         let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
         subset.forEach(s => {
@@ -166,7 +168,7 @@ export const Reports: React.FC = () => {
         calcRow(regularStudents, 'Regular');
         calcRow(lateralStudents, 'Lateral');
       } else {
-        calcRow(deptStudents, '');
+        calcRow(filterYear === 1 ? regularStudents : deptStudents, '');
       }
     });
     return rows;
@@ -475,12 +477,13 @@ export const Reports: React.FC = () => {
     DEPARTMENTS.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
-      const lateralStudents = deptStudents.filter(s => s.entryType === 'LATERAL');
+      const regularStudents = deptStudents.filter(s => s.entryType !== 'LATERAL');
+      const lateralStudents = (filterYear === 1) ? [] : deptStudents.filter(s => s.entryType === 'LATERAL');
       if (lateralStudents.length > 0) {
-        pushRow(deptStudents.filter(s => s.entryType !== 'LATERAL'), dept, 'Regular');
+        pushRow(regularStudents, dept, 'Regular');
         pushRow(lateralStudents, dept, 'Lateral');
       } else {
-        pushRow(deptStudents, dept, '');
+        pushRow(filterYear === 1 ? regularStudents : deptStudents, dept, '');
       }
     });
     return result;

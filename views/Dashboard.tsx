@@ -213,12 +213,13 @@ export const Dashboard: React.FC = () => {
       let allDeptStudents = students.filter(s => matchDept(s.department, dept));
       if (deptBatchFilter !== 'all') allDeptStudents = allDeptStudents.filter(s => s.batch === deptBatchFilter);
       const filtered = yr === 0 ? allDeptStudents : allDeptStudents.filter(s => s.feeLockers.some(l => l.year === yr));
-      const lateralStudents = filtered.filter(s => s.entryType === 'LATERAL');
+      const regularStudents = filtered.filter(s => s.entryType !== 'LATERAL');
+      const lateralStudents = (yr === 1) ? [] : filtered.filter(s => s.entryType === 'LATERAL');
       if (lateralStudents.length > 0) {
-        calcRow(filtered.filter(s => s.entryType !== 'LATERAL'), dept, 'Regular');
+        calcRow(regularStudents, dept, 'Regular');
         calcRow(lateralStudents, dept, 'Lateral');
       } else {
-        calcRow(filtered, dept, '');
+        calcRow(yr === 1 ? regularStudents : filtered, dept, '');
       }
     });
     return rows.filter(d => d.count > 0);
@@ -654,12 +655,13 @@ export const Dashboard: React.FC = () => {
                 totalCount: tp.count + mp.count + cp.count });
             }
           };
-          const lateralStudents = ds.filter(s => s.entryType === 'LATERAL');
+          const regularStudents = ds.filter(s => s.entryType !== 'LATERAL');
+          const lateralStudents = (catYr === 1) ? [] : ds.filter(s => s.entryType === 'LATERAL');
           if (lateralStudents.length > 0) {
-            buildRow(ds.filter(s => s.entryType !== 'LATERAL'), 'Regular');
+            buildRow(regularStudents, 'Regular');
             buildRow(lateralStudents, 'Lateral');
           } else {
-            buildRow(ds, '');
+            buildRow(catYr === 1 ? regularStudents : ds, '');
           }
         });
         const catTotals = catData.reduce((a, d) => ({
