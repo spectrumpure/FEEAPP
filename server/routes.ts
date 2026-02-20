@@ -701,4 +701,35 @@ router.delete('/api/admin/students/all', requireAdmin, async (_req: Request, res
   }
 });
 
+router.get('/export/students-csv', async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query(`
+      SELECT s.hall_ticket_number, s.name, s.department, s.sex, s.date_of_birth,
+             s.admission_category, s.student_mobile, s.father_mobile, s.father_name,
+             s.mother_name, s.address, s.aadhaar_number, s.admission_year, s.entry_type,
+             s.batch, s.current_year, s.course_type
+      FROM students s ORDER BY s.hall_ticket_number
+    `);
+    const headers = ['Roll No','Student Name','Department','Sex','Date of Birth','Admission Category','Student Mobile','Father Mobile','Father Name','Mother Name','Address','Aadhaar Number','Admission Year','Entry Type','Batch','Current Year','Course Type'];
+    const escapeCSV = (val: any) => {
+      if (val === null || val === undefined) return '';
+      const s = String(val);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    };
+    const rows = result.rows.map(r => [
+      r.hall_ticket_number, r.name, r.department, r.sex, r.date_of_birth,
+      r.admission_category, r.student_mobile, r.father_mobile, r.father_name,
+      r.mother_name, r.address, r.aadhaar_number, r.admission_year, r.entry_type,
+      r.batch, r.current_year, r.course_type
+    ].map(escapeCSV).join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=students_export.csv');
+    res.send(csv);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
