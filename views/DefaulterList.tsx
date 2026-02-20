@@ -62,7 +62,7 @@ export const DefaulterList: React.FC = () => {
     const totalDue = deptDefaulters.reduce((sum, s) => {
       return sum + (getStudentTotalTarget(s) - getStudentTotalPaid(s));
     }, 0);
-    return { dept, defaulters: deptDefaulters, totalDue };
+    return { dept, defaulters: deptDefaulters.sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber)), totalDue };
   }).filter(g => g.defaulters.length > 0);
 
   const totalDefaulterCount = filteredDefaulters.length;

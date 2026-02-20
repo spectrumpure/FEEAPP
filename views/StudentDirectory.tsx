@@ -215,7 +215,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
     const matchesYear = !yearFilter || s.currentYear === Number(yearFilter);
     return matchesSearch && matchesDept && matchesYear;
-  });
+  }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
 
   const resetForm = () => {
     setFormData({

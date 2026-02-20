@@ -249,7 +249,7 @@ export const Reports: React.FC = () => {
       const totalTarget = t.tTarget + t.uTarget;
       const totalPaid = t.tPaid + t.uPaid;
       return { ...s, totalTarget, totalPaid, balance: totalTarget - totalPaid };
-    }).sort((a, b) => b.balance - a.balance);
+    }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
   };
 
   const handleExportDeptSummary = () => {
