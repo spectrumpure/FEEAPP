@@ -105,7 +105,7 @@ export const Certificates: React.FC = () => {
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>Bonafide Certificate - ${s.name}</title>
 <style>
-  @page { size: 210mm 148.5mm; margin: 0; }
+  @page { size: A4 portrait; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Times New Roman', Times, serif; width: 210mm; }
   .certificate-page {
