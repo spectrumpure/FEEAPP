@@ -58,8 +58,21 @@ const parseFileToRows = (file: File): Promise<string[][]> => {
           const text = event.target?.result as string;
           const lines = text.split(/\r?\n/).filter(row => row.trim() !== '');
           const rows = lines.map(line => {
-            const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
-            return cols.map(c => c.replace(/^"|"$/g, '').trim());
+            const cols: string[] = [];
+            let i = 0;
+            while (i <= line.length) {
+              if (i === line.length) { cols.push(''); break; }
+              if (line[i] === '"') {
+                const end = line.indexOf('"', i + 1);
+                if (end === -1) { cols.push(line.substring(i + 1).trim()); i = line.length; }
+                else { cols.push(line.substring(i + 1, end).trim()); i = end + 1; if (i < line.length && line[i] === ',') i++; }
+              } else {
+                const next = line.indexOf(',', i);
+                if (next === -1) { cols.push(line.substring(i).trim()); i = line.length; }
+                else { cols.push(line.substring(i, next).trim()); i = next + 1; if (i === line.length) cols.push(''); }
+              }
+            }
+            return cols;
           });
           resolve(rows);
         }
