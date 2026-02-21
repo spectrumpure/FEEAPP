@@ -103,10 +103,6 @@ export const Certificates: React.FC = () => {
 
     const win = window.open('', '_blank');
     if (!win) return;
-    const deptBranch = getDeptBranch(s.department);
-    const admYearNum = parseInt(s.admissionYear) || 2025;
-    const batchEnd = admYearNum + (s.course === 'M.E' ? 2 : (s.entryType === 'LATERAL' ? 3 : 4));
-
     win.document.write(`<!DOCTYPE html><html><head><title>Bonafide Certificate - ${s.name}</title>
 <style>
   @page { size: 210mm 148.5mm; margin: 0; }
@@ -115,11 +111,12 @@ export const Certificates: React.FC = () => {
   .certificate-page {
     width: 210mm;
     height: 148.5mm;
-    padding: 0;
+    padding: 5mm;
     position: relative;
     overflow: hidden;
   }
-  .inner {
+  .double-border {
+    border: 4px double #000;
     padding: 6mm 12mm 6mm 12mm;
     height: 100%;
     position: relative;
@@ -128,33 +125,30 @@ export const Certificates: React.FC = () => {
   .logo { width: 22mm; height: 22mm; object-fit: contain; flex-shrink: 0; }
   .college-info { text-align: center; flex: 1; }
   .college-name-1 { font-size: 16pt; font-weight: bold; color: #000; letter-spacing: 1px; }
-  .college-name-2 { font-size: 12pt; font-weight: bold; color: #000; }
-  .accred { font-size: 9pt; color: #000; margin-top: 0.5mm; }
+  .college-name-2 { font-size: 13pt; font-weight: bold; color: #000; letter-spacing: 0.5px; }
+  .accred { font-size: 9pt; color: #000; margin-top: 0.5mm; font-weight: 600; }
   .society-name { font-size: 10pt; color: #000; margin-top: 0.5mm; font-weight: bold; }
   .address-line { font-size: 9pt; color: #333; margin-top: 0.5mm; }
-  .title { text-align: center; font-size: 15pt; font-weight: bold; font-style: italic; text-decoration: underline; margin: 5mm 0 4mm; }
-  .ref-date { display: flex; justify-content: space-between; font-size: 12pt; margin-bottom: 5mm; }
-  .body-text { font-size: 13pt; line-height: 2.4; text-align: left; }
+  .title { text-align: center; font-size: 15pt; font-weight: bold; text-decoration: underline; margin: 4mm 0 3mm; }
+  .ref-date { display: flex; justify-content: space-between; font-size: 12pt; margin-bottom: 4mm; }
+  .body-text { font-size: 13pt; line-height: 2.2; text-align: justify; margin-bottom: 2mm; }
   .body-text b { font-weight: bold; }
-  .body-text u { text-underline-offset: 2px; }
-  .conduct { font-size: 13pt; line-height: 2.4; margin-top: 2mm; }
-  .signatures { display: flex; justify-content: space-between; margin-top: 10mm; font-size: 12pt; align-items: flex-end; }
-  .sig-right { text-align: center; }
-  .sig-right .principal-label { font-weight: bold; }
-  .sig-right .college-detail { font-size: 9pt; margin-top: 1mm; }
+  .conduct { font-size: 13pt; line-height: 2.2; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 12pt; align-items: baseline; font-weight: bold; }
   @media print {
     body { margin: 0; }
     .certificate-page { page-break-after: always; }
   }
 </style></head><body>
 <div class="certificate-page">
-  <div class="inner">
+  <div class="double-border">
     <div class="header">
       <img src="${COLLEGE.logo}" class="logo" alt="Logo" />
       <div class="college-info">
         <div class="college-name-1">MUFFAKHAM JAH</div>
         <div class="college-name-2">COLLEGE OF ENGINEERING & TECHNOLOGY</div>
-        <div class="accred">(Affiliated to Osmania University, Hyderabad)</div>
+        <div class="accred">Autonomous & Accredited by NAAC with A+ and NBA</div>
+        <div class="accred">Affiliated to Osmania University & Approved by AICTE</div>
         <div class="society-name">(SULTAN-UL-ULOOM EDUCATION SOCIETY)</div>
         <div class="address-line">'Mount Pleasant' 8-2-249, Road No. 3,</div>
         <div class="address-line" style="margin-top:0;">Banjara Hills, Hyderabad - 500 034, (T.S.)</div>
@@ -162,25 +156,18 @@ export const Certificates: React.FC = () => {
     </div>
     <div class="title">Bonafide/Conduct Certificate</div>
     <div class="ref-date">
-      <span>S.No: ${sno}</span>
-      <span>Date : ${bcDate}</span>
+      <span>Ref No: ${sno}</span>
+      <span>Date: ${bcDate}</span>
     </div>
     <div class="body-text">
-      &nbsp;&nbsp;&nbsp;&nbsp;This is to certify that &nbsp;<b><u>&nbsp;${s.name}&nbsp;</u></b><br/>
-      S/o. D/o. Mr. &nbsp;<b><u>&nbsp;${s.fatherName}&nbsp;</u></b><br/>
-      (Roll No : &nbsp;<b><u>&nbsp;${s.hallTicketNumber}&nbsp;</u></b>&nbsp;) is/was a bonafide student of &nbsp;${s.course} Year, Br. (&nbsp;<b><u>&nbsp;${yearRoman}&nbsp;</u></b>&nbsp;,<br/>
-      <b><u>&nbsp;${deptBranch}&nbsp;</u></b>&nbsp;) in this college in the Academic year &nbsp;<b><u>&nbsp;${admYearNum}-${batchEnd}&nbsp;</u></b>.
+      This is to certify that <b><u>${s.name}</u></b>
+      S/o. D/o. Mr. <b><u>${s.fatherName}</u></b>
+      (Roll No: <b>${s.hallTicketNumber}</b> ), is/was a Bonafide student of <b>${s.department}</b> in this college during the academic year <b>${bcAcademicYear}</b>.
     </div>
-    <div class="conduct">${pronoun} bears &nbsp;${bcConduct} &nbsp;Conduct.</div>
+    <div class="conduct">${pronoun} bears ${bcConduct} Conduct.</div>
     <div class="signatures">
-      <div><b>Clerk</b></div>
-      <div class="sig-right">
-        <div class="principal-label">PRINCIPAL</div>
-        <div class="college-detail">Muffakham Jah College Of</div>
-        <div class="college-detail">Engineering & Technology</div>
-        <div class="college-detail">Banjara Hills, Road No. 3,</div>
-        <div class="college-detail">HYDERABAD-500 034.(T.S.)</div>
-      </div>
+      <div>Clerk</div>
+      <div>Principal</div>
     </div>
   </div>
 </div>
