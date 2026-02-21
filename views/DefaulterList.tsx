@@ -25,7 +25,7 @@ export const DefaulterList: React.FC = () => {
     const duration = dept?.duration || 4;
     let total = 0;
     for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
-      const targets = getFeeTargets(s.department, y, s.entryType);
+      const targets = getFeeTargets(s.department, y, s.entryType, s.admissionYear);
       total += targets.tuition + targets.university;
     }
     return total;

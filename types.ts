@@ -109,6 +109,13 @@ export interface FeeLockerConfig {
   };
 }
 
+export interface BatchFeeLockerConfig {
+  batches: {
+    [batchKey: string]: FeeLockerConfig;
+  };
+  defaultBatch?: string;
+}
+
 export interface CertificateTemplate {
   id: string;
   name: string;

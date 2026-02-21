@@ -68,6 +68,11 @@ export async function initDB() {
         config JSONB NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS batch_fee_config (
+        id INT PRIMARY KEY DEFAULT 1,
+        config JSONB NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS app_users (
         id SERIAL PRIMARY KEY,
         username VARCHAR(50) UNIQUE NOT NULL,

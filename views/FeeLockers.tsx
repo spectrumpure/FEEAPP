@@ -1,19 +1,61 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../store';
-import { FeeLockerConfig, UserRole } from '../types';
+import { FeeLockerConfig, BatchFeeLockerConfig, UserRole } from '../types';
 import { DEPARTMENTS } from '../constants';
-import { Lock, Save, XCircle, Settings } from 'lucide-react';
+import { Lock, Save, XCircle, Settings, Copy, Calendar } from 'lucide-react';
+
+function generateBatchKeys(): string[] {
+  const currentYear = new Date().getFullYear();
+  const keys: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const y = currentYear - i;
+    keys.push(`${y}-${y + 1}`);
+  }
+  return keys;
+}
+
+const DEFAULT_SINGLE_CONFIG: FeeLockerConfig = {
+  groupA: { tuition: 0, university: 0, departments: ['CSE', 'CIVIL', 'MECH', 'ECE'] },
+  groupB: { tuition: 0, university: 0, departments: ['CS-AI', 'CS-DS', 'CS-AIML', 'IT', 'EEE', 'PROD'] },
+  groupC: { year1Tuition: 0, year1University: 0, year2Tuition: 0, year2University: 0, departments: ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'] },
+  deptYearTargets: {},
+  lateralDeptYearTargets: {}
+};
+
+function ensureConfigComplete(config: FeeLockerConfig): FeeLockerConfig {
+  const c = JSON.parse(JSON.stringify(config));
+  if (!c.deptYearTargets) c.deptYearTargets = {};
+  if (!c.lateralDeptYearTargets) c.lateralDeptYearTargets = {};
+  for (const dept of DEPARTMENTS) {
+    if (!c.deptYearTargets[dept.code]) c.deptYearTargets[dept.code] = {};
+    for (let y = 1; y <= dept.duration; y++) {
+      if (!c.deptYearTargets[dept.code][String(y)]) c.deptYearTargets[dept.code][String(y)] = { tuition: 0, university: 0 };
+    }
+    if (dept.courseType === 'B.E') {
+      if (!c.lateralDeptYearTargets[dept.code]) c.lateralDeptYearTargets[dept.code] = {};
+      for (let y = 2; y <= dept.duration; y++) {
+        if (!c.lateralDeptYearTargets[dept.code][String(y)]) c.lateralDeptYearTargets[dept.code][String(y)] = { tuition: 0, university: 0 };
+      }
+    }
+  }
+  return c;
+}
 
 export const FeeLockers: React.FC = () => {
-  const { feeLockerConfig, updateFeeLockerConfig, currentUser } = useApp();
+  const { feeLockerConfig, batchFeeLockerConfig, updateFeeLockerConfig, updateBatchFeeLockerConfig, currentUser } = useApp();
   const [activeTab, setActiveTab] = useState<'regular' | 'lateral'>('regular');
+  const [selectedBatch, setSelectedBatch] = useState<string>('default');
   const [showEditModal, setShowEditModal] = useState(false);
   const [editConfig, setEditConfig] = useState<FeeLockerConfig>(feeLockerConfig);
   const [editTab, setEditTab] = useState<'regular' | 'lateral'>('regular');
+  const [editBatch, setEditBatch] = useState<string>('default');
   const [saving, setSaving] = useState(false);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyFromBatch, setCopyFromBatch] = useState<string>('');
 
   const isAdmin = currentUser?.role === UserRole.ADMIN;
+  const batchKeys = useMemo(() => generateBatchKeys(), []);
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -21,17 +63,52 @@ export const FeeLockers: React.FC = () => {
   const beDepts = DEPARTMENTS.filter(d => d.courseType === 'B.E');
   const meDepts = DEPARTMENTS.filter(d => d.courseType === 'M.E');
 
+  const getCurrentConfig = (): FeeLockerConfig => {
+    if (selectedBatch === 'default') {
+      return feeLockerConfig;
+    }
+    const batchCfg = batchFeeLockerConfig?.batches?.[selectedBatch];
+    if (batchCfg) return ensureConfigComplete(batchCfg);
+    return feeLockerConfig;
+  };
+
+  const hasBatchConfig = (batchKey: string): boolean => {
+    return !!(batchFeeLockerConfig?.batches?.[batchKey]);
+  };
+
   const handleSave = async () => {
     setSaving(true);
-    await updateFeeLockerConfig(editConfig);
+    if (editBatch === 'default') {
+      await updateFeeLockerConfig(editConfig);
+    } else {
+      const newBatchConfig: BatchFeeLockerConfig = {
+        batches: { ...(batchFeeLockerConfig?.batches || {}), [editBatch]: editConfig },
+        defaultBatch: batchFeeLockerConfig?.defaultBatch
+      };
+      await updateBatchFeeLockerConfig(newBatchConfig);
+    }
     setSaving(false);
     setShowEditModal(false);
   };
 
   const openEdit = (tab: 'regular' | 'lateral') => {
-    setEditConfig(JSON.parse(JSON.stringify(feeLockerConfig)));
+    const config = getCurrentConfig();
+    setEditConfig(ensureConfigComplete(JSON.parse(JSON.stringify(config))));
     setEditTab(tab);
+    setEditBatch(selectedBatch);
     setShowEditModal(true);
+  };
+
+  const handleCopyFromBatch = () => {
+    if (!copyFromBatch) return;
+    let sourceConfig: FeeLockerConfig;
+    if (copyFromBatch === 'default') {
+      sourceConfig = feeLockerConfig;
+    } else {
+      sourceConfig = batchFeeLockerConfig?.batches?.[copyFromBatch] || feeLockerConfig;
+    }
+    setEditConfig(ensureConfigComplete(JSON.parse(JSON.stringify(sourceConfig))));
+    setShowCopyModal(false);
   };
 
   const updateTarget = (deptCode: string, year: number, field: 'tuition' | 'university', value: number, isLateral: boolean) => {
@@ -45,8 +122,8 @@ export const FeeLockers: React.FC = () => {
   };
 
   const renderConfigTable = (isLateral: boolean) => {
-    const config = isLateral ? feeLockerConfig.lateralDeptYearTargets : feeLockerConfig.deptYearTargets;
-    const startYear = isLateral ? 2 : 1;
+    const config = getCurrentConfig();
+    const configData = isLateral ? config.lateralDeptYearTargets : config.deptYearTargets;
     const beYears = isLateral ? [2, 3, 4] : [1, 2, 3, 4];
     const meYears = [1, 2];
 
@@ -92,7 +169,7 @@ export const FeeLockers: React.FC = () => {
               </thead>
               <tbody>
                 {beDepts.map((dept, idx) => {
-                  const targets = config?.[dept.code] || {};
+                  const targets = configData?.[dept.code] || {};
                   let totalTui = 0, totalUni = 0;
                   beYears.forEach(y => {
                     const t = targets[String(y)];
@@ -154,7 +231,7 @@ export const FeeLockers: React.FC = () => {
                 </thead>
                 <tbody>
                   {meDepts.map((dept, idx) => {
-                    const targets = config?.[dept.code] || {};
+                    const targets = configData?.[dept.code] || {};
                     let totalTui = 0, totalUni = 0;
                     meYears.forEach(y => {
                       const t = targets[String(y)];
@@ -204,6 +281,8 @@ export const FeeLockers: React.FC = () => {
     const beYears = isLateral ? [2, 3, 4] : [1, 2, 3, 4];
     const meYears = [1, 2];
 
+    const availableCopySources = ['default', ...batchKeys].filter(b => b !== editBatch);
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
         <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl my-8">
@@ -213,12 +292,23 @@ export const FeeLockers: React.FC = () => {
                 Configure Fee Lockers - {isLateral ? 'Lateral Entry' : 'Regular Entry'}
               </h3>
               <p className="text-xs text-slate-400 mt-1">
-                {isLateral ? 'Set fee targets for lateral entry B.E students (Years 2-4)' : 'Set tuition and university fee targets for each department and year'}
+                {editBatch === 'default'
+                  ? 'Default fee structure (applies to batches without specific config)'
+                  : `Batch: ${editBatch} - ${isLateral ? 'Lateral entry B.E students (Years 2-4)' : 'Set tuition and university fee targets'}`}
               </p>
             </div>
-            <button onClick={() => setShowEditModal(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-full transition-colors">
-              <XCircle size={20} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowCopyModal(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-xl font-medium text-xs hover:bg-blue-100 transition-colors border border-blue-200"
+              >
+                <Copy size={14} />
+                Copy From Batch
+              </button>
+              <button onClick={() => setShowEditModal(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-full transition-colors">
+                <XCircle size={20} />
+              </button>
+            </div>
           </div>
           <div className="p-6 max-h-[70vh] overflow-y-auto">
             <div className="space-y-4">
@@ -343,6 +433,40 @@ export const FeeLockers: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {showCopyModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40">
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
+              <h4 className="text-base font-bold text-slate-800 mb-4">Copy Fee Structure From</h4>
+              <p className="text-xs text-slate-500 mb-4">Select a batch to copy its fee structure into the current batch being edited.</p>
+              <select
+                value={copyFromBatch}
+                onChange={e => setCopyFromBatch(e.target.value)}
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-200 outline-none mb-4"
+              >
+                <option value="">Select a batch...</option>
+                {availableCopySources.map(b => (
+                  <option key={b} value={b}>
+                    {b === 'default' ? 'Default Config' : `Batch ${b}`}
+                    {b !== 'default' && hasBatchConfig(b) ? ' (configured)' : b !== 'default' ? ' (uses default)' : ''}
+                  </option>
+                ))}
+              </select>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowCopyModal(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCopyFromBatch}
+                  disabled={!copyFromBatch}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -356,8 +480,55 @@ export const FeeLockers: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Fee Locker Configuration</h1>
-            <p className="text-blue-200 text-xs mt-0.5">Department-wise and year-wise tuition & university fee targets for all departments</p>
+            <p className="text-blue-200 text-xs mt-0.5">Batch-wise department fee targets for tuition & university fees</p>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            <Calendar size={18} className="text-indigo-600" />
+            <div>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Select Batch (Admission Year)</label>
+              <select
+                value={selectedBatch}
+                onChange={e => setSelectedBatch(e.target.value)}
+                className="ml-3 px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 outline-none bg-slate-50"
+              >
+                <option value="default">Default (Fallback)</option>
+                {batchKeys.map(bk => (
+                  <option key={bk} value={bk}>
+                    {bk} {hasBatchConfig(bk) ? '(Configured)' : '(Uses Default)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {selectedBatch !== 'default' && !hasBatchConfig(selectedBatch) && isAdmin && (
+            <button
+              onClick={() => {
+                setEditConfig(ensureConfigComplete(JSON.parse(JSON.stringify(feeLockerConfig))));
+                setEditBatch(selectedBatch);
+                setEditTab('regular');
+                setShowEditModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl font-medium text-xs hover:bg-green-700 transition-colors shadow-sm"
+            >
+              <Settings size={14} />
+              Create Config for {selectedBatch}
+            </button>
+          )}
+          {selectedBatch !== 'default' && hasBatchConfig(selectedBatch) && (
+            <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-bold border border-green-200">
+              Batch-specific config active
+            </span>
+          )}
+          {selectedBatch === 'default' && (
+            <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-200">
+              Default fee structure
+            </span>
+          )}
         </div>
       </div>
 

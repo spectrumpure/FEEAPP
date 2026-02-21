@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Student, User, UserRole, FeeTransaction, Department, CertificateTemplate, PaymentStatus, FeeLockerConfig, DeptYearTarget } from './types';
+import { Student, User, UserRole, FeeTransaction, Department, CertificateTemplate, PaymentStatus, FeeLockerConfig, BatchFeeLockerConfig, DeptYearTarget } from './types';
 import { DEPARTMENTS } from './constants';
 
 interface AppState {
@@ -24,8 +24,10 @@ interface AppState {
   addTemplate: (template: CertificateTemplate) => void;
   deleteTemplate: (id: string) => void;
   feeLockerConfig: FeeLockerConfig;
+  batchFeeLockerConfig: BatchFeeLockerConfig;
   updateFeeLockerConfig: (config: FeeLockerConfig) => void;
-  getFeeTargets: (department: string, year: number, entryType?: 'REGULAR' | 'LATERAL') => { tuition: number; university: number };
+  updateBatchFeeLockerConfig: (batchConfig: BatchFeeLockerConfig) => void;
+  getFeeTargets: (department: string, year: number, entryType?: 'REGULAR' | 'LATERAL', admissionYear?: string) => { tuition: number; university: number };
   isLoading: boolean;
 }
 
@@ -60,6 +62,28 @@ const DEFAULT_FEE_CONFIG: FeeLockerConfig = {
   groupC: { year1Tuition: 130000, year1University: 11650, year2Tuition: 130000, year2University: 4500, departments: ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'] }
 };
 DEFAULT_FEE_CONFIG.deptYearTargets = buildDeptYearTargets(DEFAULT_FEE_CONFIG);
+
+function admissionYearToBatchKey(admissionYear?: string): string {
+  if (!admissionYear) return '';
+  const y = parseInt(admissionYear);
+  if (isNaN(y)) return '';
+  return `${y}-${y + 1}`;
+}
+
+function generateBatchKeys(): string[] {
+  const currentYear = new Date().getFullYear();
+  const keys: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const y = currentYear - i;
+    keys.push(`${y}-${y + 1}`);
+  }
+  return keys;
+}
+
+const DEFAULT_BATCH_CONFIG: BatchFeeLockerConfig = {
+  batches: {},
+  defaultBatch: undefined
+};
 
 function buildLateralDeptYearTargets(config: FeeLockerConfig): { [deptCode: string]: { [year: string]: DeptYearTarget } } {
   const targets: { [deptCode: string]: { [year: string]: DeptYearTarget } } = {};
@@ -120,6 +144,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [transactions, setTransactions] = useState<FeeTransaction[]>([]);
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [feeLockerConfig, setFeeLockerConfig] = useState<FeeLockerConfig>(DEFAULT_FEE_CONFIG);
+  const [batchFeeLockerConfig, setBatchFeeLockerConfig] = useState<BatchFeeLockerConfig>(DEFAULT_BATCH_CONFIG);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -130,6 +155,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const data = await res.json();
           setStudents(data.students || []);
           setTransactions(data.transactions || []);
+          if (data.batchFeeLockerConfig) {
+            const bc = data.batchFeeLockerConfig as BatchFeeLockerConfig;
+            if (bc.batches) {
+              for (const bk of Object.keys(bc.batches)) {
+                bc.batches[bk] = ensureDeptYearTargets(bc.batches[bk]);
+              }
+            }
+            setBatchFeeLockerConfig(bc);
+          }
           if (data.feeLockerConfig) {
             setFeeLockerConfig(ensureDeptYearTargets(data.feeLockerConfig));
           }
@@ -147,31 +181,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('ef_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
-  const getFeeTargets = useCallback((department: string, year: number, entryType?: 'REGULAR' | 'LATERAL'): { tuition: number; university: number } => {
+  const getFeeTargets = useCallback((department: string, year: number, entryType?: 'REGULAR' | 'LATERAL', admissionYear?: string): { tuition: number; university: number } => {
     const dept = DEPARTMENTS.find(d => d.name === department || d.code === department || d.code.toUpperCase() === department.toUpperCase());
     const code = dept?.code || '';
     const duration = dept?.duration || 4;
     if (year > duration) {
       return { tuition: 0, university: 0 };
     }
-    if (entryType === 'LATERAL' && feeLockerConfig.lateralDeptYearTargets?.[code]?.[String(year)]) {
-      return feeLockerConfig.lateralDeptYearTargets[code][String(year)];
+
+    let configToUse = feeLockerConfig;
+    if (admissionYear) {
+      const batchKey = admissionYearToBatchKey(admissionYear);
+      if (batchKey && batchFeeLockerConfig.batches?.[batchKey]) {
+        configToUse = ensureDeptYearTargets(batchFeeLockerConfig.batches[batchKey]);
+      }
     }
-    if (feeLockerConfig.deptYearTargets && feeLockerConfig.deptYearTargets[code] && feeLockerConfig.deptYearTargets[code][String(year)]) {
-      return feeLockerConfig.deptYearTargets[code][String(year)];
+
+    if (entryType === 'LATERAL' && configToUse.lateralDeptYearTargets?.[code]?.[String(year)]) {
+      return configToUse.lateralDeptYearTargets[code][String(year)];
     }
-    const isME = feeLockerConfig.groupC.departments.includes(code) || 
+    if (configToUse.deptYearTargets && configToUse.deptYearTargets[code] && configToUse.deptYearTargets[code][String(year)]) {
+      return configToUse.deptYearTargets[code][String(year)];
+    }
+    const isME = configToUse.groupC.departments.includes(code) || 
       department.startsWith('M.E') || code.startsWith('ME-');
     if (isME) {
       return year === 1
-        ? { tuition: feeLockerConfig.groupC.year1Tuition, university: feeLockerConfig.groupC.year1University }
-        : { tuition: feeLockerConfig.groupC.year2Tuition, university: feeLockerConfig.groupC.year2University };
+        ? { tuition: configToUse.groupC.year1Tuition, university: configToUse.groupC.year1University }
+        : { tuition: configToUse.groupC.year2Tuition, university: configToUse.groupC.year2University };
     }
-    if (feeLockerConfig.groupB.departments.includes(code)) {
-      return { tuition: feeLockerConfig.groupB.tuition, university: feeLockerConfig.groupB.university };
+    if (configToUse.groupB.departments.includes(code)) {
+      return { tuition: configToUse.groupB.tuition, university: configToUse.groupB.university };
     }
-    return { tuition: feeLockerConfig.groupA.tuition, university: feeLockerConfig.groupA.university };
-  }, [feeLockerConfig]);
+    return { tuition: configToUse.groupA.tuition, university: configToUse.groupA.university };
+  }, [feeLockerConfig, batchFeeLockerConfig]);
 
   const updateFeeLockerConfig = async (config: FeeLockerConfig) => {
     setFeeLockerConfig(config);
@@ -189,6 +232,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (err) {
       console.error('Failed to save fee config:', err);
+    }
+  };
+
+  const updateBatchFeeLockerConfig = async (batchConfig: BatchFeeLockerConfig) => {
+    setBatchFeeLockerConfig(batchConfig);
+    try {
+      await fetch('/api/batch-fee-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(batchConfig),
+      });
+      const res = await fetch('/api/bootstrap');
+      if (res.ok) {
+        const data = await res.json();
+        setStudents(data.students || []);
+        setTransactions(data.transactions || []);
+        if (data.batchFeeLockerConfig) {
+          const bc = data.batchFeeLockerConfig as BatchFeeLockerConfig;
+          if (bc.batches) {
+            for (const bk of Object.keys(bc.batches)) {
+              bc.batches[bk] = ensureDeptYearTargets(bc.batches[bk]);
+            }
+          }
+          setBatchFeeLockerConfig(bc);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save batch fee config:', err);
     }
   };
 
@@ -296,7 +367,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const year = tx.targetYear || s.currentYear;
         let lockerIndex = updatedLockers.findIndex(l => l.year === year);
         if (lockerIndex === -1) {
-          const targets = getFeeTargets(s.department, year, s.entryType);
+          const targets = getFeeTargets(s.department, year, s.entryType, s.admissionYear);
           updatedLockers.push({
             year,
             tuitionTarget: targets.tuition,
@@ -342,7 +413,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const year = tx.targetYear || s.currentYear;
         let lockerIndex = updatedLockers.findIndex(l => l.year === year);
         if (lockerIndex === -1) {
-          const targets = getFeeTargets(s.department, year, s.entryType);
+          const targets = getFeeTargets(s.department, year, s.entryType, s.admissionYear);
           updatedLockers.push({
             year,
             tuitionTarget: targets.tuition,
@@ -421,10 +492,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      currentUser, students, departments, transactions, templates, feeLockerConfig, isLoading,
+      currentUser, students, departments, transactions, templates, feeLockerConfig, batchFeeLockerConfig, isLoading,
       login, logout, addStudent, updateStudent, deleteStudent, bulkAddStudents, addTransaction, bulkAddTransactions,
       approveTransaction, rejectTransaction, bulkApproveTransactions, bulkRejectTransactions,
-      addTemplate, deleteTemplate, updateFeeLockerConfig, getFeeTargets
+      addTemplate, deleteTemplate, updateFeeLockerConfig, updateBatchFeeLockerConfig, getFeeTargets
     }}>
       {children}
     </AppContext.Provider>

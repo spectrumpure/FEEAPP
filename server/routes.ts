@@ -28,7 +28,14 @@ const normalizeDepartment = (raw: string): string => {
   return mapping[val] || raw.trim();
 };
 
-const getFeeTargetsServer = (department: string, year: number, config: any, entryType?: string): { tuition: number; university: number } => {
+function admissionYearToBatchKey(admissionYear?: string): string {
+  if (!admissionYear) return '';
+  const y = parseInt(admissionYear);
+  if (isNaN(y)) return '';
+  return `${y}-${y + 1}`;
+}
+
+const getFeeTargetsFromConfig = (department: string, year: number, config: any, entryType?: string): { tuition: number; university: number } => {
   const code = normalizeDepartment(department);
   const groupCDepts = config?.groupC?.departments || ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'];
   const groupBDepts = config?.groupB?.departments || ['CS-AI', 'CS-DS', 'CS-AIML', 'IT', 'EEE', 'PROD'];
@@ -53,6 +60,19 @@ const getFeeTargetsServer = (department: string, year: number, config: any, entr
     return { tuition: config.groupA.tuition || 125000, university: config.groupA.university || 12650 };
   }
   return { tuition: 125000, university: 12650 };
+};
+
+const getFeeTargetsServer = (department: string, year: number, config: any, entryType?: string, admissionYear?: string, batchConfig?: any): { tuition: number; university: number } => {
+  if (admissionYear) {
+    const batchKey = admissionYearToBatchKey(admissionYear);
+    if (batchKey && batchConfig?.batches?.[batchKey]) {
+      const result = getFeeTargetsFromConfig(department, year, batchConfig.batches[batchKey], entryType);
+      if (result.tuition > 0 || result.university > 0) {
+        return result;
+      }
+    }
+  }
+  return getFeeTargetsFromConfig(department, year, config, entryType);
 };
 
 router.post('/api/auth/login', async (req: Request, res: Response) => {
@@ -220,6 +240,7 @@ router.get('/api/bootstrap', async (_req: Request, res: Response) => {
     const lockersRes = await pool.query('SELECT * FROM year_lockers ORDER BY student_htn, year');
     const txsRes = await pool.query('SELECT * FROM fee_transactions ORDER BY created_at');
     const configRes = await pool.query('SELECT config FROM fee_locker_config WHERE id = 1');
+    const batchConfigRes = await pool.query('SELECT config FROM batch_fee_config WHERE id = 1');
 
     const txsByHTN: Record<string, Record<number, any[]>> = {};
     for (const row of txsRes.rows) {
@@ -231,12 +252,15 @@ router.get('/api/bootstrap', async (_req: Request, res: Response) => {
     }
 
     const config = configRes.rows.length > 0 ? configRes.rows[0].config : null;
+    const batchConfig = batchConfigRes.rows.length > 0 ? batchConfigRes.rows[0].config : null;
 
     const studentDeptMap: Record<string, string> = {};
     const studentEntryTypeMap: Record<string, string> = {};
+    const studentAdmissionYearMap: Record<string, string> = {};
     for (const row of studentsRes.rows) {
       studentDeptMap[row.hall_ticket_number] = row.department;
       studentEntryTypeMap[row.hall_ticket_number] = row.entry_type || 'REGULAR';
+      studentAdmissionYearMap[row.hall_ticket_number] = row.admission_year || '';
     }
 
     const lockersByHTN: Record<string, any[]> = {};
@@ -246,7 +270,8 @@ router.get('/api/bootstrap', async (_req: Request, res: Response) => {
       const locker = mapLockerRow(row);
       const dept = studentDeptMap[htn] || '';
       const entryType = studentEntryTypeMap[htn] || 'REGULAR';
-      const targets = getFeeTargetsServer(dept, row.year, config, entryType);
+      const admYear = studentAdmissionYearMap[htn] || '';
+      const targets = getFeeTargetsServer(dept, row.year, config, entryType, admYear, batchConfig);
       locker.tuitionTarget = targets.tuition;
       locker.universityTarget = targets.university;
       (locker as any).transactions = txsByHTN[htn]?.[row.year] || [];
@@ -260,7 +285,7 @@ router.get('/api/bootstrap', async (_req: Request, res: Response) => {
 
     const allTxs = txsRes.rows.map(mapTxRow);
 
-    res.json({ students, transactions: allTxs, feeLockerConfig: config });
+    res.json({ students, transactions: allTxs, feeLockerConfig: config, batchFeeLockerConfig: batchConfig });
   } catch (err: any) {
     console.error('Bootstrap error:', err);
     res.status(500).json({ error: err.message });
@@ -557,9 +582,10 @@ router.put('/api/fee-config', async (req: Request, res: Response) => {
       [JSON.stringify(config)]
     );
 
-    const deptYearTargets = config.deptYearTargets;
-    const lateralDeptYearTargets = config.lateralDeptYearTargets;
-    const studentsRes = await pool.query('SELECT hall_ticket_number, department, entry_type FROM students');
+    const batchConfigRes = await pool.query('SELECT config FROM batch_fee_config WHERE id = 1');
+    const batchConfig = batchConfigRes.rows.length > 0 ? batchConfigRes.rows[0].config : null;
+
+    const studentsRes = await pool.query('SELECT hall_ticket_number, department, entry_type, admission_year FROM students');
     const lockersRes = await pool.query('SELECT student_htn, year FROM year_lockers');
     const studentLockers: Record<string, number[]> = {};
     for (const row of lockersRes.rows) {
@@ -570,37 +596,64 @@ router.put('/api/fee-config', async (req: Request, res: Response) => {
     for (const s of studentsRes.rows) {
       const dept = s.department.toUpperCase();
       const isLateral = (s.entry_type || '').toUpperCase() === 'LATERAL';
+      const admYear = s.admission_year || '';
       const years = studentLockers[s.hall_ticket_number] || [];
 
       for (const yr of years) {
-        let tuition = 0, university = 0;
-
-        if (isLateral && lateralDeptYearTargets && lateralDeptYearTargets[dept] && lateralDeptYearTargets[dept][String(yr)]) {
-          tuition = lateralDeptYearTargets[dept][String(yr)].tuition || 0;
-          university = lateralDeptYearTargets[dept][String(yr)].university || 0;
-        } else if (deptYearTargets && deptYearTargets[dept] && deptYearTargets[dept][String(yr)]) {
-          tuition = deptYearTargets[dept][String(yr)].tuition || 0;
-          university = deptYearTargets[dept][String(yr)].university || 0;
-        } else {
-          const groupADepts = (config.groupA?.departments || []).map((d: string) => d.toUpperCase());
-          const groupBDepts = (config.groupB?.departments || []).map((d: string) => d.toUpperCase());
-          const groupCDepts = (config.groupC?.departments || []).map((d: string) => d.toUpperCase());
-
-          if (groupCDepts.includes(dept) || dept.startsWith('ME-') || s.department.startsWith('M.E')) {
-            tuition = yr === 1 ? config.groupC.year1Tuition : config.groupC.year2Tuition;
-            university = yr === 1 ? config.groupC.year1University : config.groupC.year2University;
-          } else if (groupBDepts.includes(dept)) {
-            tuition = config.groupB.tuition;
-            university = config.groupB.university;
-          } else if (groupADepts.includes(dept)) {
-            tuition = config.groupA.tuition;
-            university = config.groupA.university;
-          }
-        }
-
+        const targets = getFeeTargetsServer(dept, yr, config, isLateral ? 'LATERAL' : 'REGULAR', admYear, batchConfig);
         await pool.query(
           `UPDATE year_lockers SET tuition_target = $1, university_target = $2 WHERE student_htn = $3 AND year = $4`,
-          [tuition, university, s.hall_ticket_number, yr]
+          [targets.tuition, targets.university, s.hall_ticket_number, yr]
+        );
+      }
+    }
+
+    res.json({ success: true, updated: studentsRes.rows.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/api/batch-fee-config', async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query('SELECT config FROM batch_fee_config WHERE id = 1');
+    res.json(result.rows.length > 0 ? result.rows[0].config : { batches: {} });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/api/batch-fee-config', async (req: Request, res: Response) => {
+  const batchConfig = req.body;
+  try {
+    await pool.query(
+      `INSERT INTO batch_fee_config (id, config) VALUES (1, $1::jsonb)
+       ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config`,
+      [JSON.stringify(batchConfig)]
+    );
+
+    const configRes = await pool.query('SELECT config FROM fee_locker_config WHERE id = 1');
+    const defaultConfig = configRes.rows.length > 0 ? configRes.rows[0].config : null;
+
+    const studentsRes = await pool.query('SELECT hall_ticket_number, department, entry_type, admission_year FROM students');
+    const lockersRes = await pool.query('SELECT student_htn, year FROM year_lockers');
+    const studentLockers: Record<string, number[]> = {};
+    for (const row of lockersRes.rows) {
+      if (!studentLockers[row.student_htn]) studentLockers[row.student_htn] = [];
+      studentLockers[row.student_htn].push(row.year);
+    }
+
+    for (const s of studentsRes.rows) {
+      const dept = s.department.toUpperCase();
+      const isLateral = (s.entry_type || '').toUpperCase() === 'LATERAL';
+      const admYear = s.admission_year || '';
+      const years = studentLockers[s.hall_ticket_number] || [];
+
+      for (const yr of years) {
+        const targets = getFeeTargetsServer(dept, yr, defaultConfig, isLateral ? 'LATERAL' : 'REGULAR', admYear, batchConfig);
+        await pool.query(
+          `UPDATE year_lockers SET tuition_target = $1, university_target = $2 WHERE student_htn = $3 AND year = $4`,
+          [targets.tuition, targets.university, s.hall_ticket_number, yr]
         );
       }
     }
@@ -619,13 +672,14 @@ const requireAdmin = (req: Request, res: Response, next: Function) => {
 
 router.get('/api/admin/db-overview', requireAdmin, async (_req: Request, res: Response) => {
   try {
-    const [studentsCount, lockersCount, txCount, remarksCount, usersCount, configCount] = await Promise.all([
+    const [studentsCount, lockersCount, txCount, remarksCount, usersCount, configCount, batchConfigCount] = await Promise.all([
       pool.query('SELECT COUNT(*) as count FROM students'),
       pool.query('SELECT COUNT(*) as count FROM year_lockers'),
       pool.query('SELECT COUNT(*) as count FROM fee_transactions'),
       pool.query('SELECT COUNT(*) as count FROM student_remarks'),
       pool.query('SELECT COUNT(*) as count FROM app_users'),
       pool.query('SELECT COUNT(*) as count FROM fee_locker_config'),
+      pool.query('SELECT COUNT(*) as count FROM batch_fee_config'),
     ]);
     const deptBreakdown = await pool.query('SELECT department, COUNT(*) as count FROM students GROUP BY department ORDER BY department');
     res.json({
@@ -636,6 +690,7 @@ router.get('/api/admin/db-overview', requireAdmin, async (_req: Request, res: Re
         student_remarks: parseInt(remarksCount.rows[0].count),
         app_users: parseInt(usersCount.rows[0].count),
         fee_locker_config: parseInt(configCount.rows[0].count),
+        batch_fee_config: parseInt(batchConfigCount.rows[0].count),
       },
       departmentBreakdown: deptBreakdown.rows,
     });
@@ -645,7 +700,7 @@ router.get('/api/admin/db-overview', requireAdmin, async (_req: Request, res: Re
 });
 
 router.get('/api/admin/table/:tableName', requireAdmin, async (req: Request, res: Response) => {
-  const allowed = ['students', 'year_lockers', 'fee_transactions', 'student_remarks', 'app_users', 'fee_locker_config'];
+  const allowed = ['students', 'year_lockers', 'fee_transactions', 'student_remarks', 'app_users', 'fee_locker_config', 'batch_fee_config'];
   const tableName = req.params.tableName as string;
   if (!allowed.includes(tableName)) return res.status(400).json({ error: 'Invalid table name' });
   const limit = parseInt(req.query.limit as string) || 50;

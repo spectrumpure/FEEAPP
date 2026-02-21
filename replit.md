@@ -25,7 +25,8 @@ A centralized college fee management and governance system built with React, Typ
 - **students** - Student records (PK: hall_ticket_number)
 - **year_lockers** - Year-wise fee targets per student (FK to students)
 - **fee_transactions** - All fee payments/transactions (FK to students)
-- **fee_locker_config** - Fee configuration (JSONB, single row)
+- **fee_locker_config** - Default fee configuration (JSONB, single row)
+- **batch_fee_config** - Batch-wise fee configurations (JSONB with batches keyed by academic year like "2025-2026")
 - **app_users** - User accounts with hashed passwords and roles
 - **student_remarks** - Admin remarks/notes for students (FK to students)
 
@@ -52,8 +53,10 @@ A centralized college fee management and governance system built with React, Typ
 - `POST /api/transactions/bulk` - Bulk add transactions
 - `PUT /api/transactions/approve` - Approve transactions by IDs
 - `PUT /api/transactions/reject` - Reject transactions by IDs
-- `GET /api/fee-config` - Get fee locker configuration
-- `PUT /api/fee-config` - Update fee locker configuration
+- `GET /api/fee-config` - Get default fee locker configuration
+- `PUT /api/fee-config` - Update default fee locker configuration
+- `GET /api/batch-fee-config` - Get batch-wise fee locker configurations
+- `PUT /api/batch-fee-config` - Update batch-wise fee locker configurations
 
 ## Development
 - **Dev server**: `npm run dev` (Express + Vite on port 5000)
@@ -79,6 +82,7 @@ Student columns (14) + Current Year, Tuition Fee Challan No, Tuition Fee Challan
 Note: Also backward-compatible with old 21-column format (without Current Year, Tuition Fee Challan No, Fee Year)
 
 ## Recent Changes
+- 2026-02-21: Implemented batch-wise fee locker configuration - 10 academic year batches (2026-2027 to 2017-2018) each with independent fee targets per department per year; batch selector dropdown in Fee Locker Config page; "Copy from Batch" feature to duplicate fee structure between batches; batch-specific configs stored in separate batch_fee_config DB table; students auto-mapped to batch via admission_year; fallback to default config when no batch-specific config exists; all fee target lookups across Dashboard, Reports, Defaulter List, etc. now batch-aware
 - 2026-02-19: Redesigned Fee Locker Configuration from group-based (A/B/C) to department-wise year-wise individual targets; each of 14 departments has its own tuition & university targets per year (1-4 for B.E, 1-2 for M.E); Dashboard shows clear department x year table; config modal allows editing all targets individually; backward compatible with old group config via migration
 - 2026-02-20: Added batch filter dropdowns to Dashboard (Department Summary, Category Analysis) and Reports (Dept Summary, Category Analysis, Defaulters) for multi-batch data filtering
 - 2026-02-19: Added lateral entry student support - Entry Type field (REGULAR/LATERAL) in database, forms, bulk import (14-col student, 21-col combined templates), exports; lateral students start from year 2 with 3-year duration (batch computed as admission+3); "LE" badge shown in student list

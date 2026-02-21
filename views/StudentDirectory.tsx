@@ -274,7 +274,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         return;
       }
       const startYear = formData.entryType === 'LATERAL' ? 2 : 1;
-      const manualTargets = getFeeTargets(formData.department, startYear, formData.entryType);
+      const manualTargets = getFeeTargets(formData.department, startYear, formData.entryType, formData.admissionYear);
       const locker: YearLocker = {
         year: startYear,
         tuitionTarget: manualTargets.tuition,
@@ -370,7 +370,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         const duration = entryType === 'LATERAL' ? fullDuration - 1 : fullDuration;
         const startYear = entryType === 'LATERAL' ? 2 : 1;
         const feeLockers = [];
-        const targets = getFeeTargets(normalizedDept, startYear, entryType);
+        const targets = getFeeTargets(normalizedDept, startYear, entryType, admYear);
         feeLockers.push({
           year: startYear,
           tuitionTarget: targets.tuition,
@@ -542,7 +542,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         const univDateIdx = has24Cols ? 21 : 19;
         const univAmountIdx = has24Cols ? 22 : 20;
 
-        const targetsC = getFeeTargets(normalizedDeptC, feeYearVal, entryTypeC);
+        const targetsC = getFeeTargets(normalizedDeptC, feeYearVal, entryTypeC, admYear);
 
         const locker: YearLocker = {
           year: feeYearVal,

@@ -203,7 +203,7 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
         const deptInfo = DEPARTMENTS.find(d => d.code === normalizedDept || d.name === normalizedDept || d.code.toUpperCase() === normalizedDept.toUpperCase());
         const isME = deptInfo?.courseType === 'M.E' || normalizedDept.startsWith('ME-');
         const duration = deptInfo?.duration || (isME ? 2 : 4);
-        const targets = getFeeTargets(normalizedDept, 1);
+        const targets = getFeeTargets(normalizedDept, 1, undefined, String(cleanCols[12] || '2025'));
 
         const studentData: Student = {
           hallTicketNumber: htnValue,
