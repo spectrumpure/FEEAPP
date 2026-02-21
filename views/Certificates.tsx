@@ -192,6 +192,9 @@ export const Certificates: React.FC = () => {
 
     const tcPage = (copyType: string) => `
 <div class="tc-page">
+  <div class="page-watermark">
+    <img src="${COLLEGE.logo}" alt="" />
+  </div>
   <div class="copy-type">${copyType}</div>
   <div class="header">
     <div class="college-name">MUFFAKHAM JAH</div>
@@ -213,9 +216,6 @@ export const Certificates: React.FC = () => {
   </div>
 
   <div class="tc-body">
-    <div class="watermark">
-      <img src="${COLLEGE.logo}" alt="" />
-    </div>
     <table class="tc-table">
       ${tcRow(1, 'Roll No', s.hallTicketNumber)}
       ${tcRow(2, "Student's Name", s.name)}
@@ -268,10 +268,10 @@ export const Certificates: React.FC = () => {
   .tc-table .label { width: 50mm; }
   .tc-table .colon { width: 5mm; text-align: center; }
   .tc-table .value { font-weight: bold; }
-  .tc-body { position: relative; overflow: hidden; }
-  .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.15; z-index: 0; pointer-events: none; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-  .watermark img { width: 100mm; height: 100mm; object-fit: contain; }
-  .tc-table { position: relative; z-index: 1; }
+  .tc-body { position: relative; }
+  .page-watermark { position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%); opacity: 0.15; z-index: 0; pointer-events: none; }
+  .page-watermark img { width: 100mm; height: 100mm; object-fit: contain; }
+  .tc-body, .tc-table, .signatures { position: relative; z-index: 1; }
   .signatures { display: flex; justify-content: space-between; margin-top: 15mm; font-size: 11pt; align-items: baseline; }
   .copy-type { text-align: right; font-size: 11pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3mm; }
   @media print { body { margin: 0; } }
