@@ -268,9 +268,9 @@ export const Certificates: React.FC = () => {
   .tc-table .label { width: 50mm; }
   .tc-table .colon { width: 5mm; text-align: center; }
   .tc-table .value { font-weight: bold; }
-  .tc-body { position: relative; }
-  .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.08; z-index: 0; pointer-events: none; }
-  .watermark img { width: 120mm; height: 120mm; object-fit: contain; }
+  .tc-body { position: relative; overflow: hidden; }
+  .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.08; z-index: 0; pointer-events: none; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  .watermark img { width: 100mm; height: 100mm; object-fit: contain; }
   .tc-table { position: relative; z-index: 1; }
   .signatures { display: flex; justify-content: space-between; margin-top: 15mm; font-size: 11pt; align-items: baseline; }
   .copy-type { text-align: right; font-size: 11pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3mm; }
