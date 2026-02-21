@@ -111,30 +111,30 @@ export const Certificates: React.FC = () => {
   .certificate-page {
     width: 210mm;
     height: 148.5mm;
-    padding: 5mm;
+    padding: 3mm;
     position: relative;
     overflow: hidden;
   }
   .double-border {
     border: 4px double #000;
-    padding: 6mm 12mm 6mm 12mm;
+    padding: 5mm 8mm 5mm 8mm;
     height: 100%;
     position: relative;
   }
   .header { display: flex; align-items: flex-start; gap: 5mm; margin-bottom: 3mm; }
-  .logo { width: 22mm; height: 22mm; object-fit: contain; flex-shrink: 0; }
+  .logo { width: 24mm; height: 24mm; object-fit: contain; flex-shrink: 0; }
   .college-info { text-align: center; flex: 1; }
-  .college-name-1 { font-size: 16pt; font-weight: bold; color: #000; letter-spacing: 1px; }
-  .college-name-2 { font-size: 13pt; font-weight: bold; color: #000; letter-spacing: 0.5px; }
-  .accred { font-size: 9pt; color: #000; margin-top: 0.5mm; font-weight: 600; }
-  .society-name { font-size: 10pt; color: #000; margin-top: 0.5mm; font-weight: bold; }
-  .address-line { font-size: 9pt; color: #333; margin-top: 0.5mm; }
-  .title { text-align: center; font-size: 15pt; font-weight: bold; text-decoration: underline; margin: 4mm 0 3mm; }
-  .ref-date { display: flex; justify-content: space-between; font-size: 12pt; margin-bottom: 4mm; }
-  .body-text { font-size: 13pt; line-height: 2.2; text-align: justify; margin-bottom: 2mm; }
+  .college-name-1 { font-size: 20pt; font-weight: bold; color: #000; letter-spacing: 1px; }
+  .college-name-2 { font-size: 15pt; font-weight: bold; color: #000; letter-spacing: 0.5px; }
+  .accred { font-size: 10pt; color: #000; margin-top: 0.5mm; font-weight: 600; }
+  .society-name { font-size: 11pt; color: #000; margin-top: 0.5mm; font-weight: bold; }
+  .address-line { font-size: 10pt; color: #333; margin-top: 0.5mm; }
+  .title { text-align: center; font-size: 17pt; font-weight: bold; text-decoration: underline; margin: 4mm 0 3mm; }
+  .ref-date { display: flex; justify-content: space-between; font-size: 13pt; margin-bottom: 4mm; }
+  .body-text { font-size: 14pt; line-height: 2.2; text-align: justify; margin-bottom: 2mm; }
   .body-text b { font-weight: bold; }
-  .conduct { font-size: 13pt; line-height: 2.2; }
-  .signatures { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 12pt; align-items: baseline; font-weight: bold; }
+  .conduct { font-size: 14pt; line-height: 2.2; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 13pt; align-items: baseline; font-weight: bold; }
   @media print {
     body { margin: 0; }
     .certificate-page { page-break-after: always; }
