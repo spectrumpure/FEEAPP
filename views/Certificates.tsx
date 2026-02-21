@@ -105,36 +105,36 @@ export const Certificates: React.FC = () => {
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>Bonafide Certificate - ${s.name}</title>
 <style>
-  @page { size: 210mm 148.5mm; margin: 0; }
+  @page { size: 200mm 140mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Times New Roman', Times, serif; width: 210mm; }
+  body { font-family: 'Times New Roman', Times, serif; width: 200mm; }
   .certificate-page {
-    width: 210mm;
-    height: 148.5mm;
-    padding: 8mm;
+    width: 200mm;
+    height: 140mm;
+    padding: 5mm;
     position: relative;
     overflow: hidden;
   }
   .double-border {
     border: 4px double #000;
-    padding: 8mm 14mm 8mm 14mm;
+    padding: 5mm 10mm 5mm 10mm;
     height: 100%;
     position: relative;
   }
-  .header { display: flex; align-items: flex-start; gap: 6mm; margin-bottom: 4mm; }
-  .logo { width: 24mm; height: 24mm; object-fit: contain; flex-shrink: 0; }
+  .header { display: flex; align-items: flex-start; gap: 4mm; margin-bottom: 2mm; }
+  .logo { width: 18mm; height: 18mm; object-fit: contain; flex-shrink: 0; }
   .college-info { text-align: center; flex: 1; }
-  .college-name-1 { font-size: 18pt; font-weight: bold; color: #000; letter-spacing: 1px; }
-  .college-name-2 { font-size: 14pt; font-weight: bold; color: #000; letter-spacing: 0.5px; }
-  .accred { font-size: 9pt; color: #000; margin-top: 0.5mm; font-weight: 600; }
-  .society-name { font-size: 10pt; color: #000; margin-top: 0.5mm; font-weight: bold; }
-  .address-line { font-size: 9pt; color: #333; margin-top: 1mm; }
-  .title { text-align: center; font-size: 15pt; font-weight: bold; text-decoration: underline; margin: 4mm 0 3mm; }
-  .ref-date { display: flex; justify-content: space-between; font-size: 11pt; margin-bottom: 5mm; }
-  .body-text { font-size: 12.5pt; line-height: 2.4; text-align: justify; margin-bottom: 3mm; }
+  .college-name-1 { font-size: 14pt; font-weight: bold; color: #000; letter-spacing: 1px; }
+  .college-name-2 { font-size: 11pt; font-weight: bold; color: #000; letter-spacing: 0.5px; }
+  .accred { font-size: 7.5pt; color: #000; margin-top: 0.3mm; font-weight: 600; }
+  .society-name { font-size: 8pt; color: #000; margin-top: 0.3mm; font-weight: bold; }
+  .address-line { font-size: 7.5pt; color: #333; margin-top: 0.5mm; }
+  .title { text-align: center; font-size: 12pt; font-weight: bold; text-decoration: underline; margin: 3mm 0 2mm; }
+  .ref-date { display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 3mm; }
+  .body-text { font-size: 10pt; line-height: 2.2; text-align: justify; margin-bottom: 2mm; }
   .body-text b { font-weight: bold; }
-  .conduct { font-size: 12.5pt; line-height: 2.4; }
-  .signatures { display: flex; justify-content: space-between; margin-top: 10mm; font-size: 11pt; align-items: baseline; font-weight: bold; }
+  .conduct { font-size: 10pt; line-height: 2.2; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 9pt; align-items: baseline; font-weight: bold; }
   @media print {
     body { margin: 0; }
     .certificate-page { page-break-after: always; }
