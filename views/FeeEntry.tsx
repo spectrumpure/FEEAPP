@@ -17,14 +17,14 @@ import {
   Info
 } from 'lucide-react';
 import { FeeType, PaymentMode, FeeTransaction, Student, YearLocker } from '../types';
-import { DEPARTMENTS, normalizeDepartment } from '../constants';
+import { normalizeDepartment } from '../constants';
 
 interface FeeEntryProps {
   preSelectedHTN?: string | null;
 }
 
 export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
-  const { students, addTransaction, bulkAddStudents, getFeeTargets } = useApp();
+  const { students, departments, addTransaction, bulkAddStudents, getFeeTargets } = useApp();
   const [activeMode, setActiveMode] = useState<'manual' | 'bulk'>('manual');
   const [htn, setHtn] = useState(preSelectedHTN || '');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -56,7 +56,7 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
 
   const getMaxYears = (student: Student | null): number => {
     if (!student) return 4;
-    const dept = DEPARTMENTS.find(d => d.name === student.department);
+    const dept = departments.find(d => d.name === student.department);
     if (dept) return dept.duration;
     return student.course === 'M.E' ? 2 : 4;
   };
@@ -200,7 +200,7 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
         const acYear = `${admYearNum}-${(admYearNum + 1).toString().slice(-2)}`;
 
         const normalizedDept = normalizeDepartment(cleanCols[4]);
-        const deptInfo = DEPARTMENTS.find(d => d.code === normalizedDept || d.name === normalizedDept || d.code.toUpperCase() === normalizedDept.toUpperCase());
+        const deptInfo = departments.find(d => d.code === normalizedDept || d.name === normalizedDept || d.code.toUpperCase() === normalizedDept.toUpperCase());
         const isME = deptInfo?.courseType === 'M.E' || normalizedDept.startsWith('ME-');
         const duration = deptInfo?.duration || (isME ? 2 : 4);
         const targets = getFeeTargets(normalizedDept, 1, undefined, String(cleanCols[12] || '2025'));

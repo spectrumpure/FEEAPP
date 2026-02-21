@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../store';
-import { DEPARTMENTS } from '../constants';
 import { Search, ChevronDown, ChevronRight, CheckCircle2, XCircle, Clock, FileText, IndianRupee, Printer, Download, Share2, Calendar, User, StickyNote } from 'lucide-react';
 import { Student, YearLocker, StudentRemark } from '../types';
 

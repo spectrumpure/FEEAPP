@@ -7,6 +7,7 @@ interface AppState {
   currentUser: User | null;
   students: Student[];
   departments: Department[];
+  allDepartments: Department[];
   transactions: FeeTransaction[];
   templates: CertificateTemplate[];
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -28,6 +29,8 @@ interface AppState {
   updateFeeLockerConfig: (config: FeeLockerConfig) => void;
   updateBatchFeeLockerConfig: (batchConfig: BatchFeeLockerConfig) => void;
   getFeeTargets: (department: string, year: number, entryType?: 'REGULAR' | 'LATERAL', admissionYear?: string) => { tuition: number; university: number };
+  addCustomDepartment: (dept: { name: string; code: string; courseType: string; duration: number }) => Promise<{ success: boolean; error?: string }>;
+  deleteCustomDepartment: (id: string) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -140,7 +143,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [students, setStudents] = useState<Student[]>([]);
-  const [departments] = useState<Department[]>(DEPARTMENTS);
+  const [customDepartments, setCustomDepartments] = useState<Department[]>([]);
   const [transactions, setTransactions] = useState<FeeTransaction[]>([]);
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [feeLockerConfig, setFeeLockerConfig] = useState<FeeLockerConfig>(DEFAULT_FEE_CONFIG);
@@ -155,6 +158,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const data = await res.json();
           setStudents(data.students || []);
           setTransactions(data.transactions || []);
+          if (data.customDepartments && Array.isArray(data.customDepartments)) {
+            setCustomDepartments(data.customDepartments);
+          }
           if (data.batchFeeLockerConfig) {
             const bc = data.batchFeeLockerConfig as BatchFeeLockerConfig;
             if (bc.batches) {
@@ -181,8 +187,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('ef_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
+  const allDepartments = React.useMemo(() => {
+    const builtinCodes = new Set(DEPARTMENTS.map(d => d.code));
+    const extras = customDepartments.filter(d => !builtinCodes.has(d.code));
+    return [...DEPARTMENTS, ...extras];
+  }, [customDepartments]);
+
+  const addCustomDepartment = async (dept: { name: string; code: string; courseType: string; duration: number }): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const existingBuiltin = DEPARTMENTS.find(d => d.code.toUpperCase() === dept.code.toUpperCase());
+      if (existingBuiltin) {
+        return { success: false, error: `Department code "${dept.code}" already exists as a built-in department` };
+      }
+      const res = await fetch('/api/departments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || '' },
+        body: JSON.stringify(dept),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        return { success: false, error: err.error || 'Failed to add department' };
+      }
+      const newDept = await res.json();
+      setCustomDepartments(prev => [...prev, newDept]);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  const deleteCustomDepartment = async (id: string) => {
+    try {
+      await fetch(`/api/departments/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-user-role': currentUser?.role || '' },
+      });
+      setCustomDepartments(prev => prev.filter(d => d.id !== id));
+    } catch (err) {
+      console.error('Failed to delete department:', err);
+    }
+  };
+
   const getFeeTargets = useCallback((department: string, year: number, entryType?: 'REGULAR' | 'LATERAL', admissionYear?: string): { tuition: number; university: number } => {
-    const dept = DEPARTMENTS.find(d => d.name === department || d.code === department || d.code.toUpperCase() === department.toUpperCase());
+    const allDepts = [...DEPARTMENTS, ...customDepartments];
+    const dept = allDepts.find(d => d.name === department || d.code === department || d.code.toUpperCase() === department.toUpperCase());
     const code = dept?.code || '';
     const duration = dept?.duration || 4;
     if (year > duration) {
@@ -492,10 +540,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      currentUser, students, departments, transactions, templates, feeLockerConfig, batchFeeLockerConfig, isLoading,
+      currentUser, students, departments: allDepartments, allDepartments, transactions, templates, feeLockerConfig, batchFeeLockerConfig, isLoading,
       login, logout, addStudent, updateStudent, deleteStudent, bulkAddStudents, addTransaction, bulkAddTransactions,
       approveTransaction, rejectTransaction, bulkApproveTransactions, bulkRejectTransactions,
-      addTemplate, deleteTemplate, updateFeeLockerConfig, updateBatchFeeLockerConfig, getFeeTargets
+      addTemplate, deleteTemplate, updateFeeLockerConfig, updateBatchFeeLockerConfig, getFeeTargets,
+      addCustomDepartment, deleteCustomDepartment
     }}>
       {children}
     </AppContext.Provider>

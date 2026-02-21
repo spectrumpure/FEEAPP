@@ -1,9 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../store';
-import { FeeLockerConfig, BatchFeeLockerConfig, UserRole } from '../types';
-import { DEPARTMENTS } from '../constants';
-import { Lock, Save, XCircle, Settings, Copy, Calendar } from 'lucide-react';
+import { FeeLockerConfig, BatchFeeLockerConfig, UserRole, Department } from '../types';
+import { Lock, Save, XCircle, Settings, Copy, Calendar, Plus, Trash2, Building2 } from 'lucide-react';
 
 function generateBatchKeys(): string[] {
   const currentYear = new Date().getFullYear();
@@ -15,19 +14,11 @@ function generateBatchKeys(): string[] {
   return keys;
 }
 
-const DEFAULT_SINGLE_CONFIG: FeeLockerConfig = {
-  groupA: { tuition: 0, university: 0, departments: ['CSE', 'CIVIL', 'MECH', 'ECE'] },
-  groupB: { tuition: 0, university: 0, departments: ['CS-AI', 'CS-DS', 'CS-AIML', 'IT', 'EEE', 'PROD'] },
-  groupC: { year1Tuition: 0, year1University: 0, year2Tuition: 0, year2University: 0, departments: ['ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI'] },
-  deptYearTargets: {},
-  lateralDeptYearTargets: {}
-};
-
-function ensureConfigComplete(config: FeeLockerConfig): FeeLockerConfig {
+function ensureConfigCompleteWithDepts(config: FeeLockerConfig, departments: Department[]): FeeLockerConfig {
   const c = JSON.parse(JSON.stringify(config));
   if (!c.deptYearTargets) c.deptYearTargets = {};
   if (!c.lateralDeptYearTargets) c.lateralDeptYearTargets = {};
-  for (const dept of DEPARTMENTS) {
+  for (const dept of departments) {
     if (!c.deptYearTargets[dept.code]) c.deptYearTargets[dept.code] = {};
     for (let y = 1; y <= dept.duration; y++) {
       if (!c.deptYearTargets[dept.code][String(y)]) c.deptYearTargets[dept.code][String(y)] = { tuition: 0, university: 0 };
@@ -43,7 +34,7 @@ function ensureConfigComplete(config: FeeLockerConfig): FeeLockerConfig {
 }
 
 export const FeeLockers: React.FC = () => {
-  const { feeLockerConfig, batchFeeLockerConfig, updateFeeLockerConfig, updateBatchFeeLockerConfig, currentUser } = useApp();
+  const { feeLockerConfig, batchFeeLockerConfig, updateFeeLockerConfig, updateBatchFeeLockerConfig, currentUser, allDepartments, addCustomDepartment, deleteCustomDepartment } = useApp();
   const [activeTab, setActiveTab] = useState<'regular' | 'lateral'>('regular');
   const [selectedBatch, setSelectedBatch] = useState<string>('default');
   const [showEditModal, setShowEditModal] = useState(false);
@@ -53,15 +44,32 @@ export const FeeLockers: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyFromBatch, setCopyFromBatch] = useState<string>('');
+  const [showAddBatchModal, setShowAddBatchModal] = useState(false);
+  const [newBatchYear, setNewBatchYear] = useState('');
+  const [showAddDeptModal, setShowAddDeptModal] = useState(false);
+  const [newDept, setNewDept] = useState({ name: '', code: '', courseType: 'B.E' as string, duration: 4 });
+  const [deptError, setDeptError] = useState('');
 
   const isAdmin = currentUser?.role === UserRole.ADMIN;
-  const batchKeys = useMemo(() => generateBatchKeys(), []);
+
+  const batchKeys = useMemo(() => {
+    const generated = generateBatchKeys();
+    const fromConfig = Object.keys(batchFeeLockerConfig?.batches || {});
+    const allKeys = new Set([...generated, ...fromConfig]);
+    return Array.from(allKeys).sort((a, b) => {
+      const ya = parseInt(a.split('-')[0]);
+      const yb = parseInt(b.split('-')[0]);
+      return yb - ya;
+    });
+  }, [batchFeeLockerConfig]);
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
 
-  const beDepts = DEPARTMENTS.filter(d => d.courseType === 'B.E');
-  const meDepts = DEPARTMENTS.filter(d => d.courseType === 'M.E');
+  const beDepts = allDepartments.filter(d => d.courseType === 'B.E');
+  const meDepts = allDepartments.filter(d => d.courseType === 'M.E');
+
+  const ensureConfigComplete = (config: FeeLockerConfig) => ensureConfigCompleteWithDepts(config, allDepartments);
 
   const getCurrentConfig = (): FeeLockerConfig => {
     if (selectedBatch === 'default') {
@@ -471,17 +479,74 @@ export const FeeLockers: React.FC = () => {
     );
   };
 
+  const handleAddBatch = async () => {
+    const year = parseInt(newBatchYear);
+    if (isNaN(year) || year < 2000 || year > 2100) return;
+    const batchKey = `${year}-${year + 1}`;
+    if (batchKeys.includes(batchKey) && hasBatchConfig(batchKey)) return;
+    const newBatchCfg: BatchFeeLockerConfig = {
+      batches: { ...(batchFeeLockerConfig?.batches || {}), [batchKey]: ensureConfigComplete(JSON.parse(JSON.stringify(feeLockerConfig))) },
+      defaultBatch: batchFeeLockerConfig?.defaultBatch
+    };
+    await updateBatchFeeLockerConfig(newBatchCfg);
+    setSelectedBatch(batchKey);
+    setShowAddBatchModal(false);
+    setNewBatchYear('');
+  };
+
+  const handleAddDept = async () => {
+    setDeptError('');
+    if (!newDept.name.trim() || !newDept.code.trim()) {
+      setDeptError('Name and code are required');
+      return;
+    }
+    const result = await addCustomDepartment({
+      name: newDept.name.trim(),
+      code: newDept.code.trim().toUpperCase(),
+      courseType: newDept.courseType,
+      duration: newDept.duration,
+    });
+    if (!result.success) {
+      setDeptError(result.error || 'Failed to add department');
+      return;
+    }
+    setShowAddDeptModal(false);
+    setNewDept({ name: '', code: '', courseType: 'B.E', duration: 4 });
+  };
+
+  const customDeptIds = allDepartments.filter(d => d.id.startsWith('custom-'));
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 rounded-2xl p-6 text-white shadow-xl">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/20 rounded-xl">
-            <Lock size={24} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/20 rounded-xl">
+              <Lock size={24} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Fee Locker Configuration</h1>
+              <p className="text-blue-200 text-xs mt-0.5">Batch-wise department fee targets for tuition & university fees</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Fee Locker Configuration</h1>
-            <p className="text-blue-200 text-xs mt-0.5">Batch-wise department fee targets for tuition & university fees</p>
-          </div>
+          {isAdmin && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setNewBatchYear(''); setShowAddBatchModal(true); }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-colors"
+              >
+                <Plus size={14} />
+                Add Batch
+              </button>
+              <button
+                onClick={() => { setNewDept({ name: '', code: '', courseType: 'B.E', duration: 4 }); setDeptError(''); setShowAddDeptModal(true); }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-colors"
+              >
+                <Building2 size={14} />
+                Add Department
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -532,6 +597,31 @@ export const FeeLockers: React.FC = () => {
         </div>
       </div>
 
+      {customDeptIds.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+            <Building2 size={16} className="text-violet-600" />
+            Custom Departments ({customDeptIds.length})
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {customDeptIds.map(dept => (
+              <div key={dept.id} className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 border border-violet-200 rounded-lg">
+                <span className="text-xs font-bold text-violet-700">{dept.code}</span>
+                <span className="text-xs text-violet-500">({dept.courseType}, {dept.duration}yr)</span>
+                {isAdmin && (
+                  <button
+                    onClick={() => { if (confirm(`Delete department "${dept.code}"?`)) deleteCustomDepartment(dept.id); }}
+                    className="p-0.5 text-red-400 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-1 bg-white rounded-xl p-1 border border-slate-200 shadow-sm w-fit">
         <button
           onClick={() => setActiveTab('regular')}
@@ -559,6 +649,111 @@ export const FeeLockers: React.FC = () => {
       {activeTab === 'lateral' && renderConfigTable(true)}
 
       {showEditModal && renderEditModal()}
+
+      {showAddBatchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
+            <h4 className="text-base font-bold text-slate-800 mb-2">Add New Batch</h4>
+            <p className="text-xs text-slate-500 mb-4">Enter the admission year to create a new batch. For example, entering "2027" creates batch "2027-2028".</p>
+            <input
+              type="number"
+              placeholder="e.g. 2027"
+              value={newBatchYear}
+              onChange={e => setNewBatchYear(e.target.value)}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-200 outline-none mb-2"
+              min={2000}
+              max={2100}
+            />
+            {newBatchYear && !isNaN(parseInt(newBatchYear)) && (
+              <p className="text-xs text-indigo-600 font-medium mb-4">
+                Batch will be: {newBatchYear}-{parseInt(newBatchYear) + 1}
+              </p>
+            )}
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => setShowAddBatchModal(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleAddBatch}
+                disabled={!newBatchYear || isNaN(parseInt(newBatchYear))}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Add Batch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddDeptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
+            <h4 className="text-base font-bold text-slate-800 mb-2">Add New Department</h4>
+            <p className="text-xs text-slate-500 mb-4">Create a new department for future use. It will appear in fee locker configuration and student forms.</p>
+            {deptError && (
+              <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium">{deptError}</div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">Department Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. B.E(Data Science)"
+                  value={newDept.name}
+                  onChange={e => setNewDept({ ...newDept, name: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-200 outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">Department Code</label>
+                <input
+                  type="text"
+                  placeholder="e.g. DS"
+                  value={newDept.code}
+                  onChange={e => setNewDept({ ...newDept, code: e.target.value.toUpperCase() })}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold uppercase focus:ring-2 focus:ring-indigo-200 outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">Course Type</label>
+                  <select
+                    value={newDept.courseType}
+                    onChange={e => setNewDept({ ...newDept, courseType: e.target.value, duration: e.target.value === 'M.E' ? 2 : 4 })}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-200 outline-none"
+                  >
+                    <option value="B.E">B.E (Under Graduate)</option>
+                    <option value="M.E">M.E (Post Graduate)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">Duration (Years)</label>
+                  <input
+                    type="number"
+                    value={newDept.duration}
+                    onChange={e => setNewDept({ ...newDept, duration: parseInt(e.target.value) || 1 })}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-200 outline-none"
+                    min={1}
+                    max={6}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-5">
+              <button onClick={() => setShowAddDeptModal(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleAddDept}
+                disabled={!newDept.name.trim() || !newDept.code.trim()}
+                className="px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-bold hover:bg-violet-700 disabled:opacity-50"
+              >
+                Add Department
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

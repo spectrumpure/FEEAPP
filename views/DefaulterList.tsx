@@ -1,11 +1,10 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../store';
-import { DEPARTMENTS } from '../constants';
 import { AlertCircle, Search, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 
 export const DefaulterList: React.FC = () => {
-  const { students, getFeeTargets } = useApp();
+  const { students, departments, getFeeTargets } = useApp();
   const [expandedDept, setExpandedDept] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDept, setFilterDept] = useState('all');
@@ -21,7 +20,7 @@ export const DefaulterList: React.FC = () => {
     if (s.feeLockers.length > 0) {
       return s.feeLockers.reduce((sm, l) => sm + l.tuitionTarget + l.universityTarget, 0);
     }
-    const dept = DEPARTMENTS.find(d => matchDeptHelper(s.department, d));
+    const dept = departments.find(d => matchDeptHelper(s.department, d));
     const duration = dept?.duration || 4;
     let total = 0;
     for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
@@ -51,13 +50,13 @@ export const DefaulterList: React.FC = () => {
     const matchesSearch = searchTerm.trim().length === 0 ||
       (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (s.hallTicketNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const deptObj = DEPARTMENTS.find(d => d.name === filterDept);
+    const deptObj = departments.find(d => d.name === filterDept);
     const matchesDept = filterDept === 'all' || s.department === filterDept || 
       (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
     return matchesSearch && matchesDept;
   });
 
-  const deptGroups = DEPARTMENTS.map(dept => {
+  const deptGroups = departments.map(dept => {
     const deptDefaulters = filteredDefaulters.filter(s => s.department === dept.name || s.department === dept.code || s.department.toUpperCase() === dept.code.toUpperCase());
     const totalDue = deptDefaulters.reduce((sum, s) => {
       return sum + (getStudentTotalTarget(s) - getStudentTotalPaid(s));
@@ -99,7 +98,7 @@ export const DefaulterList: React.FC = () => {
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Departments Affected</p>
           <p className="text-2xl font-bold text-orange-600 mt-1">{deptGroups.length}</p>
-          <p className="text-xs text-slate-400 mt-1">out of {DEPARTMENTS.length} departments</p>
+          <p className="text-xs text-slate-400 mt-1">out of {departments.length} departments</p>
         </div>
       </div>
 
@@ -120,7 +119,7 @@ export const DefaulterList: React.FC = () => {
           onChange={(e) => setFilterDept(e.target.value)}
         >
           <option value="all">All Departments</option>
-          {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+          {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
         </select>
       </div>
 

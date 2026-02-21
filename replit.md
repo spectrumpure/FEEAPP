@@ -27,6 +27,7 @@ A centralized college fee management and governance system built with React, Typ
 - **fee_transactions** - All fee payments/transactions (FK to students)
 - **fee_locker_config** - Default fee configuration (JSONB, single row)
 - **batch_fee_config** - Batch-wise fee configurations (JSONB with batches keyed by academic year like "2025-2026")
+- **custom_departments** - Admin-added custom departments (name, code, course_type, duration)
 - **app_users** - User accounts with hashed passwords and roles
 - **student_remarks** - Admin remarks/notes for students (FK to students)
 
@@ -82,6 +83,7 @@ Student columns (14) + Current Year, Tuition Fee Challan No, Tuition Fee Challan
 Note: Also backward-compatible with old 21-column format (without Current Year, Tuition Fee Challan No, Fee Year)
 
 ## Recent Changes
+- 2026-02-21: Added "Add Batch" and "Add Department" features to Fee Locker Config - admin can create custom batch years beyond the auto-generated 10 and add new departments (name, code, courseType, duration) stored in custom_departments DB table; custom departments appear across all views (Dashboard, Reports, Defaulter List, etc.); all view files updated to use dynamic departments from store instead of hardcoded constants
 - 2026-02-21: Implemented batch-wise fee locker configuration - 10 academic year batches (2026-2027 to 2017-2018) each with independent fee targets per department per year; batch selector dropdown in Fee Locker Config page; "Copy from Batch" feature to duplicate fee structure between batches; batch-specific configs stored in separate batch_fee_config DB table; students auto-mapped to batch via admission_year; fallback to default config when no batch-specific config exists; all fee target lookups across Dashboard, Reports, Defaulter List, etc. now batch-aware
 - 2026-02-19: Redesigned Fee Locker Configuration from group-based (A/B/C) to department-wise year-wise individual targets; each of 14 departments has its own tuition & university targets per year (1-4 for B.E, 1-2 for M.E); Dashboard shows clear department x year table; config modal allows editing all targets individually; backward compatible with old group config via migration
 - 2026-02-20: Added batch filter dropdowns to Dashboard (Department Summary, Category Analysis) and Reports (Dept Summary, Category Analysis, Defaulters) for multi-batch data filtering

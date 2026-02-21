@@ -92,6 +92,16 @@ export async function initDB() {
         created_at TIMESTAMP DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS custom_departments (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(200) NOT NULL,
+        code VARCHAR(50) UNIQUE NOT NULL,
+        course_type VARCHAR(10) NOT NULL DEFAULT 'B.E',
+        duration INT NOT NULL DEFAULT 4,
+        specializations JSONB DEFAULT '["General"]',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
       CREATE INDEX IF NOT EXISTS idx_year_lockers_student ON year_lockers(student_htn);
       CREATE INDEX IF NOT EXISTS idx_fee_transactions_student ON fee_transactions(student_htn);
       CREATE INDEX IF NOT EXISTS idx_fee_transactions_status ON fee_transactions(status);

@@ -11,6 +11,14 @@ const normalizeCategory = (raw: string): string => {
   return raw.trim();
 };
 
+let cachedCustomDeptCodes: string[] = [];
+async function refreshCustomDeptCodes() {
+  try {
+    const res = await pool.query('SELECT code FROM custom_departments');
+    cachedCustomDeptCodes = res.rows.map(r => r.code);
+  } catch {}
+}
+
 const normalizeDepartment = (raw: string): string => {
   const val = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   const mapping: Record<string, string> = {
@@ -25,7 +33,10 @@ const normalizeDepartment = (raw: string): string => {
     'MECADCAM': 'ME-CADCAM', 'CADCAM': 'ME-CADCAM',
     'MECSE': 'ME-CSE', 'MESTRUCT': 'ME-STRUCT', 'MEVLSI': 'ME-VLSI', 'VLSI': 'ME-VLSI',
   };
-  return mapping[val] || raw.trim();
+  if (mapping[val]) return mapping[val];
+  const customMatch = cachedCustomDeptCodes.find(c => c.toUpperCase().replace(/[^A-Z0-9]/g, '') === val);
+  if (customMatch) return customMatch;
+  return raw.trim();
 };
 
 function admissionYearToBatchKey(admissionYear?: string): string {
@@ -236,6 +247,7 @@ function mapLockerRow(row: any) {
 
 router.get('/api/bootstrap', async (_req: Request, res: Response) => {
   try {
+    await refreshCustomDeptCodes();
     const studentsRes = await pool.query('SELECT * FROM students ORDER BY name');
     const lockersRes = await pool.query('SELECT * FROM year_lockers ORDER BY student_htn, year');
     const txsRes = await pool.query('SELECT * FROM fee_transactions ORDER BY created_at');
@@ -250,6 +262,16 @@ router.get('/api/bootstrap', async (_req: Request, res: Response) => {
       if (!txsByHTN[htn][yr]) txsByHTN[htn][yr] = [];
       txsByHTN[htn][yr].push(mapTxRow(row));
     }
+
+    const customDeptsRes = await pool.query('SELECT * FROM custom_departments ORDER BY created_at');
+    const customDepartments = customDeptsRes.rows.map(r => ({
+      id: `custom-${r.id}`,
+      name: r.name,
+      code: r.code,
+      courseType: r.course_type,
+      duration: r.duration,
+      specializations: r.specializations || ['General']
+    }));
 
     const config = configRes.rows.length > 0 ? configRes.rows[0].config : null;
     const batchConfig = batchConfigRes.rows.length > 0 ? batchConfigRes.rows[0].config : null;
@@ -285,7 +307,7 @@ router.get('/api/bootstrap', async (_req: Request, res: Response) => {
 
     const allTxs = txsRes.rows.map(mapTxRow);
 
-    res.json({ students, transactions: allTxs, feeLockerConfig: config, batchFeeLockerConfig: batchConfig });
+    res.json({ students, transactions: allTxs, feeLockerConfig: config, batchFeeLockerConfig: batchConfig, customDepartments });
   } catch (err: any) {
     console.error('Bootstrap error:', err);
     res.status(500).json({ error: err.message });
@@ -782,6 +804,68 @@ router.get('/export/students-csv', async (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=students_export.csv');
     res.send(csv);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/api/departments', async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query('SELECT * FROM custom_departments ORDER BY created_at');
+    res.json(result.rows.map(r => ({
+      id: `custom-${r.id}`,
+      name: r.name,
+      code: r.code,
+      courseType: r.course_type,
+      duration: r.duration,
+      specializations: r.specializations || ['General']
+    })));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/departments', requireAdmin, async (req: Request, res: Response) => {
+  const { name, code, courseType, duration } = req.body;
+  if (!name || !code || !courseType || !duration) {
+    return res.status(400).json({ error: 'Name, code, courseType, and duration are required' });
+  }
+  if (!['B.E', 'M.E'].includes(courseType)) {
+    return res.status(400).json({ error: 'Course type must be B.E or M.E' });
+  }
+  const dur = parseInt(duration);
+  if (isNaN(dur) || dur < 1 || dur > 6) {
+    return res.status(400).json({ error: 'Duration must be between 1 and 6 years' });
+  }
+  try {
+    const existing = await pool.query('SELECT id FROM custom_departments WHERE code = $1', [code.toUpperCase()]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: `Department with code "${code}" already exists` });
+    }
+    const result = await pool.query(
+      'INSERT INTO custom_departments (name, code, course_type, duration) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, code.toUpperCase(), courseType, dur]
+    );
+    await refreshCustomDeptCodes();
+    const r = result.rows[0];
+    res.json({
+      id: `custom-${r.id}`,
+      name: r.name,
+      code: r.code,
+      courseType: r.course_type,
+      duration: r.duration,
+      specializations: r.specializations || ['General']
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/api/departments/:id', requireAdmin, async (req: Request, res: Response) => {
+  const numId = (req.params.id as string).replace('custom-', '');
+  try {
+    await pool.query('DELETE FROM custom_departments WHERE id = $1', [numId]);
+    res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

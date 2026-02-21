@@ -32,7 +32,7 @@ import {
   X
 } from 'lucide-react';
 import { Student, CourseType, YearLocker, FeeTransaction, StudentRemark } from '../types';
-import { DEPARTMENTS, COURSES, SECTIONS, normalizeDepartment } from '../constants';
+import { COURSES, SECTIONS, normalizeDepartment } from '../constants';
 
 interface StudentDirectoryProps {
   onFeeEntry?: (htn: string) => void;
@@ -205,7 +205,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     fatherMobile: '',
     address: '',
     course: 'B.E' as CourseType,
-    department: DEPARTMENTS[0].name,
+    department: departments[0]?.name || '',
     specialization: '',
     section: '',
     admissionCategory: 'TSMFC',
@@ -223,7 +223,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       s.hallTicketNumber.includes(searchTerm);
-    const deptObj = DEPARTMENTS.find(d => d.name === departmentFilter);
+    const deptObj = departments.find(d => d.name === departmentFilter);
     const matchesDept = !departmentFilter || s.department === departmentFilter || 
       (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
     const matchesYear = !yearFilter || s.currentYear === Number(yearFilter);
@@ -242,7 +242,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       fatherMobile: '',
       address: '',
       course: 'B.E',
-      department: DEPARTMENTS[0].name,
+      department: departments[0]?.name || '',
       specialization: '',
       section: '',
       admissionCategory: 'TSMFC',
@@ -359,12 +359,12 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         seenHTNs.add(htnValue);
         if (students.find(s => s.hallTicketNumber === htnValue)) { errors.push(`Row ${idx + 2}: ${htnValue} already exists (skipped)`); return; }
 
-        const normalizedDept = normalizeDepartment(String(cols[2] || DEPARTMENTS[0].name));
+        const normalizedDept = normalizeDepartment(String(cols[2] || departments[0]?.name || ''));
         const mode = String(cols[5] || 'TSMFC').toUpperCase();
         const admYear = String(cols[12] || '2025');
         const entryTypeRaw = String(cols[13] || 'REGULAR').toUpperCase().trim();
         const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw === 'LATERAL' ? 'LATERAL' : 'REGULAR';
-        const deptInfo = DEPARTMENTS.find(d => d.code === normalizedDept || d.name === normalizedDept || d.code.toUpperCase() === normalizedDept.toUpperCase());
+        const deptInfo = departments.find(d => d.code === normalizedDept || d.name === normalizedDept || d.code.toUpperCase() === normalizedDept.toUpperCase());
         const isME = deptInfo?.courseType === 'M.E' || normalizedDept.startsWith('ME-');
         const fullDuration = deptInfo?.duration || (isME ? 2 : 4);
         const duration = entryType === 'LATERAL' ? fullDuration - 1 : fullDuration;
@@ -518,12 +518,12 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         if (seenHTNs.has(htnValue)) { errors.push(`Row ${idx + 2}: Duplicate ${htnValue} in file (skipped)`); return; }
         seenHTNs.add(htnValue);
 
-        const normalizedDeptC = normalizeDepartment(String(cols[2] || DEPARTMENTS[0].name));
+        const normalizedDeptC = normalizeDepartment(String(cols[2] || departments[0]?.name || ''));
         const mode = String(cols[5] || 'TSMFC').toUpperCase();
         const admYear = String(cols[12] || '2025');
         const entryTypeRawC = String(cols[13] || 'REGULAR').toUpperCase().trim();
         const entryTypeC: 'REGULAR' | 'LATERAL' = entryTypeRawC === 'LATERAL' ? 'LATERAL' : 'REGULAR';
-        const deptInfoC = DEPARTMENTS.find(d => d.code === normalizedDeptC || d.name === normalizedDeptC || d.code.toUpperCase() === normalizedDeptC.toUpperCase());
+        const deptInfoC = departments.find(d => d.code === normalizedDeptC || d.name === normalizedDeptC || d.code.toUpperCase() === normalizedDeptC.toUpperCase());
         const isMEC = deptInfoC?.courseType === 'M.E' || normalizedDeptC.startsWith('ME-');
         const fullDurationC = deptInfoC?.duration || (isMEC ? 2 : 4);
         const durationC = entryTypeC === 'LATERAL' ? fullDurationC - 1 : fullDurationC;
@@ -703,7 +703,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       if (!deptGroups[dept]) deptGroups[dept] = [];
       deptGroups[dept].push(allRows[i]);
     });
-    DEPARTMENTS.forEach(dept => {
+    departments.forEach(dept => {
       const rows = deptGroups[dept.name] || deptGroups[dept.code];
       if (rows && rows.length > 0) addSheet(dept.code || dept.name, rows);
     });
@@ -803,7 +803,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
             className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all min-w-[180px]"
           >
             <option value="">All Departments</option>
-            {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
           </select>
           <select
             value={yearFilter}
@@ -1209,7 +1209,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</label>
                   <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})}>
-                    {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                    {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">

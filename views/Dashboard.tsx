@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../store';
 import { StudentRemark, UserRole } from '../types';
-import { DEPARTMENTS } from '../constants';
 import { 
   Users, 
   BadgeDollarSign, 
@@ -45,7 +44,7 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string, 
 );
 
 export const Dashboard: React.FC = () => {
-  const { students, transactions, currentUser, getFeeTargets } = useApp();
+  const { students, departments, transactions, currentUser, getFeeTargets } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -155,7 +154,7 @@ export const Dashboard: React.FC = () => {
     if (s.feeLockers.length > 0) {
       return s.feeLockers.reduce((lSum, l) => lSum + l.tuitionTarget + l.universityTarget, 0);
     }
-    const dept = DEPARTMENTS.find(d => matchDept(s.department, d));
+    const dept = departments.find(d => matchDept(s.department, d));
     const duration = dept?.duration || 4;
     let total = 0;
     for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
@@ -185,7 +184,7 @@ export const Dashboard: React.FC = () => {
   const deptTableData = (() => {
     const rows: { name: string; fullName: string; code: string; courseType: string; entryLabel: string; count: number; target: number; collection: number; balance: number; defaulters: number; pct: number }[] = [];
     const yr = deptYearFilter === 'all' ? 0 : parseInt(deptYearFilter);
-    const calcRow = (deptStudents: typeof students, dept: typeof DEPARTMENTS[0], label: string) => {
+    const calcRow = (deptStudents: typeof students, dept: typeof departments[0], label: string) => {
       const count = deptStudents.length;
       const target = yr === 0
         ? deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0)
@@ -209,7 +208,7 @@ export const Dashboard: React.FC = () => {
       const pct = target > 0 ? ((collection / target) * 100) : 0;
       rows.push({ name: deptShort(dept.name), fullName: dept.name, code: dept.code, courseType: dept.courseType, entryLabel: label, count, target, collection, balance, defaulters, pct });
     };
-    DEPARTMENTS.forEach(dept => {
+    departments.forEach(dept => {
       let allDeptStudents = students.filter(s => matchDept(s.department, dept));
       if (deptBatchFilter !== 'all') allDeptStudents = allDeptStudents.filter(s => s.batch === deptBatchFilter);
       const filtered = yr === 0 ? allDeptStudents : allDeptStudents.filter(s => s.feeLockers.some(l => l.year === yr));
@@ -320,7 +319,7 @@ export const Dashboard: React.FC = () => {
           return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
         }, 0);
         const lifetimeTarget = getStudentTotalTarget(s);
-        const dept = DEPARTMENTS.find(d => d.name === s.department);
+        const dept = departments.find(d => d.name === s.department);
         const lockerStatus = (locker: typeof s.feeLockers[0]) => {
           const paid = locker.transactions.filter(t => t.status === 'APPROVED').reduce((sum, t) => sum + t.amount, 0);
           const target = locker.tuitionTarget + locker.universityTarget;
@@ -463,7 +462,7 @@ export const Dashboard: React.FC = () => {
           icon={<Users size={24} />} 
           label="Total Students" 
           value={totalStudents.toString()} 
-          subValue={`Across ${DEPARTMENTS.length} Departments`} 
+          subValue={`Across ${departments.length} Departments`} 
           color="bg-blue-600"
           trend="up"
         />
@@ -627,7 +626,7 @@ export const Dashboard: React.FC = () => {
               });
             });
             if (lockers.length === 0 && catYr === 0) {
-              const dept = DEPARTMENTS.find(d => matchDept(s.department, d));
+              const dept = departments.find(d => matchDept(s.department, d));
               const duration = dept?.duration || 4;
               for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
                 const targets = getFeeTargets(s.department, y, s.entryType, s.admissionYear);
@@ -640,7 +639,7 @@ export const Dashboard: React.FC = () => {
           return { target, tuiTarget, uniTarget, tuiPaid, uniPaid, totalPaid: tuiPaid + uniPaid, count: filtered.length };
         };
         const catData: { name: string; code: string; courseType: string; entryLabel: string; tsmfcCount: number; tTarget: number; tTuiPaid: number; tUniPaid: number; tBal: number; mgmtCount: number; mTarget: number; mTuiPaid: number; mUniPaid: number; mBal: number; convCount: number; cTarget: number; cTuiPaid: number; cUniPaid: number; cBal: number; totalCount: number }[] = [];
-        DEPARTMENTS.forEach(dept => {
+        departments.forEach(dept => {
           const ds = students.filter(s => matchDept(s.department, dept));
           const buildRow = (subset: typeof students, label: string) => {
             const mgmt = subset.filter(s => isManagement(s.admissionCategory));

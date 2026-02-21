@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../store';
-import { DEPARTMENTS } from '../constants';
 import {
   FileText,
   Download,
@@ -86,11 +85,11 @@ const selectClass = "bg-white border border-slate-200 rounded-lg px-3 py-2 text-
 const matchesDept = (studentDept: string, dept: { name: string; code: string }) =>
   studentDept === dept.name || studentDept === dept.code || studentDept.toUpperCase() === dept.code.toUpperCase();
 
-const findDeptForStudent = (studentDept: string) =>
-  DEPARTMENTS.find(d => matchesDept(studentDept, d));
+const findDeptForStudent = (studentDept: string, deptList: { name: string; code: string; duration?: number; courseType?: string }[]) =>
+  deptList.find(d => matchesDept(studentDept, d));
 
 export const Reports: React.FC = () => {
-  const { students, transactions, getFeeTargets } = useApp();
+  const { students, departments, transactions, getFeeTargets } = useApp();
   const [activeTab, setActiveTab] = useState<ReportTab>('dept_summary');
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [deptFilter, setDeptFilter] = useState<string>('all');
@@ -111,7 +110,7 @@ export const Reports: React.FC = () => {
 
   const getStudentTargets = (s: Student, filterYear: number | null) => {
     let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
-    const dept = DEPARTMENTS.find(d => matchesDept(s.department, d));
+    const dept = departments.find(d => matchesDept(s.department, d));
     const duration = dept?.duration || 4;
     const isLateral = s.entryType === 'LATERAL';
     const startYear = isLateral ? 2 : 1;
@@ -147,7 +146,7 @@ export const Reports: React.FC = () => {
   const getDeptSummaryData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     const rows: { department: string; code: string; courseType: string; entryLabel: string; count: number; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalReceived: number; totalBalance: number }[] = [];
-    DEPARTMENTS.forEach(dept => {
+    departments.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
       const regularStudents = deptStudents.filter(s => s.entryType !== 'LATERAL');
@@ -211,7 +210,7 @@ export const Reports: React.FC = () => {
   const getStudentMasterData = () => {
     let filtered = [...students];
     if (deptFilter !== 'all') {
-      const filterDeptObj = DEPARTMENTS.find(d => d.name === deptFilter);
+      const filterDeptObj = departments.find(d => d.name === deptFilter);
       if (filterDeptObj) filtered = filtered.filter(s => matchesDept(s.department, filterDeptObj));
       else filtered = filtered.filter(s => s.department === deptFilter);
     }
@@ -226,7 +225,7 @@ export const Reports: React.FC = () => {
   const getStudentInfoData = () => {
     let filtered = [...students];
     if (deptFilter !== 'all') {
-      const filterDeptObj = DEPARTMENTS.find(d => d.name === deptFilter);
+      const filterDeptObj = departments.find(d => d.name === deptFilter);
       if (filterDeptObj) filtered = filtered.filter(s => matchesDept(s.department, filterDeptObj));
       else filtered = filtered.filter(s => s.department === deptFilter);
     }
@@ -236,7 +235,7 @@ export const Reports: React.FC = () => {
 
   const getDefaultersData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
-    const filterDeptObj = deptFilter === 'all' ? null : DEPARTMENTS.find(d => d.name === deptFilter);
+    const filterDeptObj = deptFilter === 'all' ? null : departments.find(d => d.name === deptFilter);
     return students.filter(s => {
       if (batchFilter !== 'all' && s.batch !== batchFilter) return false;
       if (filterDeptObj && !matchesDept(s.department, filterDeptObj)) return false;
@@ -474,7 +473,7 @@ export const Reports: React.FC = () => {
       }
     };
 
-    DEPARTMENTS.forEach(dept => {
+    departments.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
       const regularStudents = deptStudents.filter(s => s.entryType !== 'LATERAL');
@@ -783,7 +782,7 @@ export const Reports: React.FC = () => {
         <FilterBar count={data.length} countLabel="students">
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
-            {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
           </SelectFilter>
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
@@ -866,7 +865,7 @@ export const Reports: React.FC = () => {
         <FilterBar count={data.length} countLabel="students">
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
-            {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
           </SelectFilter>
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
@@ -937,7 +936,7 @@ export const Reports: React.FC = () => {
           </SelectFilter>
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
-            {DEPARTMENTS.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
           </SelectFilter>
           <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
             <option value="all">All Years</option>
