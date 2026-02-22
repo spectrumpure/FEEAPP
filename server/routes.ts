@@ -500,6 +500,28 @@ router.delete('/api/students/:htn', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/api/students/bulk-delete', async (req: Request, res: Response) => {
+  const { hallTicketNumbers } = req.body;
+  if (!Array.isArray(hallTicketNumbers) || hallTicketNumbers.length === 0) {
+    return res.status(400).json({ error: 'hallTicketNumbers array required' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      'DELETE FROM students WHERE hall_ticket_number = ANY($1::text[])',
+      [hallTicketNumbers]
+    );
+    await client.query('COMMIT');
+    res.json({ success: true, deleted: result.rowCount });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 router.post('/api/transactions', async (req: Request, res: Response) => {
   const tx = req.body;
   try {
