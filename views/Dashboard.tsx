@@ -65,6 +65,7 @@ export const Dashboard: React.FC = () => {
   const [remarksLoading, setRemarksLoading] = useState(false);
 
   const [yearFilter, setYearFilter] = useState<number>(0);
+  const [batchFilter, setBatchFilter] = useState<string>('all');
   const isAdmin = currentUser?.role === UserRole.ADMIN;
 
   const loadRemarks = async (htn: string) => {
@@ -202,6 +203,7 @@ export const Dashboard: React.FC = () => {
     if (yearFilter === 0) return true;
     return t.targetYear === yearFilter;
   }).length;
+  const filteredPendingTotal = Math.max(0, filteredTargetTotal - filteredApprovedTotal);
   const filteredCollectionPct = filteredTargetTotal > 0 ? ((filteredApprovedTotal / filteredTargetTotal) * 100).toFixed(1) : '0.0';
 
   const collectionPct = targetTotal > 0 ? ((approvedTotal / targetTotal) * 100).toFixed(1) : '0.0';
@@ -246,10 +248,13 @@ export const Dashboard: React.FC = () => {
     return Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort().reverse();
   }, [students]);
 
-  const last4Batches = allBatches.slice(0, 4);
+  const displayBatches = useMemo(() => {
+    if (batchFilter === 'all') return allBatches.slice(0, 4);
+    return allBatches.filter(b => b === batchFilter);
+  }, [allBatches, batchFilter]);
 
   const batchSummaries = useMemo(() => {
-    return last4Batches.map(batch => {
+    return displayBatches.map(batch => {
       const batchStudents = students.filter(s => s.batch === batch);
       const totalCount = batchStudents.length;
 
@@ -287,7 +292,7 @@ export const Dashboard: React.FC = () => {
         tsmfc: getGroupStats(isTSMFC),
       };
     });
-  }, [last4Batches, students]);
+  }, [displayBatches, students]);
 
   const deptShort = (d: string) => {
     const m = d.match(/\(([^)]+)\)/);
@@ -591,7 +596,7 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
         <StatCard 
           icon={<Users size={24} />} 
           label={yearFilter === 0 ? "Total Students" : `Year ${yearFilter} Students`} 
@@ -607,10 +612,17 @@ export const Dashboard: React.FC = () => {
           color="bg-emerald-600"
         />
         <StatCard 
+          icon={<AlertTriangle size={24} />} 
+          label={yearFilter === 0 ? "Total Pending" : `Year ${yearFilter} Pending`} 
+          value={formatCurrency(filteredPendingTotal)} 
+          subValue={`${filteredCollectionPct}% collected so far`} 
+          color="bg-rose-600"
+        />
+        <StatCard 
           icon={<Clock size={24} />} 
           label="Pending Approvals" 
           value={filteredPendingApprovals.toString()} 
-          subValue="Review needed immediately" 
+          subValue="Transactions awaiting review" 
           color="bg-amber-600"
         />
         <StatCard 
@@ -632,18 +644,31 @@ export const Dashboard: React.FC = () => {
         </div>
         <div className="flex justify-between mt-2 text-[10px] text-slate-400 font-medium">
           <span>Collected: {formatCurrency(filteredApprovedTotal)}</span>
+          <span className="text-rose-500 font-semibold">Pending: {formatCurrency(filteredPendingTotal)}</span>
           <span>Target: {formatCurrency(filteredTargetTotal)}</span>
         </div>
       </div>
 
-      {batchSummaries.length > 0 && (
+      {allBatches.length > 0 && (
         <div>
-          <div className="flex items-center gap-3 mb-4">
-            <GraduationCap size={20} className="text-[#1a365d]" />
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Batch-wise Fee Overview</h3>
-              <p className="text-sm text-slate-400">Last {last4Batches.length} batches - Category wise breakdown</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <GraduationCap size={20} className="text-[#1a365d]" />
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Batch-wise Fee Overview</h3>
+                <p className="text-sm text-slate-400">{batchFilter === 'all' ? `Last ${displayBatches.length} batches` : `Batch ${batchFilter}`} - Category wise breakdown</p>
+              </div>
             </div>
+            <select
+              value={batchFilter}
+              onChange={e => setBatchFilter(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none cursor-pointer"
+            >
+              <option value="all">Last 4 Batches</option>
+              {allBatches.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {batchSummaries.map((bs, bIdx) => (
