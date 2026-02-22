@@ -47,7 +47,11 @@ const TABLE_META: Record<string, { label: string; icon: React.ReactNode; color: 
   student_remarks: { label: 'Student Remarks', icon: <StickyNote size={16} />, color: 'amber' },
   app_users: { label: 'App Users', icon: <Shield size={16} />, color: 'rose' },
   fee_locker_config: { label: 'Fee Locker Config', icon: <Settings size={16} />, color: 'teal' },
+  batch_fee_config: { label: 'Batch Fee Config', icon: <Layers size={16} />, color: 'indigo' },
+  custom_departments: { label: 'Custom Departments', icon: <Table2 size={16} />, color: 'amber' },
 };
+
+const DEFAULT_META = { label: 'Table', icon: <Table2 size={16} />, color: 'blue' };
 
 const colorClasses: Record<string, { bg: string; text: string; border: string; light: string }> = {
   blue: { bg: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-200', light: 'bg-blue-50' },
@@ -180,8 +184,8 @@ export const DatabaseAdmin: React.FC = () => {
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {Object.entries(overview.tables).map(([key, count]) => {
-              const meta = TABLE_META[key];
-              const colors = colorClasses[meta.color];
+              const meta = TABLE_META[key] || DEFAULT_META;
+              const colors = colorClasses[meta.color] || colorClasses['blue'];
               return (
                 <button
                   key={key}

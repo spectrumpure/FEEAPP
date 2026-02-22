@@ -744,7 +744,7 @@ router.get('/api/admin/db-overview', requireAdmin, async (_req: Request, res: Re
 });
 
 router.get('/api/admin/table/:tableName', requireAdmin, async (req: Request, res: Response) => {
-  const allowed = ['students', 'year_lockers', 'fee_transactions', 'student_remarks', 'app_users', 'fee_locker_config', 'batch_fee_config'];
+  const allowed = ['students', 'year_lockers', 'fee_transactions', 'student_remarks', 'app_users', 'fee_locker_config', 'batch_fee_config', 'custom_departments'];
   const tableName = req.params.tableName as string;
   if (!allowed.includes(tableName)) return res.status(400).json({ error: 'Invalid table name' });
   const limit = parseInt(req.query.limit as string) || 50;
