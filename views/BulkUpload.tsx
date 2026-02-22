@@ -15,7 +15,9 @@ import {
   X,
   Info,
   Table2,
-  Columns3
+  Columns3,
+  RefreshCw,
+  Plus
 } from 'lucide-react';
 import { FeeTransaction, Student, YearLocker } from '../types';
 import { normalizeDepartment } from '../constants';
@@ -142,6 +144,8 @@ function detectUploadType(mapping: Record<string, number>): UploadType | null {
   return null;
 }
 
+type MergeMode = 'add' | 'replace';
+
 export const BulkUpload: React.FC = () => {
   const { students, departments, bulkAddStudents, bulkAddTransactions, getFeeTargets } = useApp();
   const [isUploading, setIsUploading] = useState(false);
@@ -150,6 +154,7 @@ export const BulkUpload: React.FC = () => {
   const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]);
   const [mappedFields, setMappedFields] = useState<Record<string, number>>({});
   const [showMappingPreview, setShowMappingPreview] = useState(false);
+  const [mergeMode, setMergeMode] = useState<MergeMode>('replace');
 
   const normalizeDate = (raw: string): string => {
     if (!raw) return '';
@@ -361,20 +366,26 @@ export const BulkUpload: React.FC = () => {
 
         if (locker.transactions.length > 0) {
           if (existingStudent) {
-            const mergedLockers = [...existingStudent.feeLockers];
-            const existingLockerIdx = mergedLockers.findIndex(l => l.year === feeYear);
-            if (existingLockerIdx >= 0) {
-              mergedLockers[existingLockerIdx] = {
-                ...mergedLockers[existingLockerIdx],
-                transactions: [...mergedLockers[existingLockerIdx].transactions, ...locker.transactions]
-              };
+            let finalLockers: YearLocker[];
+            if (mergeMode === 'replace') {
+              finalLockers = [locker];
             } else {
-              mergedLockers.push(locker);
+              const mergedLockers = [...existingStudent.feeLockers];
+              const existingLockerIdx = mergedLockers.findIndex(l => l.year === feeYear);
+              if (existingLockerIdx >= 0) {
+                mergedLockers[existingLockerIdx] = {
+                  ...mergedLockers[existingLockerIdx],
+                  transactions: [...mergedLockers[existingLockerIdx].transactions, ...locker.transactions]
+                };
+              } else {
+                mergedLockers.push(locker);
+              }
+              finalLockers = mergedLockers;
             }
-            mergedLockers.sort((a, b) => a.year - b.year);
+            finalLockers.sort((a, b) => a.year - b.year);
             const studentCopy: Student = {
               ...existingStudent,
-              feeLockers: mergedLockers
+              feeLockers: finalLockers
             };
             newStudents.push(studentCopy);
           } else {
@@ -534,6 +545,31 @@ export const BulkUpload: React.FC = () => {
 
         student.feeLockers.push(locker);
         student.feeLockers.sort((a, b) => a.year - b.year);
+
+        const existingStudent = students.find(s => s.hallTicketNumber === htn);
+        if (existingStudent && mergeMode === 'add') {
+          const mergedLockers = [...existingStudent.feeLockers];
+          for (const newLocker of student.feeLockers) {
+            if (newLocker.transactions.length === 0) {
+              if (!mergedLockers.find(l => l.year === newLocker.year)) {
+                mergedLockers.push(newLocker);
+              }
+              continue;
+            }
+            const existingIdx = mergedLockers.findIndex(l => l.year === newLocker.year);
+            if (existingIdx >= 0) {
+              mergedLockers[existingIdx] = {
+                ...mergedLockers[existingIdx],
+                transactions: [...mergedLockers[existingIdx].transactions, ...newLocker.transactions]
+              };
+            } else {
+              mergedLockers.push(newLocker);
+            }
+          }
+          mergedLockers.sort((a, b) => a.year - b.year);
+          student.feeLockers = mergedLockers;
+        }
+
         newStudents.push(student);
       } catch (err) {
         errors.push(`Row ${rowIdx + 2}: Processing error`);
@@ -630,32 +666,37 @@ export const BulkUpload: React.FC = () => {
         }
 
         if (existingStudent) {
-          const mergedLockers = [...existingStudent.feeLockers];
-          for (const newLocker of feeLockers) {
-            if (newLocker.transactions.length === 0) {
-              if (!mergedLockers.find(l => l.year === newLocker.year)) {
-                mergedLockers.push(newLocker);
+          let finalLockers: YearLocker[];
+          if (mergeMode === 'replace') {
+            finalLockers = [...feeLockers];
+          } else {
+            finalLockers = [...existingStudent.feeLockers];
+            for (const newLocker of feeLockers) {
+              if (newLocker.transactions.length === 0) {
+                if (!finalLockers.find(l => l.year === newLocker.year)) {
+                  finalLockers.push(newLocker);
+                }
+                continue;
               }
-              continue;
-            }
-            const existingIdx = mergedLockers.findIndex(l => l.year === newLocker.year);
-            if (existingIdx >= 0) {
-              mergedLockers[existingIdx] = {
-                ...mergedLockers[existingIdx],
-                transactions: [...mergedLockers[existingIdx].transactions, ...newLocker.transactions]
-              };
-            } else {
-              mergedLockers.push(newLocker);
+              const existingIdx = finalLockers.findIndex(l => l.year === newLocker.year);
+              if (existingIdx >= 0) {
+                finalLockers[existingIdx] = {
+                  ...finalLockers[existingIdx],
+                  transactions: [...finalLockers[existingIdx].transactions, ...newLocker.transactions]
+                };
+              } else {
+                finalLockers.push(newLocker);
+              }
             }
           }
-          mergedLockers.sort((a, b) => a.year - b.year);
+          finalLockers.sort((a, b) => a.year - b.year);
           newStudents.push({
             ...existingStudent,
             department: dept || existingStudent.department,
             admissionCategory: admissionCat || existingStudent.admissionCategory,
             entryType: entryType || existingStudent.entryType,
             currentYear: currentYearRaw || existingStudent.currentYear,
-            feeLockers: mergedLockers
+            feeLockers: finalLockers
           });
         } else {
           const student: Student = {
@@ -902,7 +943,45 @@ export const BulkUpload: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-6">
           <h3 className="text-lg font-bold text-slate-800 mb-1">Upload File</h3>
-          <p className="text-sm text-slate-400 mb-6">The system will automatically detect which template type your file matches based on the column headers</p>
+          <p className="text-sm text-slate-400 mb-4">The system will automatically detect which template type your file matches based on the column headers</p>
+
+          <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Upload Mode for Existing Students</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setMergeMode('replace')}
+                className={`flex-1 flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 transition-all text-left ${
+                  mergeMode === 'replace'
+                    ? 'border-blue-500 bg-blue-50 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className={`p-1.5 rounded-lg ${mergeMode === 'replace' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                  <RefreshCw size={16} />
+                </div>
+                <div>
+                  <p className={`text-sm font-bold ${mergeMode === 'replace' ? 'text-blue-800' : 'text-slate-700'}`}>Replace</p>
+                  <p className="text-[10px] text-slate-400">Overwrites existing fee data with uploaded data. Safe for re-uploads.</p>
+                </div>
+              </button>
+              <button
+                onClick={() => setMergeMode('add')}
+                className={`flex-1 flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 transition-all text-left ${
+                  mergeMode === 'add'
+                    ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className={`p-1.5 rounded-lg ${mergeMode === 'add' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                  <Plus size={16} />
+                </div>
+                <div>
+                  <p className={`text-sm font-bold ${mergeMode === 'add' ? 'text-emerald-800' : 'text-slate-700'}`}>Add & Merge</p>
+                  <p className="text-[10px] text-slate-400">Adds new transactions alongside existing ones. Use for new data only.</p>
+                </div>
+              </button>
+            </div>
+          </div>
 
           <div className={`border-4 border-dashed rounded-2xl p-10 transition-all text-center ${
             isUploading ? 'bg-blue-50 border-blue-200 scale-[0.98]' : 'bg-slate-50 border-slate-200 hover:border-blue-300 hover:bg-blue-50/30'
@@ -951,7 +1030,7 @@ export const BulkUpload: React.FC = () => {
                   {uploadResult.success > 0 ? 'Upload Successful' : 'Upload Failed'}
                 </h4>
                 <p className="text-xs text-slate-500">
-                  {detectedType && `Detected as: ${typeLabels[detectedType].label} template`}
+                  {detectedType && `Detected as: ${typeLabels[detectedType].label} template • Mode: ${mergeMode === 'replace' ? 'Replace' : 'Add & Merge'}`}
                 </p>
               </div>
             </div>
