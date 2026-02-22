@@ -406,7 +406,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     }
     setBulkDeleting(true);
     try {
-      const res = await fetch(`/api/admin/students/batch/${batchYear.trim()}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/students/batch/${batchYear.trim()}`, { method: 'DELETE', headers: { 'x-user-role': currentUser?.role || '' } });
       if (res.ok) {
         const data = await res.json();
         alert(`Successfully deleted ${data.deleted} student(s) from batch ${batchYear.trim()}.`);
