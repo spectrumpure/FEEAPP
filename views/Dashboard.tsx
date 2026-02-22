@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '../store';
 import { StudentRemark, UserRole } from '../types';
 import { 
@@ -17,10 +17,13 @@ import {
   Trash2,
   Send,
   AlertCircle,
-  Download
+  Download,
+  GraduationCap,
+  IndianRupee,
+  AlertTriangle
 } from 'lucide-react';
 import { Student } from '../types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 
 const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string, subValue: string, trend?: 'up' | 'down', color: string }> = ({ 
   icon, label, value, subValue, trend, color 
@@ -49,13 +52,6 @@ export const Dashboard: React.FC = () => {
   const [showResults, setShowResults] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
-
-  const [deptYearFilter, setDeptYearFilter] = useState<string>('all');
-  const [deptBatchFilter, setDeptBatchFilter] = useState<string>('all');
-  const [catYearFilter, setCatYearFilter] = useState<string>('all');
-  const [catBatchFilter, setCatBatchFilter] = useState<string>('all');
-
-  const allBatches = Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort();
 
   const [remarkHTN, setRemarkHTN] = useState('');
   const [remarkText, setRemarkText] = useState('');
@@ -176,67 +172,114 @@ export const Dashboard: React.FC = () => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
   };
 
+  const formatCompact = (val: number) => {
+    if (val >= 10000000) return `₹${(val / 10000000).toFixed(2)} Cr`;
+    if (val >= 100000) return `₹${(val / 100000).toFixed(2)} L`;
+    if (val >= 1000) return `₹${(val / 1000).toFixed(1)} K`;
+    return `₹${val}`;
+  };
+
+  const collectionPct = targetTotal > 0 ? ((approvedTotal / targetTotal) * 100).toFixed(1) : '0.0';
+
+  const isManagement = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('MANAGEMENT') || u === 'MQ' || u === 'SPOT'; };
+  const isConvenor = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
+  const isTSMFC = (cat: string) => { const u = (cat || '').trim().toUpperCase(); return u.includes('TSMFC') || u.includes('TSECET'); };
+
+  const allBatches = useMemo(() => {
+    return Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort().reverse();
+  }, [students]);
+
+  const last4Batches = allBatches.slice(0, 4);
+
+  const batchSummaries = useMemo(() => {
+    return last4Batches.map(batch => {
+      const batchStudents = students.filter(s => s.batch === batch);
+      const totalCount = batchStudents.length;
+
+      const getGroupStats = (filterFn: (cat: string) => boolean) => {
+        const group = batchStudents.filter(s => filterFn(s.admissionCategory));
+        const count = group.length;
+        const collected = group.reduce((sum, s) => {
+          return sum + s.feeLockers.reduce((lSum, l) => {
+            return lSum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tSum, t) => tSum + t.amount, 0);
+          }, 0);
+        }, 0);
+        const target = group.reduce((sum, s) => sum + getStudentTotalTarget(s), 0);
+        const pending = target - collected;
+        return { count, collected, target, pending: Math.max(0, pending) };
+      };
+
+      const totalCollected = batchStudents.reduce((sum, s) => {
+        return sum + s.feeLockers.reduce((lSum, l) => {
+          return lSum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tSum, t) => tSum + t.amount, 0);
+        }, 0);
+      }, 0);
+      const totalTarget = batchStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0);
+      const totalPending = Math.max(0, totalTarget - totalCollected);
+      const pct = totalTarget > 0 ? ((totalCollected / totalTarget) * 100) : 0;
+
+      return {
+        batch,
+        totalCount,
+        totalCollected,
+        totalTarget,
+        totalPending,
+        pct,
+        management: getGroupStats(isManagement),
+        convenor: getGroupStats(isConvenor),
+        tsmfc: getGroupStats(isTSMFC),
+      };
+    });
+  }, [last4Batches, students]);
+
   const deptShort = (d: string) => {
     const m = d.match(/\(([^)]+)\)/);
     return m ? m[1] : d.replace('B.E ', '').replace('M.E ', '').slice(0, 6);
   };
 
-  const deptTableData = (() => {
-    const rows: { name: string; fullName: string; code: string; courseType: string; entryLabel: string; count: number; target: number; collection: number; balance: number; defaulters: number; pct: number }[] = [];
-    const yr = deptYearFilter === 'all' ? 0 : parseInt(deptYearFilter);
-    const calcRow = (deptStudents: typeof students, dept: typeof departments[0], label: string) => {
-      const count = deptStudents.length;
-      const target = yr === 0
-        ? deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0)
-        : deptStudents.reduce((sum, s) => {
-            const locker = s.feeLockers.find(l => l.year === yr);
-            return sum + (locker ? locker.tuitionTarget + locker.universityTarget + locker.otherTarget : 0);
-          }, 0);
+  const deptCollectionData = useMemo(() => {
+    return departments.map(dept => {
+      const deptStudents = students.filter(s => matchDept(s.department, dept));
       const collection = deptStudents.reduce((sum, s) => {
-        const lockers = yr === 0 ? s.feeLockers : s.feeLockers.filter(l => l.year === yr);
-        return sum + lockers.reduce((lSum, l) => {
+        return sum + s.feeLockers.reduce((lSum, l) => {
           return lSum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tSum, t) => tSum + t.amount, 0);
         }, 0);
       }, 0);
-      const balance = target - collection;
+      const target = deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0);
+      return { name: deptShort(dept.name), collection, target, fullName: dept.name };
+    }).filter(d => d.target > 0 || d.collection > 0);
+  }, [departments, students]);
+
+  const deptDefaulterData = useMemo(() => {
+    return departments.map(dept => {
+      const deptStudents = students.filter(s => matchDept(s.department, dept));
       const defaulters = deptStudents.filter(s => {
-        const lockers = yr === 0 ? s.feeLockers : s.feeLockers.filter(l => l.year === yr);
-        const st = yr === 0 ? getStudentTotalTarget(s) : lockers.reduce((sum, l) => sum + l.tuitionTarget + l.universityTarget + l.otherTarget, 0);
-        const sp = lockers.reduce((sum, l) => sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0), 0);
+        const st = getStudentTotalTarget(s);
+        const sp = s.feeLockers.reduce((sum, l) => sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0), 0);
         return st > 0 && sp < st;
       }).length;
-      const pct = target > 0 ? ((collection / target) * 100) : 0;
-      rows.push({ name: deptShort(dept.name), fullName: dept.name, code: dept.code, courseType: dept.courseType, entryLabel: label, count, target, collection, balance, defaulters, pct });
-    };
-    departments.forEach(dept => {
-      let allDeptStudents = students.filter(s => matchDept(s.department, dept));
-      if (deptBatchFilter !== 'all') allDeptStudents = allDeptStudents.filter(s => s.batch === deptBatchFilter);
-      const filtered = yr === 0 ? allDeptStudents : allDeptStudents.filter(s => s.feeLockers.some(l => l.year === yr));
-      const regularStudents = filtered.filter(s => s.entryType !== 'LATERAL');
-      const lateralStudents = (yr === 1) ? [] : filtered.filter(s => s.entryType === 'LATERAL');
-      if (lateralStudents.length > 0) {
-        calcRow(regularStudents, dept, 'Regular');
-        calcRow(lateralStudents, dept, 'Lateral');
-      } else {
-        calcRow(yr === 1 ? regularStudents : filtered, dept, '');
-      }
-    });
-    return rows.filter(d => d.count > 0);
-  })();
+      return { name: deptShort(dept.name), defaulters, fullName: dept.name };
+    }).filter(d => d.defaulters > 0);
+  }, [departments, students]);
 
-  const deptTableTotals = deptTableData.reduce((acc, d) => ({
-    count: acc.count + d.count, target: acc.target + d.target, collection: acc.collection + d.collection,
-    balance: acc.balance + d.balance, defaulters: acc.defaulters + d.defaulters
-  }), { count: 0, target: 0, collection: 0, balance: 0, defaulters: 0 });
-
-  const deptCollectionData = deptTableData.map(d => ({ name: d.name, collection: d.collection, target: d.target, fullName: d.fullName })).filter(d => d.target > 0 || d.collection > 0);
-
-  const deptDefaulterData = deptTableData.map(d => ({ name: d.name, defaulters: d.defaulters, fullName: d.fullName })).filter(d => d.defaulters > 0);
+  const categoryPieData = useMemo(() => {
+    const mgmt = students.filter(s => isManagement(s.admissionCategory)).length;
+    const conv = students.filter(s => isConvenor(s.admissionCategory)).length;
+    const tsmfc = students.filter(s => isTSMFC(s.admissionCategory)).length;
+    const other = students.length - mgmt - conv - tsmfc;
+    const data = [];
+    if (tsmfc > 0) data.push({ name: 'TSMFC', value: tsmfc, fill: '#3b82f6' });
+    if (mgmt > 0) data.push({ name: 'Management', value: mgmt, fill: '#f59e0b' });
+    if (conv > 0) data.push({ name: 'Convenor', value: conv, fill: '#8b5cf6' });
+    if (other > 0) data.push({ name: 'Other', value: other, fill: '#94a3b8' });
+    return data;
+  }, [students]);
 
   const COLORS_BLUE = ['#1a365d', '#2c5282', '#2b6cb0', '#3182ce', '#4299e1', '#63b3ed', '#90cdf4', '#bee3f8', '#1e40af', '#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
   const COLORS_RED = ['#9b2c2c', '#c53030', '#e53e3e', '#fc8181', '#feb2b2', '#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fecaca', '#b91c1c', '#991b1b', '#7f1d1d', '#450a0a'];
 
-  const collectionPct = targetTotal > 0 ? ((approvedTotal / targetTotal) * 100).toFixed(1) : '0.0';
+  const batchColors = ['from-blue-600 to-blue-800', 'from-indigo-600 to-indigo-800', 'from-purple-600 to-purple-800', 'from-slate-600 to-slate-800'];
+  const batchBgColors = ['bg-blue-50 border-blue-200', 'bg-indigo-50 border-indigo-200', 'bg-purple-50 border-purple-200', 'bg-slate-50 border-slate-200'];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -319,7 +362,6 @@ export const Dashboard: React.FC = () => {
           return sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0);
         }, 0);
         const lifetimeTarget = getStudentTotalTarget(s);
-        const dept = departments.find(d => d.name === s.department);
         const lockerStatus = (locker: typeof s.feeLockers[0]) => {
           const paid = locker.transactions.filter(t => t.status === 'APPROVED').reduce((sum, t) => sum + t.amount, 0);
           const target = locker.tuitionTarget + locker.universityTarget;
@@ -504,279 +546,103 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {deptTableData.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 pb-4 flex items-center justify-between">
+      {batchSummaries.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <GraduationCap size={20} className="text-[#1a365d]" />
             <div>
-              <h3 className="text-lg font-bold text-slate-800">Department Summary</h3>
-              <p className="text-sm text-slate-400">Complete department-wise fee overview</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-slate-500">Batch:</span>
-                <select
-                  value={deptBatchFilter}
-                  onChange={(e) => setDeptBatchFilter(e.target.value)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                >
-                  <option value="all">All Batches</option>
-                  {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-slate-500">Year:</span>
-                <select
-                  value={deptYearFilter}
-                  onChange={(e) => setDeptYearFilter(e.target.value)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                >
-                  <option value="all">All Years</option>
-                  <option value="1">1st Year</option>
-                  <option value="2">2nd Year</option>
-                  <option value="3">3rd Year</option>
-                  <option value="4">4th Year</option>
-                </select>
-              </div>
+              <h3 className="text-lg font-bold text-slate-800">Batch-wise Fee Overview</h3>
+              <p className="text-sm text-slate-400">Last {last4Batches.length} batches - Category wise breakdown</p>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gradient-to-r from-[#1a365d] to-[#2c5282] text-white">
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">S.No</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Department</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider">Type</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider">Students</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider">Target Fee</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider">Collected</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider">Balance</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider">Collection %</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider">Defaulters</th>
-                </tr>
-              </thead>
-              <tbody>
-                {deptTableData.map((d, idx) => (
-                  <tr key={d.code + d.entryLabel} className={`border-t border-slate-100 hover:bg-blue-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
-                    <td className="px-4 py-3 text-slate-400 font-medium">{idx + 1}</td>
-                    <td className="px-4 py-3">
-                      <span className="font-semibold text-slate-800">{d.code}</span>
-                      <span className="text-slate-400 ml-1 text-xs hidden lg:inline">({d.fullName.match(/\(([^)]+)\)/)?.[1] || d.fullName})</span>
-                      {d.entryLabel === 'Regular' && <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">Regular</span>}
-                      {d.entryLabel === 'Lateral' && <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200">Lateral</span>}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${d.courseType === 'B.E' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                        {d.courseType}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center font-semibold text-slate-700">{d.count}</td>
-                    <td className="px-4 py-3 text-right font-medium text-slate-700">{formatCurrency(d.target)}</td>
-                    <td className="px-4 py-3 text-right font-medium text-green-600">{formatCurrency(d.collection)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-red-600">{formatCurrency(d.balance)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-16 bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-[#1a365d] to-[#3182ce] rounded-full" style={{ width: `${Math.min(d.pct, 100)}%` }}></div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {batchSummaries.map((bs, bIdx) => (
+              <div key={bs.batch} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                <div className={`bg-gradient-to-r ${batchColors[bIdx]} p-4 text-white`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-white/70 text-[10px] uppercase tracking-widest font-semibold">Batch</p>
+                      <h4 className="text-xl font-bold">{bs.batch}</h4>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-white/20 rounded-lg px-3 py-1.5">
+                          <p className="text-[10px] text-white/70 uppercase">Students</p>
+                          <p className="text-lg font-bold">{bs.totalCount}</p>
                         </div>
-                        <span className="text-xs font-semibold text-slate-600 w-10">{d.pct.toFixed(1)}%</span>
+                        <div className="bg-white/20 rounded-lg px-3 py-1.5">
+                          <p className="text-[10px] text-white/70 uppercase">Efficiency</p>
+                          <p className="text-lg font-bold">{bs.pct.toFixed(1)}%</p>
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {d.defaulters > 0 ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">{d.defaulters}</span>
-                      ) : (
-                        <span className="text-green-500 text-xs font-semibold">0</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gradient-to-r from-[#1a365d] to-[#2c5282] text-white font-bold">
-                  <td className="px-4 py-3" colSpan={3}>TOTAL</td>
-                  <td className="px-4 py-3 text-center">{deptTableTotals.count}</td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(deptTableTotals.target)}</td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(deptTableTotals.collection)}</td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(deptTableTotals.balance)}</td>
-                  <td className="px-4 py-3 text-center">{deptTableTotals.target > 0 ? ((deptTableTotals.collection / deptTableTotals.target) * 100).toFixed(1) : '0.0'}%</td>
-                  <td className="px-4 py-3 text-center">{deptTableTotals.defaulters}</td>
-                </tr>
-              </tfoot>
-            </table>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                      <div className="h-full bg-white/80 rounded-full transition-all duration-500" style={{ width: `${Math.min(bs.pct, 100)}%` }}></div>
+                    </div>
+                    <div className="flex justify-between mt-1.5 text-[10px] text-white/70">
+                      <span>Collected: {formatCompact(bs.totalCollected)}</span>
+                      <span>Pending: {formatCompact(bs.totalPending)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center p-3 bg-gradient-to-b from-blue-50 to-white rounded-xl border border-blue-100">
+                      <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest mb-1">TSMFC</p>
+                      <p className="text-lg font-bold text-blue-800">{bs.tsmfc.count}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">students</p>
+                    </div>
+                    <div className="text-center p-3 bg-gradient-to-b from-amber-50 to-white rounded-xl border border-amber-100">
+                      <p className="text-[9px] font-bold text-amber-600 uppercase tracking-widest mb-1">Management</p>
+                      <p className="text-lg font-bold text-amber-800">{bs.management.count}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">students</p>
+                    </div>
+                    <div className="text-center p-3 bg-gradient-to-b from-purple-50 to-white rounded-xl border border-purple-100">
+                      <p className="text-[9px] font-bold text-purple-600 uppercase tracking-widest mb-1">Convenor</p>
+                      <p className="text-lg font-bold text-purple-800">{bs.convenor.count}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">students</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {[
+                      { label: 'TSMFC', data: bs.tsmfc, bgClass: 'bg-blue-50/50 border-blue-100/50', barClass: 'bg-blue-500', textClass: 'text-blue-700' },
+                      { label: 'Management', data: bs.management, bgClass: 'bg-amber-50/50 border-amber-100/50', barClass: 'bg-amber-500', textClass: 'text-amber-700' },
+                      { label: 'Convenor', data: bs.convenor, bgClass: 'bg-purple-50/50 border-purple-100/50', barClass: 'bg-purple-500', textClass: 'text-purple-700' },
+                    ].map(cat => (
+                      cat.data.count > 0 && (
+                        <div key={cat.label} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${cat.bgClass}`}>
+                          <div className={`w-1.5 h-8 rounded-full ${cat.barClass}`}></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider ${cat.textClass}`}>{cat.label}</span>
+                              <span className="text-[10px] text-slate-400">{cat.data.target > 0 ? ((cat.data.collected / cat.data.target) * 100).toFixed(0) : 0}%</span>
+                            </div>
+                            <div className="flex items-center justify-between mt-0.5">
+                              <span className="text-xs font-semibold text-green-600">{formatCompact(cat.data.collected)}</span>
+                              <span className="text-xs font-semibold text-red-500">{formatCompact(cat.data.pending)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] text-slate-400">Collected</span>
+                              <span className="text-[9px] text-slate-400">Pending</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {(() => {
-        const isManagement = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('MANAGEMENT') || u === 'MQ' || u === 'SPOT'; };
-        const isConvenor = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
-        const isTSMFC = (cat: string) => { const u = (cat || '').trim().toUpperCase(); return u.includes('TSMFC') || u.includes('TSECET'); };
-        const catYr = catYearFilter === 'all' ? 0 : parseInt(catYearFilter);
-        const getCatPaid = (sList: typeof students) => {
-          let tuiPaid = 0, uniPaid = 0, tuiTarget = 0, uniTarget = 0;
-          let batchFiltered = catBatchFilter !== 'all' ? sList.filter(s => s.batch === catBatchFilter) : sList;
-          const filtered = catYr > 0 ? batchFiltered.filter(s => s.feeLockers.some(l => l.year === catYr)) : batchFiltered;
-          filtered.forEach(s => {
-            const lockers = catYr > 0 ? s.feeLockers.filter(l => l.year === catYr) : s.feeLockers;
-            lockers.forEach(l => {
-              tuiTarget += l.tuitionTarget;
-              uniTarget += l.universityTarget;
-              l.transactions.filter(tx => tx.status === 'APPROVED').forEach(tx => {
-                if (tx.feeType === 'University') uniPaid += tx.amount; else tuiPaid += tx.amount;
-              });
-            });
-            if (lockers.length === 0 && catYr === 0) {
-              const dept = departments.find(d => matchDept(s.department, d));
-              const duration = dept?.duration || 4;
-              for (let y = 1; y <= Math.min(s.currentYear, duration); y++) {
-                const targets = getFeeTargets(s.department, y, s.entryType, s.admissionYear);
-                tuiTarget += targets.tuition;
-                uniTarget += targets.university;
-              }
-            }
-          });
-          const target = tuiTarget + uniTarget;
-          return { target, tuiTarget, uniTarget, tuiPaid, uniPaid, totalPaid: tuiPaid + uniPaid, count: filtered.length };
-        };
-        const catData: { name: string; code: string; courseType: string; entryLabel: string; tsmfcCount: number; tTarget: number; tTuiPaid: number; tUniPaid: number; tBal: number; mgmtCount: number; mTarget: number; mTuiPaid: number; mUniPaid: number; mBal: number; convCount: number; cTarget: number; cTuiPaid: number; cUniPaid: number; cBal: number; totalCount: number }[] = [];
-        departments.forEach(dept => {
-          const ds = students.filter(s => matchDept(s.department, dept));
-          const buildRow = (subset: typeof students, label: string) => {
-            const mgmt = subset.filter(s => isManagement(s.admissionCategory));
-            const conv = subset.filter(s => isConvenor(s.admissionCategory));
-            const tsmfc = subset.filter(s => isTSMFC(s.admissionCategory));
-            const mp = getCatPaid(mgmt), cp = getCatPaid(conv), tp = getCatPaid(tsmfc);
-            if (mp.count > 0 || cp.count > 0 || tp.count > 0) {
-              catData.push({ name: deptShort(dept.name), code: dept.code, courseType: dept.courseType, entryLabel: label,
-                tsmfcCount: tp.count, tTarget: tp.target, tTuiPaid: tp.tuiPaid, tUniPaid: tp.uniPaid, tBal: tp.target - tp.totalPaid,
-                mgmtCount: mp.count, mTarget: mp.target, mTuiPaid: mp.tuiPaid, mUniPaid: mp.uniPaid, mBal: mp.target - mp.totalPaid,
-                convCount: cp.count, cTarget: cp.target, cTuiPaid: cp.tuiPaid, cUniPaid: cp.uniPaid, cBal: cp.target - cp.totalPaid,
-                totalCount: tp.count + mp.count + cp.count });
-            }
-          };
-          const regularStudents = ds.filter(s => s.entryType !== 'LATERAL');
-          const lateralStudents = (catYr === 1) ? [] : ds.filter(s => s.entryType === 'LATERAL');
-          if (lateralStudents.length > 0) {
-            buildRow(regularStudents, 'Regular');
-            buildRow(lateralStudents, 'Lateral');
-          } else {
-            buildRow(catYr === 1 ? regularStudents : ds, '');
-          }
-        });
-        const catTotals = catData.reduce((a, d) => ({
-          tc: a.tc + d.tsmfcCount, tt: a.tt + d.tTarget, ttp: a.ttp + d.tTuiPaid, tup: a.tup + d.tUniPaid, tb: a.tb + d.tBal,
-          mc: a.mc + d.mgmtCount, mt: a.mt + d.mTarget, mtp: a.mtp + d.mTuiPaid, mup: a.mup + d.mUniPaid, mb: a.mb + d.mBal,
-          cc: a.cc + d.convCount, ct: a.ct + d.cTarget, ctp: a.ctp + d.cTuiPaid, cup: a.cup + d.cUniPaid, cb: a.cb + d.cBal,
-          all: a.all + d.totalCount
-        }), { tc: 0, tt: 0, ttp: 0, tup: 0, tb: 0, mc: 0, mt: 0, mtp: 0, mup: 0, mb: 0, cc: 0, ct: 0, ctp: 0, cup: 0, cb: 0, all: 0 });
-        if (catData.length === 0) return null;
-        return (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 pb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">Category Analysis</h3>
-                <p className="text-sm text-slate-400">TSMFC vs Management Quota vs Convenor - Fee payment & pending summary</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-medium text-slate-500">Batch:</span>
-                  <select value={catBatchFilter} onChange={e => setCatBatchFilter(e.target.value)} className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                    <option value="all">All Batches</option>
-                    {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-medium text-slate-500">Year:</span>
-                  <select value={catYearFilter} onChange={e => setCatYearFilter(e.target.value)} className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                    <option value="all">All Years</option>
-                    <option value="1">1st Year</option>
-                    <option value="2">2nd Year</option>
-                    <option value="3">3rd Year</option>
-                    <option value="4">4th Year</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80">
-                    <th className="px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100" rowSpan={2}>Dept</th>
-                    <th className="px-2 py-2 text-[10px] font-bold text-blue-800 uppercase tracking-wider bg-blue-50 text-center border-b border-blue-200" colSpan={5}>TSMFC</th>
-                    <th className="px-2 py-2 text-[10px] font-bold text-amber-800 uppercase tracking-wider bg-amber-50 text-center border-b border-amber-200" colSpan={5}>Management Quota</th>
-                    <th className="px-2 py-2 text-[10px] font-bold text-purple-800 uppercase tracking-wider bg-purple-50 text-center border-b border-purple-200" colSpan={5}>Convenor</th>
-                    <th className="px-2 py-2 text-[10px] font-bold text-slate-700 uppercase tracking-wider bg-slate-100 text-center border-b border-slate-300" rowSpan={2}>Total</th>
-                  </tr>
-                  <tr className="bg-slate-50/80">
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-center">Count</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Target</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Tui. Paid</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Uni. Paid</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Pending</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-center">Count</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Target</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Tui. Paid</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Uni. Paid</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Pending</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-center">Count</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Target</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Tui. Paid</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Uni. Paid</th>
-                    <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Pending</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {catData.map((d, i) => (
-                    <tr key={d.code + d.entryLabel} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                      <td className="px-3 py-2.5 text-xs font-bold text-slate-800">{d.courseType}({d.code}){d.entryLabel === 'Regular' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-blue-50 text-blue-600">R</span>}{d.entryLabel === 'Lateral' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-purple-100 text-purple-700">LE</span>}</td>
-                      <td className="px-1.5 py-2.5 text-xs text-blue-700 font-semibold text-center bg-blue-50/20">{d.tsmfcCount}</td>
-                      <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-blue-50/20">{formatCurrency(d.tTarget)}</td>
-                      <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-blue-50/20">{formatCurrency(d.tTuiPaid)}</td>
-                      <td className="px-1.5 py-2.5 text-xs font-semibold text-teal-600 text-right bg-blue-50/20">{formatCurrency(d.tUniPaid)}</td>
-                      <td className="px-1.5 py-2.5 text-xs font-bold text-right bg-blue-50/20" style={{ color: d.tBal > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.tBal)}</td>
-                      <td className="px-1.5 py-2.5 text-xs text-amber-700 font-semibold text-center bg-amber-50/20">{d.mgmtCount}</td>
-                      <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-amber-50/20">{formatCurrency(d.mTarget)}</td>
-                      <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-amber-50/20">{formatCurrency(d.mTuiPaid)}</td>
-                      <td className="px-1.5 py-2.5 text-xs font-semibold text-teal-600 text-right bg-amber-50/20">{formatCurrency(d.mUniPaid)}</td>
-                      <td className="px-1.5 py-2.5 text-xs font-bold text-right bg-amber-50/20" style={{ color: d.mBal > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.mBal)}</td>
-                      <td className="px-1.5 py-2.5 text-xs text-purple-700 font-semibold text-center bg-purple-50/20">{d.convCount}</td>
-                      <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-purple-50/20">{formatCurrency(d.cTarget)}</td>
-                      <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-purple-50/20">{formatCurrency(d.cTuiPaid)}</td>
-                      <td className="px-1.5 py-2.5 text-xs font-semibold text-teal-600 text-right bg-purple-50/20">{formatCurrency(d.cUniPaid)}</td>
-                      <td className="px-1.5 py-2.5 text-xs font-bold text-right bg-purple-50/20" style={{ color: d.cBal > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.cBal)}</td>
-                      <td className="px-1.5 py-2.5 text-xs font-bold text-slate-800 text-center bg-slate-50">{d.totalCount}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-gradient-to-r from-[#1a365d] to-[#2c5282] text-white font-bold">
-                    <td className="px-3 py-3 text-xs">TOTAL</td>
-                    <td className="px-1.5 py-3 text-xs text-center">{catTotals.tc}</td>
-                    <td className="px-1.5 py-3 text-xs text-right">{formatCurrency(catTotals.tt)}</td>
-                    <td className="px-1.5 py-3 text-xs text-right text-emerald-200">{formatCurrency(catTotals.ttp)}</td>
-                    <td className="px-1.5 py-3 text-xs text-right text-teal-200">{formatCurrency(catTotals.tup)}</td>
-                    <td className="px-1.5 py-3 text-xs text-right text-red-200">{formatCurrency(catTotals.tb)}</td>
-                    <td className="px-1.5 py-3 text-xs text-center">{catTotals.mc}</td>
-                    <td className="px-1.5 py-3 text-xs text-right">{formatCurrency(catTotals.mt)}</td>
-                    <td className="px-1.5 py-3 text-xs text-right text-emerald-200">{formatCurrency(catTotals.mtp)}</td>
-                    <td className="px-1.5 py-3 text-xs text-right text-teal-200">{formatCurrency(catTotals.mup)}</td>
-                    <td className="px-1.5 py-3 text-xs text-right text-red-200">{formatCurrency(catTotals.mb)}</td>
-                    <td className="px-1.5 py-3 text-xs text-center">{catTotals.cc}</td>
-                    <td className="px-1.5 py-3 text-xs text-right">{formatCurrency(catTotals.ct)}</td>
-                    <td className="px-1.5 py-3 text-xs text-right text-emerald-200">{formatCurrency(catTotals.ctp)}</td>
-                    <td className="px-1.5 py-3 text-xs text-right text-teal-200">{formatCurrency(catTotals.cup)}</td>
-                    <td className="px-1.5 py-3 text-xs text-right text-red-200">{formatCurrency(catTotals.cb)}</td>
-                    <td className="px-1.5 py-3 text-xs text-center text-yellow-200">{catTotals.all}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        );
-      })()}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div className="mb-6">
             <h3 className="text-lg font-bold text-slate-800">Fee Collection by Department</h3>
             <p className="text-sm text-slate-400">Total approved collection per department</p>
@@ -804,7 +670,45 @@ export const Dashboard: React.FC = () => {
 
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div className="mb-6">
-            <h3 className="text-lg font-bold text-slate-800">Fee Defaulters by Department</h3>
+            <h3 className="text-lg font-bold text-slate-800">Category Distribution</h3>
+            <p className="text-sm text-slate-400">Student count by admission category</p>
+          </div>
+          <div className="h-72">
+            {categoryPieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryPieData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="value"
+                    label={({ name, value }: { name: string; value: number }) => `${name}: ${value}`}
+                  >
+                    {categoryPieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px'}} />
+                  <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 600 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm">No category data.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="mb-6">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <AlertTriangle size={18} className="text-red-500" />
+              Fee Defaulters by Department
+            </h3>
             <p className="text-sm text-slate-400">Students with pending fee balance</p>
           </div>
           <div className="h-72">
@@ -827,37 +731,37 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
         </div>
-      </div>
 
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-800 mb-4">Recent Payments</h3>
-        <div className="space-y-4">
-          {transactions.slice(-5).reverse().map((tx) => (
-            <div key={tx.id} className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${
-                  tx.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' : 
-                  tx.status === 'PENDING' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'
-                }`}>
-                  {tx.studentHTN.slice(-2)}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Recent Payments</h3>
+          <div className="space-y-4">
+            {transactions.slice(-5).reverse().map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${
+                    tx.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' : 
+                    tx.status === 'PENDING' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'
+                  }`}>
+                    {tx.studentHTN.slice(-2)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">{tx.studentHTN}</p>
+                    <p className="text-xs text-slate-400">{tx.paymentDate}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-700">{tx.studentHTN}</p>
-                  <p className="text-xs text-slate-400">{tx.paymentDate}</p>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-slate-900">{formatCurrency(tx.amount)}</p>
+                  <p className={`text-[10px] font-bold uppercase tracking-widest ${
+                    tx.status === 'APPROVED' ? 'text-emerald-500' : 
+                    tx.status === 'PENDING' ? 'text-amber-500' : 'text-rose-500'
+                  }`}>{tx.status}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-slate-900">{formatCurrency(tx.amount)}</p>
-                <p className={`text-[10px] font-bold uppercase tracking-widest ${
-                  tx.status === 'APPROVED' ? 'text-emerald-500' : 
-                  tx.status === 'PENDING' ? 'text-amber-500' : 'text-rose-500'
-                }`}>{tx.status}</p>
-              </div>
-            </div>
-          ))}
-          {transactions.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-4">No transactions yet.</p>
-          )}
+            ))}
+            {transactions.length === 0 && (
+              <p className="text-sm text-slate-400 text-center py-4">No transactions yet.</p>
+            )}
+          </div>
         </div>
       </div>
 
