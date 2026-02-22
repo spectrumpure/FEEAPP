@@ -146,13 +146,6 @@ export async function initDB() {
         WHERE year = 1 AND student_htn IN (SELECT hall_ticket_number FROM students WHERE entry_type = 'LATERAL');
     `);
 
-    const cleanup2024 = await client.query(
-      `DELETE FROM students WHERE hall_ticket_number LIKE '1604-24-%'`
-    );
-    if (cleanup2024.rowCount && cleanup2024.rowCount > 0) {
-      console.log(`Cleanup: Removed ${cleanup2024.rowCount} students with 1604-24- prefix`);
-    }
-
     console.log('Database tables initialized successfully');
   } finally {
     client.release();
