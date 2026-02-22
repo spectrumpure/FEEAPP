@@ -16,7 +16,8 @@ import {
   UserCircle,
   AlertCircle,
   Database,
-  Lock
+  Lock,
+  Upload
 } from 'lucide-react';
 
 interface SidebarItemProps {
@@ -58,6 +59,7 @@ export const Layout: React.FC<{ children: React.ReactNode, activeView: string, o
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: [UserRole.ADMIN] },
     { id: 'students', label: 'Student Directory', icon: <Users size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PRINCIPAL] },
     { id: 'fee-entry', label: 'Fee Entry', icon: <CreditCard size={20} />, roles: [UserRole.ADMIN] },
+    { id: 'bulk-upload', label: 'Bulk Upload', icon: <Upload size={20} />, roles: [UserRole.ADMIN] },
     { id: 'approvals', label: 'Approvals', icon: <CheckCircle size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT] },
     { id: 'reports', label: 'Reports', icon: <BarChart3 size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PRINCIPAL] },
     { id: 'certificates', label: 'Certificates', icon: <FileText size={20} />, roles: [UserRole.ADMIN] },

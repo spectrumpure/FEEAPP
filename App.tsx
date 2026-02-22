@@ -13,6 +13,7 @@ import { Certificates } from './views/Certificates';
 import { DefaulterList } from './views/DefaulterList';
 import { FeeLockers } from './views/FeeLockers';
 import { DatabaseAdmin } from './views/DatabaseAdmin';
+import { BulkUpload } from './views/BulkUpload';
 import { GraduationCap, Wallet, ShieldCheck, ClipboardCheck, Eye, EyeOff, Lock, KeyRound, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
@@ -327,6 +328,7 @@ const MainApp: React.FC = () => {
         />
       );
       case 'fee-entry': return <FeeEntry preSelectedHTN={preSelectedFeeHTN} />;
+      case 'bulk-upload': return <BulkUpload />;
       case 'approvals': return <Approvals />;
       case 'reports': return <Reports />;
       case 'certificates': return <Certificates />;
