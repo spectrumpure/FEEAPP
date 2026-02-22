@@ -319,6 +319,42 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     }
   };
 
+  const toggleSelectDept = (deptName: string) => {
+    const deptObj = departments.find(d => d.name === deptName);
+    const deptStudents = filteredStudents.filter(s => 
+      s.department === deptName || 
+      (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()))
+    );
+    const deptHTNs = deptStudents.map(s => s.hallTicketNumber);
+    const allSelected = deptHTNs.every(h => selectedHTNs.has(h));
+    setSelectedHTNs(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        deptHTNs.forEach(h => next.delete(h));
+      } else {
+        deptHTNs.forEach(h => next.add(h));
+      }
+      return next;
+    });
+  };
+
+  const getDeptStudentCount = (deptName: string) => {
+    const deptObj = departments.find(d => d.name === deptName);
+    return filteredStudents.filter(s => 
+      s.department === deptName || 
+      (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()))
+    ).length;
+  };
+
+  const getDeptSelectedCount = (deptName: string) => {
+    const deptObj = departments.find(d => d.name === deptName);
+    return filteredStudents.filter(s => 
+      (s.department === deptName || 
+      (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()))) &&
+      selectedHTNs.has(s.hallTicketNumber)
+    ).length;
+  };
+
   const handleBulkDelete = async () => {
     if (selectedHTNs.size === 0) return;
     const confirmMsg = `Are you sure you want to permanently delete ${selectedHTNs.size} student(s)?\n\nThis will also delete all their fee transactions, year lockers, and remarks.\n\nThis action CANNOT be undone.`;
@@ -456,20 +492,75 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         </div>
       </div>
 
-      {selectionMode && selectedHTNs.size > 0 && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl px-5 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-rose-700">{selectedHTNs.size} student(s) selected</span>
-            <button onClick={() => setSelectedHTNs(new Set())} className="text-xs text-rose-500 hover:text-rose-700 underline">Clear selection</button>
+      {selectionMode && (
+        <div className="bg-white border border-rose-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-rose-50 px-5 py-3 border-b border-rose-200 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Trash2 size={16} className="text-rose-600" />
+              <span className="text-sm font-bold text-rose-700">Bulk Delete Mode</span>
+              <span className="text-xs text-rose-500">Select students by department or individually</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedHTNs.size > 0 && (
+                <button onClick={() => setSelectedHTNs(new Set())} className="text-xs text-rose-500 hover:text-rose-700 underline">Clear All</button>
+              )}
+              <button
+                onClick={toggleSelectAll}
+                className="text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors bg-white text-rose-600 border-rose-200 hover:bg-rose-50"
+              >
+                {selectedHTNs.size === filteredStudents.length ? 'Deselect All' : 'Select All'}
+              </button>
+            </div>
           </div>
-          <button
-            onClick={handleBulkDelete}
-            disabled={bulkDeleting}
-            className="flex items-center space-x-2 px-5 py-2 bg-rose-600 text-white rounded-lg font-medium text-sm hover:bg-rose-700 transition-colors shadow-sm disabled:opacity-50"
-          >
-            <Trash2 size={14} />
-            <span>{bulkDeleting ? 'Deleting...' : `Delete ${selectedHTNs.size} Student(s)`}</span>
-          </button>
+          <div className="px-5 py-3">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Select by Department</p>
+            <div className="flex flex-wrap gap-2">
+              {departments.filter(d => getDeptStudentCount(d.name) > 0).map(dept => {
+                const total = getDeptStudentCount(dept.name);
+                const selected = getDeptSelectedCount(dept.name);
+                const allSelected = selected === total && total > 0;
+                return (
+                  <button
+                    key={dept.id}
+                    onClick={() => toggleSelectDept(dept.name)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      allSelected 
+                        ? 'bg-rose-100 text-rose-700 border-rose-300 ring-1 ring-rose-200' 
+                        : selected > 0 
+                          ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      readOnly
+                      className="w-3.5 h-3.5 rounded border-slate-300 text-rose-600 pointer-events-none"
+                    />
+                    <span>{dept.code || dept.name}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                      allSelected ? 'bg-rose-200 text-rose-800' : selected > 0 ? 'bg-amber-200 text-amber-800' : 'bg-slate-200 text-slate-500'
+                    }`}>
+                      {selected > 0 ? `${selected}/${total}` : total}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {selectedHTNs.size > 0 && (
+            <div className="px-5 py-3 border-t border-rose-100 bg-rose-50/50 flex items-center justify-between">
+              <span className="text-sm font-bold text-rose-700">{selectedHTNs.size} student(s) selected for deletion</span>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="flex items-center space-x-2 px-5 py-2 bg-rose-600 text-white rounded-lg font-medium text-sm hover:bg-rose-700 transition-colors shadow-sm disabled:opacity-50"
+              >
+                <Trash2 size={14} />
+                <span>{bulkDeleting ? 'Deleting...' : `Delete ${selectedHTNs.size} Student(s)`}</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
