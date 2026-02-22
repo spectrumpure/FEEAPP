@@ -66,6 +66,7 @@ export const Dashboard: React.FC = () => {
 
   const [yearFilter, setYearFilter] = useState<number>(0);
   const [batchFilter, setBatchFilter] = useState<string>('all');
+  const [fyFilter, setFyFilter] = useState<string>('all');
   const isAdmin = currentUser?.role === UserRole.ADMIN;
 
   const loadRemarks = async (htn: string) => {
@@ -230,15 +231,22 @@ export const Dashboard: React.FC = () => {
       .sort((a, b) => a.fy.localeCompare(b.fy));
   }, [students, filteredStudents, yearFilter]);
 
+  const allFYs = useMemo(() => fyCollectionData.map(d => d.fy), [fyCollectionData]);
+
+  const filteredFYData = useMemo(() => {
+    if (fyFilter === 'all') return fyCollectionData;
+    return fyCollectionData.filter(d => d.fy === fyFilter);
+  }, [fyCollectionData, fyFilter]);
+
   const fySummaryCards = useMemo(() => {
-    return fyCollectionData.map(d => ({
+    return filteredFYData.map(d => ({
       fy: d.fy,
       collected: d.total,
       tuition: d.tuition,
       university: d.university,
       txCount: d.count
     }));
-  }, [fyCollectionData]);
+  }, [filteredFYData]);
 
   const isManagement = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('MANAGEMENT') || u === 'MQ' || u === 'SPOT'; };
   const isConvenor = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
@@ -756,14 +764,26 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {fySummaryCards.length > 0 && (
+      {fyCollectionData.length > 0 && (
         <div>
-          <div className="flex items-center gap-3 mb-4">
-            <IndianRupee size={20} className="text-[#1a365d]" />
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Financial Year-Wise Collection</h3>
-              <p className="text-sm text-slate-400">{yearFilter === 0 ? 'All years' : `Year ${yearFilter} students`} - Tuition & University fee breakdown</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <IndianRupee size={20} className="text-[#1a365d]" />
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Financial Year-Wise Collection</h3>
+                <p className="text-sm text-slate-400">{fyFilter === 'all' ? 'All financial years' : `FY ${fyFilter}`}{yearFilter === 0 ? '' : ` · Year ${yearFilter} students`} - Tuition & University fee breakdown</p>
+              </div>
             </div>
+            <select
+              value={fyFilter}
+              onChange={e => setFyFilter(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none cursor-pointer"
+            >
+              <option value="all">All Financial Years</option>
+              {allFYs.map(fy => (
+                <option key={fy} value={fy}>FY {fy}</option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-5">
             {fySummaryCards.map((card, idx) => {
@@ -795,7 +815,7 @@ export const Dashboard: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={fyCollectionData}>
+                <BarChart data={filteredFYData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="fy" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11, fontWeight: 600}} dy={8} />
                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} tickFormatter={(val: number) => `₹${(val/100000).toFixed(0)}L`} />
