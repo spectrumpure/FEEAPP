@@ -23,7 +23,8 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { Student } from '../types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, LineChart, Line } from 'recharts';
+import { Calendar } from 'lucide-react';
 
 const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string, subValue: string, trend?: 'up' | 'down', color: string }> = ({ 
   icon, label, value, subValue, trend, color 
@@ -63,6 +64,7 @@ export const Dashboard: React.FC = () => {
   const [studentRemarks, setStudentRemarks] = useState<StudentRemark[]>([]);
   const [remarksLoading, setRemarksLoading] = useState(false);
 
+  const [yearFilter, setYearFilter] = useState<number>(0);
   const isAdmin = currentUser?.role === UserRole.ADMIN;
 
   const loadRemarks = async (htn: string) => {
@@ -179,7 +181,62 @@ export const Dashboard: React.FC = () => {
     return `₹${val}`;
   };
 
+  const filteredStudents = useMemo(() => {
+    if (yearFilter === 0) return students;
+    return students.filter(s => s.feeLockers.some(l => l.year === yearFilter));
+  }, [students, yearFilter]);
+
+  const filteredTotalStudents = filteredStudents.length;
+  const filteredApprovedTotal = filteredStudents.reduce((sum, s) => {
+    return sum + s.feeLockers
+      .filter(l => yearFilter === 0 || l.year === yearFilter)
+      .reduce((lSum, l) => lSum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tSum, t) => tSum + t.amount, 0), 0);
+  }, 0);
+  const filteredTargetTotal = filteredStudents.reduce((sum, s) => {
+    if (yearFilter === 0) return sum + getStudentTotalTarget(s);
+    const locker = s.feeLockers.find(l => l.year === yearFilter);
+    return sum + (locker ? locker.tuitionTarget + locker.universityTarget : 0);
+  }, 0);
+  const filteredPendingApprovals = transactions.filter(t => {
+    if (t.status !== 'PENDING') return false;
+    if (yearFilter === 0) return true;
+    return t.targetYear === yearFilter;
+  }).length;
+  const filteredCollectionPct = filteredTargetTotal > 0 ? ((filteredApprovedTotal / filteredTargetTotal) * 100).toFixed(1) : '0.0';
+
   const collectionPct = targetTotal > 0 ? ((approvedTotal / targetTotal) * 100).toFixed(1) : '0.0';
+
+  const fyCollectionData = useMemo(() => {
+    const fyMap: Record<string, { tuition: number; university: number; other: number; count: number }> = {};
+    const relevantStudents = yearFilter === 0 ? students : filteredStudents;
+    relevantStudents.forEach(s => {
+      s.feeLockers
+        .filter(l => yearFilter === 0 || l.year === yearFilter)
+        .forEach(l => {
+          l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
+            const fy = t.financialYear || 'Unknown';
+            if (!fyMap[fy]) fyMap[fy] = { tuition: 0, university: 0, other: 0, count: 0 };
+            if (t.feeType === 'Tuition') fyMap[fy].tuition += t.amount;
+            else if (t.feeType === 'University') fyMap[fy].university += t.amount;
+            else fyMap[fy].other += t.amount;
+            fyMap[fy].count++;
+          });
+        });
+    });
+    return Object.entries(fyMap)
+      .map(([fy, data]) => ({ fy, ...data, total: data.tuition + data.university + data.other }))
+      .sort((a, b) => a.fy.localeCompare(b.fy));
+  }, [students, filteredStudents, yearFilter]);
+
+  const fySummaryCards = useMemo(() => {
+    return fyCollectionData.map(d => ({
+      fy: d.fy,
+      collected: d.total,
+      tuition: d.tuition,
+      university: d.university,
+      txCount: d.count
+    }));
+  }, [fyCollectionData]);
 
   const isManagement = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('MANAGEMENT') || u === 'MQ' || u === 'SPOT'; };
   const isConvenor = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
@@ -239,41 +296,54 @@ export const Dashboard: React.FC = () => {
 
   const deptCollectionData = useMemo(() => {
     return departments.map(dept => {
-      const deptStudents = students.filter(s => matchDept(s.department, dept));
+      const deptStudents = filteredStudents.filter(s => matchDept(s.department, dept));
       const collection = deptStudents.reduce((sum, s) => {
-        return sum + s.feeLockers.reduce((lSum, l) => {
-          return lSum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tSum, t) => tSum + t.amount, 0);
-        }, 0);
+        return sum + s.feeLockers
+          .filter(l => yearFilter === 0 || l.year === yearFilter)
+          .reduce((lSum, l) => {
+            return lSum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tSum, t) => tSum + t.amount, 0);
+          }, 0);
       }, 0);
-      const target = deptStudents.reduce((sum, s) => sum + getStudentTotalTarget(s), 0);
+      const target = deptStudents.reduce((sum, s) => {
+        if (yearFilter === 0) return sum + getStudentTotalTarget(s);
+        const locker = s.feeLockers.find(l => l.year === yearFilter);
+        return sum + (locker ? locker.tuitionTarget + locker.universityTarget : 0);
+      }, 0);
       return { name: deptShort(dept.name), collection, target, fullName: dept.name };
     }).filter(d => d.target > 0 || d.collection > 0);
-  }, [departments, students]);
+  }, [departments, filteredStudents, yearFilter]);
 
   const deptDefaulterData = useMemo(() => {
     return departments.map(dept => {
-      const deptStudents = students.filter(s => matchDept(s.department, dept));
+      const deptStudents = filteredStudents.filter(s => matchDept(s.department, dept));
       const defaulters = deptStudents.filter(s => {
-        const st = getStudentTotalTarget(s);
-        const sp = s.feeLockers.reduce((sum, l) => sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0), 0);
+        if (yearFilter === 0) {
+          const st = getStudentTotalTarget(s);
+          const sp = s.feeLockers.reduce((sum, l) => sum + l.transactions.filter(t => t.status === 'APPROVED').reduce((tS, t) => tS + t.amount, 0), 0);
+          return st > 0 && sp < st;
+        }
+        const locker = s.feeLockers.find(l => l.year === yearFilter);
+        if (!locker) return false;
+        const st = locker.tuitionTarget + locker.universityTarget;
+        const sp = locker.transactions.filter(t => t.status === 'APPROVED').reduce((sum, t) => sum + t.amount, 0);
         return st > 0 && sp < st;
       }).length;
       return { name: deptShort(dept.name), defaulters, fullName: dept.name };
     }).filter(d => d.defaulters > 0);
-  }, [departments, students]);
+  }, [departments, filteredStudents, yearFilter]);
 
   const categoryPieData = useMemo(() => {
-    const mgmt = students.filter(s => isManagement(s.admissionCategory)).length;
-    const conv = students.filter(s => isConvenor(s.admissionCategory)).length;
-    const tsmfc = students.filter(s => isTSMFC(s.admissionCategory)).length;
-    const other = students.length - mgmt - conv - tsmfc;
+    const mgmt = filteredStudents.filter(s => isManagement(s.admissionCategory)).length;
+    const conv = filteredStudents.filter(s => isConvenor(s.admissionCategory)).length;
+    const tsmfc = filteredStudents.filter(s => isTSMFC(s.admissionCategory)).length;
+    const other = filteredStudents.length - mgmt - conv - tsmfc;
     const data = [];
     if (tsmfc > 0) data.push({ name: 'TSMFC', value: tsmfc, fill: '#3b82f6' });
     if (mgmt > 0) data.push({ name: 'Management', value: mgmt, fill: '#f59e0b' });
     if (conv > 0) data.push({ name: 'Convenor', value: conv, fill: '#8b5cf6' });
     if (other > 0) data.push({ name: 'Other', value: other, fill: '#94a3b8' });
     return data;
-  }, [students]);
+  }, [filteredStudents]);
 
   const COLORS_BLUE = ['#1a365d', '#2c5282', '#2b6cb0', '#3182ce', '#4299e1', '#63b3ed', '#90cdf4', '#bee3f8', '#1e40af', '#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
   const COLORS_RED = ['#9b2c2c', '#c53030', '#e53e3e', '#fc8181', '#feb2b2', '#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fecaca', '#b91c1c', '#991b1b', '#7f1d1d', '#450a0a'];
@@ -499,50 +569,70 @@ export const Dashboard: React.FC = () => {
         );
       })()}
 
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Calendar size={18} className="text-[#1a365d]" />
+          <span className="text-sm font-bold text-slate-700">Filter by Student Year</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {[0, 1, 2, 3, 4].map(y => (
+            <button
+              key={y}
+              onClick={() => setYearFilter(y)}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                yearFilter === y
+                  ? 'bg-[#1a365d] text-white shadow-md'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              {y === 0 ? 'All Years' : `${y}${y === 1 ? 'st' : y === 2 ? 'nd' : y === 3 ? 'rd' : 'th'} Year`}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard 
           icon={<Users size={24} />} 
-          label="Total Students" 
-          value={totalStudents.toString()} 
-          subValue={`Across ${departments.length} Departments`} 
+          label={yearFilter === 0 ? "Total Students" : `Year ${yearFilter} Students`} 
+          value={filteredTotalStudents.toString()} 
+          subValue={yearFilter === 0 ? `Across ${departments.length} Departments` : `of ${totalStudents} total students`} 
           color="bg-blue-600"
-          trend="up"
         />
         <StatCard 
           icon={<BadgeDollarSign size={24} />} 
-          label="Total Collection" 
-          value={formatCurrency(approvedTotal)} 
-          subValue={`Target: ${formatCurrency(targetTotal)}`} 
+          label={yearFilter === 0 ? "Total Collection" : `Year ${yearFilter} Collection`} 
+          value={formatCurrency(filteredApprovedTotal)} 
+          subValue={`Target: ${formatCurrency(filteredTargetTotal)}`} 
           color="bg-emerald-600"
         />
         <StatCard 
           icon={<Clock size={24} />} 
           label="Pending Approvals" 
-          value={pendingApprovals.toString()} 
+          value={filteredPendingApprovals.toString()} 
           subValue="Review needed immediately" 
           color="bg-amber-600"
         />
         <StatCard 
           icon={<CreditCard size={24} />} 
           label="Collection Efficiency" 
-          value={`${collectionPct}%`} 
+          value={`${filteredCollectionPct}%`} 
           subValue="Approved vs Total Target" 
           color="bg-violet-600"
-          trend="up"
         />
       </div>
 
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-slate-700">Overall Collection Progress</h3>
-          <span className="text-xs font-bold text-[#1a365d]">{collectionPct}%</span>
+          <h3 className="text-sm font-bold text-slate-700">{yearFilter === 0 ? 'Overall' : `Year ${yearFilter}`} Collection Progress</h3>
+          <span className="text-xs font-bold text-[#1a365d]">{filteredCollectionPct}%</span>
         </div>
         <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-[#1a365d] to-[#2b6cb0] rounded-full transition-all duration-700" style={{width: `${Math.min(parseFloat(collectionPct), 100)}%`}}></div>
+          <div className="h-full bg-gradient-to-r from-[#1a365d] to-[#2b6cb0] rounded-full transition-all duration-700" style={{width: `${Math.min(parseFloat(filteredCollectionPct), 100)}%`}}></div>
         </div>
         <div className="flex justify-between mt-2 text-[10px] text-slate-400 font-medium">
-          <span>Collected: {formatCurrency(approvedTotal)}</span>
-          <span>Target: {formatCurrency(targetTotal)}</span>
+          <span>Collected: {formatCurrency(filteredApprovedTotal)}</span>
+          <span>Target: {formatCurrency(filteredTargetTotal)}</span>
         </div>
       </div>
 
@@ -641,11 +731,65 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {fySummaryCards.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <IndianRupee size={20} className="text-[#1a365d]" />
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Financial Year-Wise Collection</h3>
+              <p className="text-sm text-slate-400">{yearFilter === 0 ? 'All years' : `Year ${yearFilter} students`} - Tuition & University fee breakdown</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-5">
+            {fySummaryCards.map((card, idx) => {
+              const cardColors = ['border-blue-200 bg-blue-50', 'border-indigo-200 bg-indigo-50', 'border-purple-200 bg-purple-50', 'border-teal-200 bg-teal-50', 'border-cyan-200 bg-cyan-50'];
+              const textColors = ['text-blue-800', 'text-indigo-800', 'text-purple-800', 'text-teal-800', 'text-cyan-800'];
+              const labelColors = ['text-blue-600', 'text-indigo-600', 'text-purple-600', 'text-teal-600', 'text-cyan-600'];
+              return (
+                <div key={card.fy} className={`rounded-xl border p-4 ${cardColors[idx % 5]}`}>
+                  <p className={`text-[10px] font-bold uppercase tracking-widest ${labelColors[idx % 5]} mb-1`}>FY {card.fy}</p>
+                  <p className={`text-xl font-bold ${textColors[idx % 5]}`}>{formatCompact(card.collected)}</p>
+                  <div className="mt-2 space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-slate-500">Tuition</span>
+                      <span className="text-[10px] font-semibold text-slate-700">{formatCompact(card.tuition)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-slate-500">University</span>
+                      <span className="text-[10px] font-semibold text-slate-700">{formatCompact(card.university)}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
+                      <span className="text-[9px] text-slate-400">Transactions</span>
+                      <span className="text-[10px] font-bold text-slate-600">{card.txCount}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={fyCollectionData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="fy" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11, fontWeight: 600}} dy={8} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} tickFormatter={(val: number) => `₹${(val/100000).toFixed(0)}L`} />
+                  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px'}} formatter={(val: number) => formatCurrency(val)} />
+                  <Legend wrapperStyle={{fontSize: '11px', fontWeight: 600}} />
+                  <Bar dataKey="tuition" name="Tuition Fee" fill="#2c5282" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Bar dataKey="university" name="University Fee" fill="#63b3ed" radius={[4, 4, 0, 0]} barSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div className="mb-6">
             <h3 className="text-lg font-bold text-slate-800">Fee Collection by Department</h3>
-            <p className="text-sm text-slate-400">Total approved collection per department</p>
+            <p className="text-sm text-slate-400">{yearFilter === 0 ? 'Total' : `Year ${yearFilter}`} approved collection per department</p>
           </div>
           <div className="h-72">
             {deptCollectionData.length > 0 ? (
