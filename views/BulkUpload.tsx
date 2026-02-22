@@ -42,7 +42,7 @@ const COMBINED_HEADERS = [
   'University Fee Challan Date', 'University Fee', 'Fee Year'
 ];
 
-type UploadType = 'student' | 'fee' | 'combined';
+type UploadType = 'student' | 'fee' | 'combined' | 'multiyear';
 
 interface UploadResult {
   type: UploadType;
@@ -86,6 +86,32 @@ const HEADER_ALIASES: Record<string, string[]> = {
   'fee_year': ['fee year', 'year', 'academic year', 'year of fee', 'for year'],
   'batch': ['batch', 'batch year', 'passing year'],
 };
+
+function detectMultiYearColumns(fileHeaders: string[]): Record<number, { tuitionIdx: number; universityIdx: number }> | null {
+  const yearCols: Record<number, { tuitionIdx: number; universityIdx: number }> = {};
+  const normalized = fileHeaders.map(h => h.trim().toLowerCase().replace(/\s+/g, ' '));
+  
+  for (let i = 0; i < normalized.length; i++) {
+    const h = normalized[i];
+    const tuiMatch = h.match(/^(\d)\s*(?:st|nd|rd|th)?\s*year\s*[-–]?\s*tuition/i) || h.match(/^(\d)\s*year\s*[-–]?\s*tuition/i);
+    const uniMatch = h.match(/^(\d)\s*(?:st|nd|rd|th)?\s*year\s*[-–]?\s*university/i) || h.match(/^(\d)\s*year\s*[-–]?\s*university/i);
+    
+    if (tuiMatch) {
+      const yr = parseInt(tuiMatch[1]);
+      if (!yearCols[yr]) yearCols[yr] = { tuitionIdx: -1, universityIdx: -1 };
+      yearCols[yr].tuitionIdx = i;
+    }
+    if (uniMatch) {
+      const yr = parseInt(uniMatch[1]);
+      if (!yearCols[yr]) yearCols[yr] = { tuitionIdx: -1, universityIdx: -1 };
+      yearCols[yr].universityIdx = i;
+    }
+  }
+  
+  const validYears = Object.entries(yearCols).filter(([_, v]) => v.tuitionIdx >= 0 || v.universityIdx >= 0);
+  if (validYears.length >= 1) return yearCols;
+  return null;
+}
 
 function matchHeaders(fileHeaders: string[]): Record<string, number> {
   const mapping: Record<string, number> = {};
@@ -521,6 +547,158 @@ export const BulkUpload: React.FC = () => {
     return { type: 'combined', total: dataRows.length, success: newStudents.length, errors };
   };
 
+  const processMultiYearUpload = (dataRows: string[][], mapping: Record<string, number>, multiYearCols: Record<number, { tuitionIdx: number; universityIdx: number }>): UploadResult => {
+    const errors: string[] = [];
+    const newStudents: Student[] = [];
+
+    dataRows.forEach((row, rowIdx) => {
+      try {
+        const htn = getCol(row, mapping, 'roll_no');
+        const name = getCol(row, mapping, 'student_name');
+        if (!htn) {
+          errors.push(`Row ${rowIdx + 2}: Missing Roll No`);
+          return;
+        }
+
+        const dept = normalizeDepartment(getCol(row, mapping, 'department'));
+        const deptInfo = departments.find(d => d.code === dept || d.name === dept || d.code.toUpperCase() === dept.toUpperCase());
+        const isME = deptInfo?.courseType === 'M.E' || dept.startsWith('ME-');
+        const duration = deptInfo?.duration || (isME ? 2 : 4);
+        const admYear = getCol(row, mapping, 'admission_year') || '2025';
+        const admYearNum = parseInt(admYear) || 2025;
+        const entryTypeRaw = getCol(row, mapping, 'entry_type').toUpperCase();
+        const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw.includes('LATERAL') ? 'LATERAL' : 'REGULAR';
+        const batchEnd = entryType === 'LATERAL' ? admYearNum + 3 : admYearNum + duration;
+        const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || 0;
+        const admissionCat = getCol(row, mapping, 'mode_of_admission').toUpperCase() || 'TSMFC';
+
+        const existingStudent = students.find(s => s.hallTicketNumber.toLowerCase() === htn.toLowerCase());
+
+        const feeLockers: YearLocker[] = [];
+
+        for (const [yearStr, cols] of Object.entries(multiYearCols)) {
+          const yr = parseInt(yearStr);
+          if (yr > duration) continue;
+
+          const tuiFee = cols.tuitionIdx >= 0 && cols.tuitionIdx < row.length ? (parseFloat(String(row[cols.tuitionIdx]).replace(/,/g, '')) || 0) : 0;
+          const uniFee = cols.universityIdx >= 0 && cols.universityIdx < row.length ? (parseFloat(String(row[cols.universityIdx]).replace(/,/g, '')) || 0) : 0;
+
+          const targets = getFeeTargets(dept, yr, entryType, admYear);
+          const acYear = `${admYearNum + yr - 1}-${(admYearNum + yr).toString().slice(-2)}`;
+
+          const locker: YearLocker = {
+            year: yr,
+            tuitionTarget: targets.tuition,
+            universityTarget: targets.university,
+            otherTarget: 0,
+            transactions: []
+          };
+
+          if (tuiFee > 0) {
+            locker.transactions.push({
+              id: `tx-tui-${htn}-y${yr}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              studentHTN: htn,
+              feeType: 'Tuition',
+              amount: tuiFee,
+              challanNumber: '',
+              paymentMode: 'Challan',
+              paymentDate: new Date().toISOString().split('T')[0],
+              academicYear: acYear,
+              financialYear: acYear,
+              status: 'PENDING'
+            });
+          }
+
+          if (uniFee > 0) {
+            locker.transactions.push({
+              id: `tx-uni-${htn}-y${yr}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              studentHTN: htn,
+              feeType: 'University',
+              amount: uniFee,
+              challanNumber: '',
+              paymentMode: 'Challan',
+              paymentDate: new Date().toISOString().split('T')[0],
+              academicYear: acYear,
+              financialYear: acYear,
+              status: 'PENDING'
+            });
+          }
+
+          if (tuiFee > 0 || uniFee > 0 || yr <= (currentYearRaw || 0)) {
+            feeLockers.push(locker);
+          }
+        }
+
+        if (existingStudent) {
+          const mergedLockers = [...existingStudent.feeLockers];
+          for (const newLocker of feeLockers) {
+            if (newLocker.transactions.length === 0) {
+              if (!mergedLockers.find(l => l.year === newLocker.year)) {
+                mergedLockers.push(newLocker);
+              }
+              continue;
+            }
+            const existingIdx = mergedLockers.findIndex(l => l.year === newLocker.year);
+            if (existingIdx >= 0) {
+              mergedLockers[existingIdx] = {
+                ...mergedLockers[existingIdx],
+                transactions: [...mergedLockers[existingIdx].transactions, ...newLocker.transactions]
+              };
+            } else {
+              mergedLockers.push(newLocker);
+            }
+          }
+          mergedLockers.sort((a, b) => a.year - b.year);
+          newStudents.push({
+            ...existingStudent,
+            department: dept || existingStudent.department,
+            admissionCategory: admissionCat || existingStudent.admissionCategory,
+            entryType: entryType || existingStudent.entryType,
+            currentYear: currentYearRaw || existingStudent.currentYear,
+            feeLockers: mergedLockers
+          });
+        } else {
+          const student: Student = {
+            hallTicketNumber: htn,
+            name: (name || 'Unknown').toUpperCase(),
+            department: dept,
+            sex: getCol(row, mapping, 'sex') || '',
+            dob: normalizeDate(getCol(row, mapping, 'dob')),
+            admissionCategory: admissionCat,
+            mobile: getCol(row, mapping, 'student_mobile'),
+            fatherMobile: getCol(row, mapping, 'father_mobile'),
+            fatherName: getCol(row, mapping, 'father_name').toUpperCase(),
+            motherName: getCol(row, mapping, 'mother_name').toUpperCase(),
+            address: getCol(row, mapping, 'address'),
+            aadhaarNumber: getCol(row, mapping, 'aadhaar'),
+            admissionYear: admYear,
+            entryType,
+            course: isME ? 'M.E' : 'B.E',
+            specialization: 'General',
+            section: 'A',
+            currentYear: currentYearRaw || Math.max(...Object.keys(multiYearCols).map(Number).filter(y => {
+              const c = multiYearCols[y];
+              const ti = c.tuitionIdx >= 0 && c.tuitionIdx < row.length ? (parseFloat(String(row[c.tuitionIdx]).replace(/,/g, '')) || 0) : 0;
+              const ui = c.universityIdx >= 0 && c.universityIdx < row.length ? (parseFloat(String(row[c.universityIdx]).replace(/,/g, '')) || 0) : 0;
+              return ti > 0 || ui > 0;
+            }), 1),
+            batch: `${admYear}-${batchEnd}`,
+            feeLockers: feeLockers.sort((a, b) => a.year - b.year)
+          };
+          newStudents.push(student);
+        }
+      } catch (err) {
+        errors.push(`Row ${rowIdx + 2}: Processing error`);
+      }
+    });
+
+    if (newStudents.length > 0) {
+      bulkAddStudents(newStudents);
+    }
+
+    return { type: 'multiyear', total: dataRows.length, success: newStudents.length, errors };
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -540,7 +718,12 @@ export const BulkUpload: React.FC = () => {
       const headers = allRows[0].map(h => String(h));
       const dataRows = allRows.slice(1);
       const mapping = matchHeaders(headers);
-      const type = detectUploadType(mapping);
+      const multiYearCols = detectMultiYearColumns(headers);
+      let type = detectUploadType(mapping);
+
+      if (multiYearCols && 'roll_no' in mapping) {
+        type = 'multiyear';
+      }
 
       setDetectedHeaders(headers);
       setMappedFields(mapping);
@@ -563,6 +746,9 @@ export const BulkUpload: React.FC = () => {
           break;
         case 'combined':
           result = processCombinedUpload(dataRows, mapping);
+          break;
+        case 'multiyear':
+          result = processMultiYearUpload(dataRows, mapping, multiYearCols!);
           break;
       }
 
@@ -632,6 +818,7 @@ export const BulkUpload: React.FC = () => {
     student: { label: 'Student Data', desc: `${STUDENT_HEADERS.length} columns - Student personal & admission details`, icon: <Users size={24} />, color: 'blue' },
     fee: { label: 'Fee Data', desc: `${FEE_HEADERS.length} columns - Fee payment transactions only`, icon: <IndianRupee size={24} />, color: 'emerald' },
     combined: { label: 'Combined (Student + Fee)', desc: `${COMBINED_HEADERS.length} columns - Complete student data with fee payments`, icon: <FileText size={24} />, color: 'purple' },
+    multiyear: { label: 'Multi-Year Fee Data', desc: 'Year-wise columns - Student data with fees for multiple years in separate columns', icon: <Table2 size={24} />, color: 'amber' },
   };
 
   const templateCards: { type: UploadType; bgFrom: string; bgTo: string; iconBg: string; iconText: string; borderColor: string }[] = [
