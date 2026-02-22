@@ -782,6 +782,29 @@ router.delete('/api/admin/students/department/:dept', requireAdmin, async (req: 
   }
 });
 
+router.delete('/api/admin/students/batch/:year', requireAdmin, async (req: Request, res: Response) => {
+  const { year } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const studentsRes = await client.query('SELECT hall_ticket_number FROM students WHERE admission_year = $1', [year]);
+    const htns = studentsRes.rows.map((r: any) => r.hall_ticket_number);
+    if (htns.length > 0) {
+      await client.query('DELETE FROM student_remarks WHERE student_htn = ANY($1)', [htns]);
+      await client.query('DELETE FROM fee_transactions WHERE student_htn = ANY($1)', [htns]);
+      await client.query('DELETE FROM year_lockers WHERE student_htn = ANY($1)', [htns]);
+      await client.query('DELETE FROM students WHERE admission_year = $1', [year]);
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, deleted: htns.length });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 router.delete('/api/admin/students/all', requireAdmin, async (_req: Request, res: Response) => {
   const client = await pool.connect();
   try {

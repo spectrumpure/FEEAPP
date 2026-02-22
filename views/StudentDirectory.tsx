@@ -387,6 +387,40 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     setBulkDeleting(false);
   };
 
+  const handleBatchDelete = async () => {
+    const batchYear = prompt('Enter the batch admission year to delete (e.g. 2024):');
+    if (!batchYear || !/^\d{4}$/.test(batchYear.trim())) {
+      if (batchYear !== null) alert('Please enter a valid 4-digit year.');
+      return;
+    }
+    const batchStudents = students.filter(s => s.admissionYear?.toString() === batchYear.trim());
+    if (batchStudents.length === 0) {
+      alert(`No students found with admission year ${batchYear.trim()}.`);
+      return;
+    }
+    if (!confirm(`This will permanently delete ALL ${batchStudents.length} students from the ${batchYear.trim()} batch, including their fee transactions, year lockers, and remarks.\n\nThis action CANNOT be undone.`)) return;
+    const doubleConfirm = prompt(`Type DELETE to confirm removing all ${batchStudents.length} students from batch ${batchYear.trim()}:`);
+    if (doubleConfirm !== 'DELETE') {
+      alert('Batch delete cancelled.');
+      return;
+    }
+    setBulkDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/students/batch/${batchYear.trim()}`, { method: 'DELETE' });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`Successfully deleted ${data.deleted} student(s) from batch ${batchYear.trim()}.`);
+        window.location.reload();
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.error || 'Failed to delete batch'}`);
+      }
+    } catch (err) {
+      alert('Network error. Please try again.');
+    }
+    setBulkDeleting(false);
+  };
+
   const exitSelectionMode = () => {
     setSelectionMode(false);
     setSelectedHTNs(new Set());
@@ -463,13 +497,23 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
             <span>Export Excel</span>
           </button>
           {currentUser?.role === 'ADMIN' && !selectionMode && (
-            <button 
-              onClick={() => setSelectionMode(true)}
-              className="flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
-            >
-              <Trash2 size={16} />
-              <span>Bulk Delete</span>
-            </button>
+            <>
+              <button 
+                onClick={handleBatchDelete}
+                disabled={bulkDeleting}
+                className="flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+              >
+                <Trash2 size={16} />
+                <span>Delete Batch</span>
+              </button>
+              <button 
+                onClick={() => setSelectionMode(true)}
+                className="flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+              >
+                <Trash2 size={16} />
+                <span>Bulk Delete</span>
+              </button>
+            </>
           )}
           {currentUser?.role === 'ADMIN' && selectionMode && (
             <button 
