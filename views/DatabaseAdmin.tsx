@@ -17,7 +17,8 @@ import {
   CheckCircle,
   X,
   Eye,
-  Layers
+  Layers,
+  Key
 } from 'lucide-react';
 
 interface TableInfo {
@@ -73,9 +74,46 @@ export const DatabaseAdmin: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'all' | 'dept'; dept?: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [appUsers, setAppUsers] = useState<any[]>([]);
+  const [resetUserId, setResetUserId] = useState<number | null>(null);
+  const [newPwd, setNewPwd] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
   const PAGE_SIZE = 50;
 
   const adminHeaders = { 'x-user-role': currentUser?.role || '' };
+
+  const loadUsers = async () => {
+    try {
+      const res = await fetch('/api/auth/users', { headers: adminHeaders });
+      if (res.ok) setAppUsers(await res.json());
+    } catch {}
+  };
+
+  const handleResetPassword = async (userId: number) => {
+    if (!newPwd || newPwd.length < 8) {
+      setToast({ message: 'Password must be at least 8 characters', type: 'error' });
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const res = await fetch('/api/auth/admin-reset-password', {
+        method: 'PUT',
+        headers: { ...adminHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, newPassword: newPwd }),
+      });
+      if (res.ok) {
+        setToast({ message: 'Password reset successfully', type: 'success' });
+        setResetUserId(null);
+        setNewPwd('');
+      } else {
+        const data = await res.json();
+        setToast({ message: data.error || 'Failed to reset password', type: 'error' });
+      }
+    } catch {
+      setToast({ message: 'Connection error', type: 'error' });
+    }
+    setResetLoading(false);
+  };
 
   const loadOverview = async () => {
     setLoading(true);
@@ -88,7 +126,7 @@ export const DatabaseAdmin: React.FC = () => {
     setLoading(false);
   };
 
-  useEffect(() => { loadOverview(); }, []);
+  useEffect(() => { loadOverview(); loadUsers(); }, []);
 
   useEffect(() => {
     if (toast) {
@@ -299,6 +337,67 @@ export const DatabaseAdmin: React.FC = () => {
           </div>
         </>
       )}
+
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-100 text-rose-600 rounded-xl"><Shield size={18} /></div>
+            <h3 className="text-sm font-bold text-slate-800">User Management</h3>
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="space-y-2">
+            {appUsers.map((u) => (
+              <div key={u.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold uppercase">
+                    {u.username?.[0] || '?'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{u.name || u.username}</p>
+                    <p className="text-xs text-slate-400 capitalize">{u.role}</p>
+                  </div>
+                </div>
+                {resetUserId === u.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      value={newPwd}
+                      onChange={(e) => setNewPwd(e.target.value)}
+                      placeholder="New password (min 8)"
+                      className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                    <button
+                      onClick={() => handleResetPassword(u.id)}
+                      disabled={resetLoading}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {resetLoading ? '...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => { setResetUserId(null); setNewPwd(''); }}
+                      className="px-2 py-1.5 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setResetUserId(u.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-lg hover:bg-amber-100 transition-colors"
+                  >
+                    <Key size={12} />
+                    Reset Password
+                  </button>
+                )}
+              </div>
+            ))}
+            {appUsers.length === 0 && (
+              <p className="text-center py-6 text-slate-400 text-sm">No users found</p>
+            )}
+          </div>
+        </div>
+      </div>
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)}>
