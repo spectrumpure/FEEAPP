@@ -17,7 +17,9 @@ import {
   Table2,
   Columns3,
   RefreshCw,
-  Plus
+  Plus,
+  Eye,
+  ShieldCheck
 } from 'lucide-react';
 import { FeeTransaction, Student, YearLocker } from '../types';
 import { normalizeDepartment } from '../constants';
@@ -51,6 +53,21 @@ interface UploadResult {
   total: number;
   success: number;
   errors: string[];
+}
+
+interface PreviewData {
+  type: UploadType;
+  students: Student[];
+  totalRows: number;
+  errors: string[];
+  newStudentCount: number;
+  existingStudentCount: number;
+  transactionCount: number;
+  deptBreakdown: Record<string, number>;
+  sampleRows: { htn: string; name: string; dept: string; lockers: number; transactions: number; entryType: string }[];
+  rawDataRows: string[][];
+  mapping: Record<string, number>;
+  multiYearCols?: Record<number, { tuitionIdx: number; universityIdx: number }>;
 }
 
 const normalizeHeader = (h: string): string => {
@@ -155,6 +172,8 @@ export const BulkUpload: React.FC = () => {
   const [mappedFields, setMappedFields] = useState<Record<string, number>>({});
   const [showMappingPreview, setShowMappingPreview] = useState(false);
   const [mergeMode, setMergeMode] = useState<MergeMode>('replace');
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const normalizeDate = (raw: string): string => {
     if (!raw) return '';
@@ -218,7 +237,7 @@ export const BulkUpload: React.FC = () => {
     return String(row[idx]).trim();
   };
 
-  const processStudentUpload = (dataRows: string[][], mapping: Record<string, number>): UploadResult => {
+  const processStudentUpload = (dataRows: string[][], mapping: Record<string, number>): { students: Student[]; total: number; errors: string[] } => {
     const errors: string[] = [];
     const newStudents: Student[] = [];
 
@@ -285,14 +304,10 @@ export const BulkUpload: React.FC = () => {
       }
     });
 
-    if (newStudents.length > 0) {
-      bulkAddStudents(newStudents);
-    }
-
-    return { type: 'student', total: dataRows.length, success: newStudents.length, errors };
+    return { students: newStudents, total: dataRows.length, errors };
   };
 
-  const processFeeUpload = (dataRows: string[][], mapping: Record<string, number>): UploadResult => {
+  const processFeeUpload = (dataRows: string[][], mapping: Record<string, number>): { students: Student[]; total: number; errors: string[] } => {
     const errors: string[] = [];
     const newStudents: Student[] = [];
 
@@ -420,14 +435,10 @@ export const BulkUpload: React.FC = () => {
       }
     });
 
-    if (newStudents.length > 0) {
-      bulkAddStudents(newStudents);
-    }
-
-    return { type: 'fee', total: dataRows.length, success: newStudents.length, errors };
+    return { students: newStudents, total: dataRows.length, errors };
   };
 
-  const processCombinedUpload = (dataRows: string[][], mapping: Record<string, number>): UploadResult => {
+  const processCombinedUpload = (dataRows: string[][], mapping: Record<string, number>): { students: Student[]; total: number; errors: string[] } => {
     const errors: string[] = [];
     const newStudents: Student[] = [];
 
@@ -576,14 +587,10 @@ export const BulkUpload: React.FC = () => {
       }
     });
 
-    if (newStudents.length > 0) {
-      bulkAddStudents(newStudents);
-    }
-
-    return { type: 'combined', total: dataRows.length, success: newStudents.length, errors };
+    return { students: newStudents, total: dataRows.length, errors };
   };
 
-  const processMultiYearUpload = (dataRows: string[][], mapping: Record<string, number>, multiYearCols: Record<number, { tuitionIdx: number; universityIdx: number }>): UploadResult => {
+  const processMultiYearUpload = (dataRows: string[][], mapping: Record<string, number>, multiYearCols: Record<number, { tuitionIdx: number; universityIdx: number }>): { students: Student[]; total: number; errors: string[] } => {
     const errors: string[] = [];
     const newStudents: Student[] = [];
 
@@ -733,11 +740,7 @@ export const BulkUpload: React.FC = () => {
       }
     });
 
-    if (newStudents.length > 0) {
-      bulkAddStudents(newStudents);
-    }
-
-    return { type: 'multiyear', total: dataRows.length, success: newStudents.length, errors };
+    return { students: newStudents, total: dataRows.length, errors };
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -746,6 +749,7 @@ export const BulkUpload: React.FC = () => {
 
     setIsUploading(true);
     setUploadResult(null);
+    setPreviewData(null);
     setShowMappingPreview(false);
 
     try {
@@ -777,7 +781,7 @@ export const BulkUpload: React.FC = () => {
         return;
       }
 
-      let result: UploadResult;
+      let result: { students: Student[]; total: number; errors: string[] };
       switch (type) {
         case 'student':
           result = processStudentUpload(dataRows, mapping);
@@ -793,7 +797,44 @@ export const BulkUpload: React.FC = () => {
           break;
       }
 
-      setUploadResult(result);
+      const deptBreakdown: Record<string, number> = {};
+      let totalTx = 0;
+      let newCount = 0;
+      let existingCount = 0;
+      result.students.forEach(s => {
+        deptBreakdown[s.department] = (deptBreakdown[s.department] || 0) + 1;
+        const txCount = s.feeLockers.reduce((sum, l) => sum + l.transactions.length, 0);
+        totalTx += txCount;
+        if (students.find(ex => ex.hallTicketNumber.trim().toLowerCase() === s.hallTicketNumber.trim().toLowerCase())) {
+          existingCount++;
+        } else {
+          newCount++;
+        }
+      });
+
+      const sampleRows = result.students.slice(0, 50).map(s => ({
+        htn: s.hallTicketNumber,
+        name: s.name,
+        dept: s.department,
+        lockers: s.feeLockers.length,
+        transactions: s.feeLockers.reduce((sum, l) => sum + l.transactions.length, 0),
+        entryType: s.entryType || 'REGULAR'
+      }));
+
+      setPreviewData({
+        type,
+        students: result.students,
+        totalRows: result.total,
+        errors: result.errors,
+        newStudentCount: newCount,
+        existingStudentCount: existingCount,
+        transactionCount: totalTx,
+        deptBreakdown,
+        sampleRows,
+        rawDataRows: dataRows,
+        mapping,
+        multiYearCols: multiYearCols || undefined
+      });
       setShowMappingPreview(true);
     } catch (err) {
       setUploadResult({ type: 'student', total: 0, success: 0, errors: ['Failed to parse file. Please check the format and try again.'] });
@@ -801,6 +842,38 @@ export const BulkUpload: React.FC = () => {
 
     setIsUploading(false);
     if (e.target) e.target.value = '';
+  };
+
+  const confirmUpload = async () => {
+    if (!previewData || previewData.students.length === 0) return;
+    setIsConfirming(true);
+    try {
+      await bulkAddStudents(previewData.students);
+      setUploadResult({
+        type: previewData.type,
+        total: previewData.totalRows,
+        success: previewData.students.length,
+        errors: previewData.errors
+      });
+      setPreviewData(null);
+    } catch (err) {
+      setUploadResult({
+        type: previewData.type,
+        total: previewData.totalRows,
+        success: 0,
+        errors: ['Failed to save data. Please try again.']
+      });
+    }
+    setIsConfirming(false);
+  };
+
+  const cancelUpload = () => {
+    setPreviewData(null);
+    setUploadResult(null);
+    setShowMappingPreview(false);
+    setDetectedType(null);
+    setDetectedHeaders([]);
+    setMappedFields({});
   };
 
   const downloadTemplate = (type: UploadType) => {
@@ -1016,6 +1089,148 @@ export const BulkUpload: React.FC = () => {
             )}
           </div>
         </div>
+
+        {previewData && !uploadResult && (
+          <div className="mx-6 mb-6 space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-100 rounded-lg"><Eye size={20} className="text-blue-600" /></div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800">Upload Preview - Review Before Confirming</h4>
+                  <p className="text-xs text-slate-500">
+                    Detected as: <span className="font-bold text-blue-700">{typeLabels[previewData.type].label}</span> template
+                    {' • '}Mode: <span className="font-bold">{mergeMode === 'replace' ? 'Replace' : 'Add & Merge'}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                <div className="bg-white rounded-lg p-3 text-center border border-slate-100">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Rows</p>
+                  <p className="text-lg font-bold text-slate-800">{previewData.totalRows}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center border border-blue-100">
+                  <p className="text-[10px] text-blue-600 uppercase tracking-wider font-bold">Students</p>
+                  <p className="text-lg font-bold text-blue-700">{previewData.students.length}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center border border-emerald-100">
+                  <p className="text-[10px] text-emerald-600 uppercase tracking-wider font-bold">New Students</p>
+                  <p className="text-lg font-bold text-emerald-700">{previewData.newStudentCount}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center border border-amber-100">
+                  <p className="text-[10px] text-amber-600 uppercase tracking-wider font-bold">Existing (Update)</p>
+                  <p className="text-lg font-bold text-amber-700">{previewData.existingStudentCount}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center border border-indigo-100">
+                  <p className="text-[10px] text-indigo-600 uppercase tracking-wider font-bold">Transactions</p>
+                  <p className="text-lg font-bold text-indigo-700">{previewData.transactionCount}</p>
+                </div>
+              </div>
+
+              {Object.keys(previewData.deptBreakdown).length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Department Breakdown</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(previewData.deptBreakdown).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([dept, count]) => (
+                      <span key={dept} className="text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-medium text-slate-700">
+                        {dept}: <span className="font-bold text-blue-600">{count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {previewData.errors.length > 0 && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 max-h-32 overflow-y-auto">
+                  <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-1">
+                    {previewData.errors.length} Error(s) Found
+                  </p>
+                  {previewData.errors.slice(0, 10).map((err, i) => (
+                    <p key={i} className="text-xs text-red-600 py-0.5">{err}</p>
+                  ))}
+                  {previewData.errors.length > 10 && (
+                    <p className="text-xs text-slate-400 mt-1">...and {previewData.errors.length - 10} more</p>
+                  )}
+                </div>
+              )}
+
+              {previewData.sampleRows.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                    Student Preview (first {Math.min(previewData.sampleRows.length, 50)} of {previewData.students.length})
+                  </p>
+                  <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-64 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase">#</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase">Roll No</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase">Name</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase">Dept</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase">Entry</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase">Lockers</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase">Transactions</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {previewData.sampleRows.map((row, i) => {
+                          const isExisting = students.find(s => s.hallTicketNumber.trim().toLowerCase() === row.htn.trim().toLowerCase());
+                          return (
+                            <tr key={i} className={isExisting ? 'bg-amber-50/50' : ''}>
+                              <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>
+                              <td className="px-3 py-1.5 font-mono font-semibold text-slate-700">{row.htn}</td>
+                              <td className="px-3 py-1.5 text-slate-700 font-medium truncate max-w-[150px]">{row.name}</td>
+                              <td className="px-3 py-1.5 text-slate-600">{row.dept}</td>
+                              <td className="px-3 py-1.5">
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${row.entryType === 'LATERAL' ? 'bg-orange-50 text-orange-600 border border-orange-200' : 'text-slate-400'}`}>
+                                  {row.entryType === 'LATERAL' ? 'LE' : 'REG'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-1.5 text-slate-600">{row.lockers}</td>
+                              <td className="px-3 py-1.5 text-slate-600">{row.transactions}</td>
+                              <td className="px-3 py-1.5">
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${isExisting ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                  {isExisting ? 'UPDATE' : 'NEW'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-3 border-t border-blue-200">
+                <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                  <Info size={12} />
+                  All fee transactions will be added as PENDING and require approval.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={cancelUpload}
+                    className="px-5 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmUpload}
+                    disabled={isConfirming || previewData.students.length === 0}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {isConfirming ? (
+                      <><Loader2 size={16} className="animate-spin" /> Uploading...</>
+                    ) : (
+                      <><ShieldCheck size={16} /> Confirm Upload ({previewData.students.length} students)</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {uploadResult && (
           <div className={`mx-6 mb-6 rounded-xl p-5 border ${uploadResult.errors.length === 0 && uploadResult.success > 0 ? 'bg-green-50 border-green-200' : uploadResult.success > 0 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
