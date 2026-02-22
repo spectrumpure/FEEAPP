@@ -102,7 +102,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   'university_challan_no': ['university fee challan no', 'challan no', 'uni challan no', 'university challan number', 'uni challan number'],
   'university_challan_date': ['university fee challan date', 'challan date', 'uni challan date', 'university date', 'uni date'],
   'university_fee': ['university fee', 'uni fee', 'university amount', 'university'],
-  'fee_year': ['fee year', 'year', 'academic year', 'year of fee', 'for year'],
+  'fee_year': ['fee year', 'academic year', 'year of fee', 'for year'],
   'batch': ['batch', 'batch year', 'passing year'],
 };
 
@@ -134,16 +134,30 @@ function detectMultiYearColumns(fileHeaders: string[]): Record<number, { tuition
 
 function matchHeaders(fileHeaders: string[]): Record<string, number> {
   const mapping: Record<string, number> = {};
+  const usedIndices = new Set<number>();
   const normalizedFileHeaders = fileHeaders.map(normalizeHeader);
 
   for (const [key, aliases] of Object.entries(HEADER_ALIASES)) {
     for (let i = 0; i < normalizedFileHeaders.length; i++) {
+      if (usedIndices.has(i)) continue;
       const fh = normalizedFileHeaders[i];
-      if (aliases.some(a => fh === a || fh.includes(a) || a.includes(fh))) {
-        if (!mapping[key]) {
-          mapping[key] = i;
-          break;
-        }
+      if (aliases.some(a => fh === a)) {
+        mapping[key] = i;
+        usedIndices.add(i);
+        break;
+      }
+    }
+  }
+
+  for (const [key, aliases] of Object.entries(HEADER_ALIASES)) {
+    if (mapping[key] !== undefined) continue;
+    for (let i = 0; i < normalizedFileHeaders.length; i++) {
+      if (usedIndices.has(i)) continue;
+      const fh = normalizedFileHeaders[i];
+      if (aliases.some(a => fh.includes(a) || a.includes(fh))) {
+        mapping[key] = i;
+        usedIndices.add(i);
+        break;
       }
     }
   }
