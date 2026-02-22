@@ -38,6 +38,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
   const [remarksModalHTN, setRemarksModalHTN] = useState<string | null>(null);
   const [newRemark, setNewRemark] = useState('');
   const [addingRemark, setAddingRemark] = useState(false);
+  const [selectedHTNs, setSelectedHTNs] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
 
   useEffect(() => {
     const loadAllRemarks = async () => {
@@ -299,6 +302,60 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     XLSX.writeFile(wb, `MJCET_Student_Data_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const toggleSelectHTN = (htn: string) => {
+    setSelectedHTNs(prev => {
+      const next = new Set(prev);
+      if (next.has(htn)) next.delete(htn);
+      else next.add(htn);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedHTNs.size === filteredStudents.length) {
+      setSelectedHTNs(new Set());
+    } else {
+      setSelectedHTNs(new Set(filteredStudents.map(s => s.hallTicketNumber)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedHTNs.size === 0) return;
+    const confirmMsg = `Are you sure you want to permanently delete ${selectedHTNs.size} student(s)?\n\nThis will also delete all their fee transactions, year lockers, and remarks.\n\nThis action CANNOT be undone.`;
+    if (!confirm(confirmMsg)) return;
+    const doubleConfirm = prompt(`Type DELETE to confirm removing ${selectedHTNs.size} students:`);
+    if (doubleConfirm !== 'DELETE') {
+      alert('Bulk delete cancelled.');
+      return;
+    }
+    setBulkDeleting(true);
+    try {
+      const res = await fetch('/api/students/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hallTicketNumbers: Array.from(selectedHTNs) })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`Successfully deleted ${data.deleted} student(s).`);
+        setSelectedHTNs(new Set());
+        setSelectionMode(false);
+        window.location.reload();
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.error || 'Failed to delete students'}`);
+      }
+    } catch (err) {
+      alert('Network error. Please try again.');
+    }
+    setBulkDeleting(false);
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedHTNs(new Set());
+  };
+
   return (
     <div className="space-y-5">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -369,6 +426,24 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
             <Download size={16} />
             <span>Export Excel</span>
           </button>
+          {currentUser?.role === 'ADMIN' && !selectionMode && (
+            <button 
+              onClick={() => setSelectionMode(true)}
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+            >
+              <Trash2 size={16} />
+              <span>Bulk Delete</span>
+            </button>
+          )}
+          {currentUser?.role === 'ADMIN' && selectionMode && (
+            <button 
+              onClick={exitSelectionMode}
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+            >
+              <X size={16} />
+              <span>Cancel</span>
+            </button>
+          )}
           {currentUser?.role === 'ADMIN' && (
             <button 
               onClick={() => { resetForm(); setShowManualModal(true); }}
@@ -380,6 +455,23 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           )}
         </div>
       </div>
+
+      {selectionMode && selectedHTNs.size > 0 && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl px-5 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-rose-700">{selectedHTNs.size} student(s) selected</span>
+            <button onClick={() => setSelectedHTNs(new Set())} className="text-xs text-rose-500 hover:text-rose-700 underline">Clear selection</button>
+          </div>
+          <button
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+            className="flex items-center space-x-2 px-5 py-2 bg-rose-600 text-white rounded-lg font-medium text-sm hover:bg-rose-700 transition-colors shadow-sm disabled:opacity-50"
+          >
+            <Trash2 size={14} />
+            <span>{bulkDeleting ? 'Deleting...' : `Delete ${selectedHTNs.size} Student(s)`}</span>
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
@@ -393,6 +485,16 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200">
+                {selectionMode && (
+                  <th className="px-3 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={filteredStudents.length > 0 && selectedHTNs.size === filteredStudents.length}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    />
+                  </th>
+                )}
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">S.No</th>
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Student</th>
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Roll Number</th>
@@ -412,9 +514,19 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                 return (
                   <tr 
                     key={student.hallTicketNumber} 
-                    className="hover:bg-blue-50/40 transition-colors cursor-pointer"
-                    onClick={(e) => handleView(e, student.hallTicketNumber)}
+                    className={`hover:bg-blue-50/40 transition-colors cursor-pointer ${selectionMode && selectedHTNs.has(student.hallTicketNumber) ? 'bg-rose-50/60' : ''}`}
+                    onClick={(e) => selectionMode ? toggleSelectHTN(student.hallTicketNumber) : handleView(e, student.hallTicketNumber)}
                   >
+                    {selectionMode && (
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedHTNs.has(student.hallTicketNumber)}
+                          onChange={() => toggleSelectHTN(student.hallTicketNumber)}
+                          className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                        />
+                      </td>
+                    )}
                     <td className="px-5 py-3">
                       <span className="text-xs text-slate-400 font-medium">{index + 1}</span>
                     </td>
@@ -524,7 +636,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                   </tr>
                 );
               }) : (
-                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">No students found matching your criteria.</td></tr>
+                <tr><td colSpan={selectionMode ? 8 : 7} className="px-6 py-12 text-center text-slate-400 font-medium">No students found matching your criteria.</td></tr>
               )}
             </tbody>
           </table>
