@@ -81,7 +81,7 @@ ${tableHtml}
   setTimeout(() => win.print(), 500);
 };
 
-const thClass = "px-4 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider";
+const thClass = "px-4 py-3.5 text-[10px] font-bold text-slate-700 uppercase tracking-wider";
 const tdClass = "px-4 py-3 text-sm";
 const selectClass = "bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all cursor-pointer";
 
@@ -795,7 +795,7 @@ export const Reports: React.FC = () => {
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full">
             <thead>
-              <tr className="bg-slate-50">
+              <tr className="bg-slate-200/80">
                 <th className={thClass + ' text-left'}>Department</th>
                 <th className={thClass + ' text-center'}>Total</th>
                 <th className={thClass + ' text-center'}>Paid</th>
@@ -995,7 +995,7 @@ export const Reports: React.FC = () => {
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/80">
+              <tr className="bg-slate-200/80">
                 <th className={thClass}>Department</th>
                 <th className={`${thClass} text-center`}>Students</th>
                 <th className={`${thClass} text-right`}>T.Target</th>
@@ -1052,7 +1052,7 @@ export const Reports: React.FC = () => {
         <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/80">
+            <tr className="bg-slate-200/80">
               <th className={thClass}>Financial Year</th>
               <th className={`${thClass} text-center`}>Transactions</th>
               <th className={`${thClass} text-right`}>Tuition Collected</th>
@@ -1106,7 +1106,7 @@ export const Reports: React.FC = () => {
         <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/80">
+            <tr className="bg-slate-200/80">
               <th className={thClass}>Batch</th>
               <th className={`${thClass} text-center`}>Students</th>
               <th className={`${thClass} text-right`}>Total Target</th>
@@ -1191,7 +1191,7 @@ export const Reports: React.FC = () => {
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="bg-slate-50/80">
+              <tr className="bg-slate-200/80">
                 <th className={`${thClass} text-center w-10`}>S.No</th>
                 <th className={thClass}>Hall Ticket</th>
                 <th className={thClass}>Name</th>
@@ -1267,7 +1267,7 @@ export const Reports: React.FC = () => {
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="bg-slate-50/80">
+              <tr className="bg-slate-200/80">
                 <th className={`${thClass} text-center w-10`}>S.No</th>
                 <th className={thClass}>Hall Ticket</th>
                 <th className={thClass}>Name</th>
@@ -1350,7 +1350,7 @@ export const Reports: React.FC = () => {
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/80">
+              <tr className="bg-slate-200/80">
                 <th className={`${thClass} text-center w-12`}>S.No</th>
                 <th className={thClass}>Hall Ticket</th>
                 <th className={thClass}>Student Name</th>
@@ -1428,14 +1428,14 @@ export const Reports: React.FC = () => {
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="bg-slate-50/80">
+              <tr className="bg-slate-200/80">
                 <th className={thClass} rowSpan={2}>Department</th>
                 <th className="px-2 py-2 text-[9px] font-bold text-blue-800 uppercase tracking-wider bg-blue-50 text-center border-b border-blue-200" colSpan={5}>TSMFC</th>
                 <th className="px-2 py-2 text-[9px] font-bold text-amber-800 uppercase tracking-wider bg-amber-50 text-center border-b border-amber-200" colSpan={5}>Management Quota</th>
                 <th className="px-2 py-2 text-[9px] font-bold text-purple-800 uppercase tracking-wider bg-purple-50 text-center border-b border-purple-200" colSpan={5}>Convenor</th>
                 <th className="px-2 py-2 text-[9px] font-bold text-slate-700 uppercase tracking-wider bg-slate-100 text-center border-b border-slate-300" rowSpan={2}>Total</th>
               </tr>
-              <tr className="bg-slate-50/80">
+              <tr className="bg-slate-200/80">
                 <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-center">Count</th>
                 <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Target</th>
                 <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Tui. Paid</th>
