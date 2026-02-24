@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Database,
   Lock,
-  Upload
+  Upload,
+  GraduationCap
 } from 'lucide-react';
 
 interface SidebarItemProps {
@@ -58,6 +59,7 @@ export const Layout: React.FC<{ children: React.ReactNode, activeView: string, o
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: [UserRole.ADMIN] },
     { id: 'students', label: 'Student Directory', icon: <Users size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PRINCIPAL] },
+    { id: 'enrollment', label: 'Student Enrollment', icon: <GraduationCap size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PRINCIPAL] },
     { id: 'fee-entry', label: 'Fee Entry', icon: <CreditCard size={20} />, roles: [UserRole.ADMIN] },
     { id: 'bulk-upload', label: 'Bulk Upload', icon: <Upload size={20} />, roles: [UserRole.ADMIN] },
     { id: 'approvals', label: 'Approvals', icon: <CheckCircle size={20} />, roles: [UserRole.ADMIN, UserRole.ACCOUNTANT] },

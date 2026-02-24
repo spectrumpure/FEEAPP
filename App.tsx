@@ -14,6 +14,7 @@ import { DefaulterList } from './views/DefaulterList';
 import { FeeLockers } from './views/FeeLockers';
 import { DatabaseAdmin } from './views/DatabaseAdmin';
 import { BulkUpload } from './views/BulkUpload';
+import { StudentEnrollment } from './views/StudentEnrollment';
 import { GraduationCap, Wallet, ShieldCheck, ClipboardCheck, Eye, EyeOff, Lock, ArrowLeft, AlertCircle, ArrowRight, Shield, Calculator, FileBarChart, BookCheck } from 'lucide-react';
 
 const ROLE_CARDS = [
@@ -244,6 +245,7 @@ const MainApp: React.FC = () => {
           }}
         />
       );
+      case 'enrollment': return <StudentEnrollment />;
       case 'fee-entry': return <FeeEntry preSelectedHTN={preSelectedFeeHTN} />;
       case 'bulk-upload': return <BulkUpload />;
       case 'approvals': return <Approvals />;
