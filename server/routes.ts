@@ -127,8 +127,8 @@ router.post('/api/auth/reset-password', async (req: Request, res: Response) => {
 });
 
 router.get('/api/auth/users', async (req: Request, res: Response) => {
-  const role = req.headers['x-user-role'];
-  if (role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+  const role = (req.headers['x-user-role'] as string || '').toUpperCase();
+  if (role !== 'ADMIN') return res.status(403).json({ error: 'Admin access required' });
   try {
     const result = await pool.query('SELECT id, username, name, email, role FROM app_users ORDER BY id');
     res.json(result.rows);
@@ -138,8 +138,8 @@ router.get('/api/auth/users', async (req: Request, res: Response) => {
 });
 
 router.put('/api/auth/admin-reset-password', async (req: Request, res: Response) => {
-  const role = req.headers['x-user-role'];
-  if (role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+  const role = (req.headers['x-user-role'] as string || '').toUpperCase();
+  if (role !== 'ADMIN') return res.status(403).json({ error: 'Admin access required' });
   const { userId, newPassword } = req.body;
   try {
     if (!newPassword || newPassword.length < 8) {
