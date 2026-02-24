@@ -39,9 +39,9 @@ const exportPDF = (title: string, tableHtml: string) => {
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #1a202c; }
-  .header { display: flex; align-items: center; gap: 14px; border-bottom: 3px double #1a365d; padding-bottom: 12px; margin-bottom: 16px; }
+  .header { display: flex; align-items: center; justify-content: center; gap: 14px; border-bottom: 3px double #1a365d; padding-bottom: 12px; margin-bottom: 16px; }
   .header img { width: 64px; height: 64px; object-fit: contain; flex-shrink: 0; }
-  .header-text { flex: 1; }
+  .header-text { text-align: center; }
   .header .society { font-size: 10px; font-weight: 600; color: #4a5568; letter-spacing: 2px; text-transform: uppercase; }
   .header .college { font-size: 15px; font-weight: 800; color: #1a365d; margin: 2px 0; }
   .header .address { font-size: 9px; color: #718096; }
