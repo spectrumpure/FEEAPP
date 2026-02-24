@@ -83,6 +83,7 @@ Student columns (14) + Current Year, Tuition Fee Challan No, Tuition Fee Challan
 Note: Also backward-compatible with old 21-column format (without Current Year, Tuition Fee Challan No, Fee Year)
 
 ## Recent Changes
+- 2026-02-24: Added Date Range Financial Report tab to Reports - custom date period filter (from/to dates), department-wise summary showing total students, paid count, balance count, target, collected, pending amounts; click department to expand full student list with roll no, name, year, entry type, target, paid, balance, status; filters for year (All/1st-4th), department, batch; summary stat cards; PDF export; info banner when date range is active clarifying collected-in-period vs full targets
 - 2026-02-24: Added Student Enrollment page - separate sidebar page (visible to Admin, Accountant, Principal) showing department-wise enrollment summary with Regular vs Lateral Entry breakdown; B.E and M.E programs shown in separate tables; click any department to expand year-wise student count breakdown; batch filter dropdown; summary stat cards (Total Students, Regular, Lateral, Departments); grand total banner; PDF export with college branding header
 - 2026-02-24: Added User Management section to Database Admin page - admin can view all users and reset passwords; secured with admin role checks on both server and client
 - 2026-02-24: Fixed PDF report header layout - logo moved to left side inline with college text (centered) to save vertical space

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Student } from '../types';
 
-type ReportTab = 'dept_summary' | 'financial_year' | 'batch_wise' | 'student_master' | 'student_info' | 'defaulters' | 'category_analysis';
+type ReportTab = 'dept_summary' | 'financial_year' | 'batch_wise' | 'student_master' | 'student_info' | 'defaulters' | 'category_analysis' | 'date_range';
 
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -97,6 +97,12 @@ export const Reports: React.FC = () => {
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [deptFilter, setDeptFilter] = useState<string>('all');
   const [batchFilter, setBatchFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [drYearFilter, setDrYearFilter] = useState<string>('all');
+  const [drDeptFilter, setDrDeptFilter] = useState<string>('all');
+  const [drBatchFilter, setDrBatchFilter] = useState<string>('all');
+  const [expandedDrDept, setExpandedDrDept] = useState<string | null>(null);
 
   const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} />, desc: 'Revenue by department' },
@@ -106,6 +112,7 @@ export const Reports: React.FC = () => {
     { id: 'student_info', label: 'Student List', icon: <ContactRound size={16} />, desc: 'Personal details' },
     { id: 'defaulters', label: 'Defaulters', icon: <AlertTriangle size={16} />, desc: 'Outstanding dues' },
     { id: 'category_analysis', label: 'Category Analysis', icon: <Users size={16} />, desc: 'Management vs Convenor' },
+    { id: 'date_range', label: 'Date Range', icon: <Calendar size={16} />, desc: 'Custom period report' },
   ];
 
   const allBatches = Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort();
@@ -545,6 +552,287 @@ export const Reports: React.FC = () => {
     exportPDF(`Admission Category Fee Analysis${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
   };
 
+  const getDateRangeData = () => {
+    const filterYear = drYearFilter === 'all' ? null : parseInt(drYearFilter);
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
+
+    return departments
+      .filter(dept => drDeptFilter === 'all' || matchesDept(drDeptFilter, dept))
+      .map(dept => {
+        let deptStudents = students.filter(s => matchesDept(s.department, dept));
+        if (drBatchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === drBatchFilter);
+
+        const results = deptStudents.map(s => {
+          const d = departments.find(dd => matchesDept(s.department, dd));
+          const duration = d?.duration || 4;
+          const isLateral = s.entryType === 'LATERAL';
+          const startYear = isLateral ? 2 : 1;
+          let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
+
+          const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
+          if (filterYear && (filterYear > duration || (isLateral && filterYear < startYear))) {
+            return null;
+          }
+
+          lockers.forEach(l => {
+            tTarget += l.tuitionTarget;
+            uTarget += l.universityTarget;
+            l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
+              const txDate = new Date(t.paymentDate);
+              const inRange = (!from || txDate >= from) && (!to || txDate <= to);
+              if (inRange) {
+                if (t.feeType === 'Tuition') tPaid += t.amount;
+                else if (t.feeType === 'University') uPaid += t.amount;
+              }
+            });
+          });
+
+          if (lockers.length === 0) {
+            if (filterYear) {
+              const targets = getFeeTargets(s.department, filterYear, s.entryType, s.admissionYear);
+              tTarget = targets.tuition; uTarget = targets.university;
+            } else {
+              for (let y = startYear; y <= Math.min(s.currentYear, duration); y++) {
+                const targets = getFeeTargets(s.department, y, s.entryType, s.admissionYear);
+                tTarget += targets.tuition; uTarget += targets.university;
+              }
+            }
+          }
+
+          const totalTarget = tTarget + uTarget;
+          const totalPaid = tPaid + uPaid;
+          return { student: s, tTarget, uTarget, tPaid, uPaid, totalTarget, totalPaid, balance: totalTarget - totalPaid, hasPaid: totalPaid > 0 };
+        }).filter(Boolean) as { student: Student; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalTarget: number; totalPaid: number; balance: number; hasPaid: boolean }[];
+
+        const totalStudents = results.length;
+        const paidCount = results.filter(r => r.hasPaid).length;
+        const balanceCount = totalStudents - paidCount;
+        const totalTarget = results.reduce((s, r) => s + r.totalTarget, 0);
+        const totalCollected = results.reduce((s, r) => s + r.totalPaid, 0);
+        const totalPending = totalTarget - totalCollected;
+
+        return { dept, results, totalStudents, paidCount, balanceCount, totalTarget, totalCollected, totalPending };
+      }).filter(d => d.totalStudents > 0);
+  };
+
+  const handleExportDateRange = () => {
+    const data = getDateRangeData();
+    const dateLabel = (dateFrom || dateTo) ? ` (${dateFrom || '...'} to ${dateTo || '...'})` : '';
+    let rows = '';
+    let gTotal = 0, gPaid = 0, gBal = 0, gTarget = 0, gCollected = 0, gPending = 0;
+    data.forEach(d => {
+      gTotal += d.totalStudents; gPaid += d.paidCount; gBal += d.balanceCount;
+      gTarget += d.totalTarget; gCollected += d.totalCollected; gPending += d.totalPending;
+      rows += `<tr>
+        <td style="font-weight:600">${d.dept.name} (${d.dept.code})</td>
+        <td class="text-center">${d.totalStudents}</td>
+        <td class="text-center text-green">${d.paidCount}</td>
+        <td class="text-center text-red">${d.balanceCount}</td>
+        <td class="text-right">${formatCurrency(d.totalTarget)}</td>
+        <td class="text-right text-green">${formatCurrency(d.totalCollected)}</td>
+        <td class="text-right text-red">${formatCurrency(d.totalPending)}</td>
+      </tr>`;
+    });
+    rows += `<tr class="summary-row">
+      <td class="font-bold">GRAND TOTAL</td>
+      <td class="text-center font-bold">${gTotal}</td>
+      <td class="text-center font-bold text-green">${gPaid}</td>
+      <td class="text-center font-bold text-red">${gBal}</td>
+      <td class="text-right font-bold">${formatCurrency(gTarget)}</td>
+      <td class="text-right font-bold text-green">${formatCurrency(gCollected)}</td>
+      <td class="text-right font-bold text-red">${formatCurrency(gPending)}</td>
+    </tr>`;
+    const html = `<table><thead><tr>
+      <th>Department</th><th class="text-center">Total Students</th><th class="text-center">Paid</th><th class="text-center">Balance</th>
+      <th class="text-right">Target</th><th class="text-right">Collected</th><th class="text-right">Pending</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+    exportPDF(`Date Range Financial Report${dateLabel}${drYearFilter !== 'all' ? ` - Year ${drYearFilter}` : ''}`, html);
+  };
+
+  const renderDateRange = () => {
+    const data = getDateRangeData();
+    const gTotal = data.reduce((s, d) => s + d.totalStudents, 0);
+    const gPaid = data.reduce((s, d) => s + d.paidCount, 0);
+    const gBal = data.reduce((s, d) => s + d.balanceCount, 0);
+    const gTarget = data.reduce((s, d) => s + d.totalTarget, 0);
+    const gCollected = data.reduce((s, d) => s + d.totalCollected, 0);
+    const gPending = gTarget - gCollected;
+
+    return (
+      <div>
+        <div className="flex flex-wrap items-end gap-4 mb-5 px-1">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 self-end pb-2">
+            <Filter size={13} />
+            <span>Filters</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">From Date</label>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">To Date</label>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Year</label>
+            <select value={drYearFilter} onChange={e => setDrYearFilter(e.target.value)} className={selectClass}>
+              <option value="all">All Years</option>
+              <option value="1">1st Year</option>
+              <option value="2">2nd Year</option>
+              <option value="3">3rd Year</option>
+              <option value="4">4th Year</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Department</label>
+            <select value={drDeptFilter} onChange={e => setDrDeptFilter(e.target.value)} className={selectClass}>
+              <option value="all">All Departments</option>
+              {departments.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Batch</label>
+            <select value={drBatchFilter} onChange={e => setDrBatchFilter(e.target.value)} className={selectClass}>
+              <option value="all">All Batches</option>
+              {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {(dateFrom || dateTo) && (
+          <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+            Showing fee collections from <strong>{dateFrom || 'beginning'}</strong> to <strong>{dateTo || 'present'}</strong>. Targets reflect full fee obligation. "Paid" = students who made payments in this period.
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+            <p className="text-2xl font-bold text-blue-800">{gTotal}</p>
+            <p className="text-xs text-blue-500 font-medium">Total Students</p>
+            <div className="flex gap-4 mt-2">
+              <span className="text-xs text-emerald-600 font-semibold">{gPaid} Paid</span>
+              <span className="text-xs text-red-500 font-semibold">{gBal} Balance</span>
+            </div>
+          </div>
+          <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+            <p className="text-2xl font-bold text-emerald-800">{formatCurrency(gCollected)}</p>
+            <p className="text-xs text-emerald-500 font-medium">{(dateFrom || dateTo) ? 'Collected in Period' : 'Total Collected'}</p>
+            <p className="text-xs text-slate-400 mt-2">Target: {formatCurrency(gTarget)}</p>
+          </div>
+          <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+            <p className="text-2xl font-bold text-red-700">{formatCurrency(gPending)}</p>
+            <p className="text-xs text-red-500 font-medium">Total Pending</p>
+            <p className="text-xs text-slate-400 mt-2">{gTarget > 0 ? Math.round((gPending / gTarget) * 100) : 0}% outstanding</p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50">
+                <th className={thClass + ' text-left'}>Department</th>
+                <th className={thClass + ' text-center'}>Total</th>
+                <th className={thClass + ' text-center'}>Paid</th>
+                <th className={thClass + ' text-center'}>Balance</th>
+                <th className={thClass + ' text-right'}>Target</th>
+                <th className={thClass + ' text-right'}>Collected</th>
+                <th className={thClass + ' text-right'}>Pending</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400 text-sm">No data found for selected filters</td></tr>
+              ) : (
+                <>
+                  {data.map((d, idx) => (
+                    <React.Fragment key={d.dept.code}>
+                      <tr
+                        className={`cursor-pointer hover:bg-blue-50/50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                        onClick={() => setExpandedDrDept(expandedDrDept === d.dept.code ? null : d.dept.code)}
+                      >
+                        <td className={tdClass}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-700">{d.dept.name}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{d.dept.code}</span>
+                          </div>
+                        </td>
+                        <td className={tdClass + ' text-center font-bold'}>{d.totalStudents}</td>
+                        <td className={tdClass + ' text-center font-bold text-emerald-600'}>{d.paidCount}</td>
+                        <td className={tdClass + ' text-center font-bold text-red-500'}>{d.balanceCount}</td>
+                        <td className={tdClass + ' text-right'}>{formatCurrency(d.totalTarget)}</td>
+                        <td className={tdClass + ' text-right text-emerald-600 font-semibold'}>{formatCurrency(d.totalCollected)}</td>
+                        <td className={tdClass + ' text-right text-red-500 font-semibold'}>{formatCurrency(d.totalPending)}</td>
+                      </tr>
+                      {expandedDrDept === d.dept.code && (
+                        <tr>
+                          <td colSpan={7} className="p-0">
+                            <div className="bg-blue-50/30 p-3">
+                              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                                <table className="w-full">
+                                  <thead>
+                                    <tr className="bg-slate-100">
+                                      <th className="px-3 py-2 text-[9px] font-semibold text-slate-500 uppercase text-left">Roll No</th>
+                                      <th className="px-3 py-2 text-[9px] font-semibold text-slate-500 uppercase text-left">Name</th>
+                                      <th className="px-3 py-2 text-[9px] font-semibold text-slate-500 uppercase text-center">Year</th>
+                                      <th className="px-3 py-2 text-[9px] font-semibold text-slate-500 uppercase text-center">Entry</th>
+                                      <th className="px-3 py-2 text-[9px] font-semibold text-slate-500 uppercase text-right">Target</th>
+                                      <th className="px-3 py-2 text-[9px] font-semibold text-slate-500 uppercase text-right">Paid</th>
+                                      <th className="px-3 py-2 text-[9px] font-semibold text-slate-500 uppercase text-right">Balance</th>
+                                      <th className="px-3 py-2 text-[9px] font-semibold text-slate-500 uppercase text-center">Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {d.results.sort((a, b) => a.student.hallTicketNumber.localeCompare(b.student.hallTicketNumber)).map((r, ri) => (
+                                      <tr key={r.student.hallTicketNumber} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                                        <td className="px-3 py-2 text-xs font-mono text-slate-600">{r.student.hallTicketNumber}</td>
+                                        <td className="px-3 py-2 text-xs text-slate-700 font-medium">{r.student.name}</td>
+                                        <td className="px-3 py-2 text-xs text-center">{r.student.currentYear}</td>
+                                        <td className="px-3 py-2 text-xs text-center">
+                                          {r.student.entryType === 'LATERAL' ? <span className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">LE</span> : <span className="text-slate-400">R</span>}
+                                        </td>
+                                        <td className="px-3 py-2 text-xs text-right">{formatCurrency(r.totalTarget)}</td>
+                                        <td className="px-3 py-2 text-xs text-right text-emerald-600 font-semibold">{formatCurrency(r.totalPaid)}</td>
+                                        <td className="px-3 py-2 text-xs text-right text-red-500 font-semibold">{formatCurrency(r.balance)}</td>
+                                        <td className="px-3 py-2 text-center">
+                                          {r.balance <= 0
+                                            ? <span className="text-[9px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-semibold">Paid</span>
+                                            : r.hasPaid
+                                              ? <span className="text-[9px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">Partial</span>
+                                              : <span className="text-[9px] px-2 py-0.5 bg-red-100 text-red-600 rounded-full font-semibold">Unpaid</span>
+                                          }
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                  <tr className="bg-[#1a365d] text-white">
+                    <td className={tdClass + ' font-bold'}>GRAND TOTAL</td>
+                    <td className={tdClass + ' text-center font-bold'}>{gTotal}</td>
+                    <td className={tdClass + ' text-center font-bold text-emerald-300'}>{gPaid}</td>
+                    <td className={tdClass + ' text-center font-bold text-red-300'}>{gBal}</td>
+                    <td className={tdClass + ' text-right font-bold'}>{formatCurrency(gTarget)}</td>
+                    <td className={tdClass + ' text-right font-bold text-emerald-300'}>{formatCurrency(gCollected)}</td>
+                    <td className={tdClass + ' text-right font-bold text-red-300'}>{formatCurrency(gPending)}</td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const exportHandlers: Record<ReportTab, () => void> = {
     dept_summary: handleExportDeptSummary,
     financial_year: handleExportFinYear,
@@ -553,6 +841,7 @@ export const Reports: React.FC = () => {
     student_info: handleExportStudentInfo,
     defaulters: handleExportDefaulters,
     category_analysis: handleExportCategoryAnalysis,
+    date_range: handleExportDateRange,
   };
 
   const EmptyState = ({ message }: { message: string }) => (
@@ -1119,6 +1408,7 @@ export const Reports: React.FC = () => {
     student_info: renderStudentInfo,
     defaulters: renderDefaulters,
     category_analysis: renderCategoryAnalysis,
+    date_range: renderDateRange,
   };
 
   const reportTitles: Record<ReportTab, { title: string; subtitle: string }> = {
@@ -1129,6 +1419,7 @@ export const Reports: React.FC = () => {
     student_info: { title: 'Student Master List', subtitle: 'Complete student personal information directory' },
     defaulters: { title: 'Fee Defaulters', subtitle: 'Department & year wise outstanding balance' },
     category_analysis: { title: 'Category Analysis', subtitle: 'Management vs Convenor fee payment & pending summary' },
+    date_range: { title: 'Date Range Financial Report', subtitle: 'Fee collection within a custom date period vs overall targets' },
   };
 
   const activeReport = reportTitles[activeTab];
@@ -1153,7 +1444,7 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-8 gap-2">
         {tabs.map(tab => (
           <button
             key={tab.id}
