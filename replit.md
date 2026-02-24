@@ -83,6 +83,11 @@ Student columns (14) + Current Year, Tuition Fee Challan No, Tuition Fee Challan
 Note: Also backward-compatible with old 21-column format (without Current Year, Tuition Fee Challan No, Fee Year)
 
 ## Recent Changes
+- 2026-02-24: Added Student Enrollment page - separate sidebar page (visible to Admin, Accountant, Principal) showing department-wise enrollment summary with Regular vs Lateral Entry breakdown; B.E and M.E programs shown in separate tables; click any department to expand year-wise student count breakdown; batch filter dropdown; summary stat cards (Total Students, Regular, Lateral, Departments); grand total banner; PDF export with college branding header
+- 2026-02-24: Added User Management section to Database Admin page - admin can view all users and reset passwords; secured with admin role checks on both server and client
+- 2026-02-24: Fixed PDF report header layout - logo moved to left side inline with college text (centered) to save vertical space
+- 2026-02-24: Enlarged Student Directory search bar - now full-width on its own row matching Dashboard search bar style
+- 2026-02-24: Fixed admin-reset-password and user listing API role check case sensitivity (ADMIN vs admin)
 - 2026-02-22: Added bulk upload preview/approval flow - file is parsed and shown in a preview panel with summary stats (total rows, new vs existing students, transactions, department breakdown, sample data table) before admin clicks "Confirm Upload" to save; "Cancel" discards without saving; prevents accidental data corruption
 - 2026-02-22: Added department-wise bulk delete to Student Directory - selection mode shows department buttons to select/deselect entire departments; individual checkboxes; select all; double confirmation required; admin only
 - 2026-02-22: Fixed Database Admin page crash - added missing batch_fee_config and custom_departments to TABLE_META with fallback for unknown tables
