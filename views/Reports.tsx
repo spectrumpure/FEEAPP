@@ -155,6 +155,14 @@ export const Reports: React.FC = () => {
     return { tTarget, uTarget, tPaid, uPaid };
   };
 
+  const getTargetsForStudent = (s: Student, filterYear: number | null) => {
+    const fromDate = flDateFrom ? new Date(flDateFrom) : null;
+    const toDate = flDateTo ? new Date(flDateTo + 'T23:59:59') : null;
+    return (flDateFrom || flDateTo)
+      ? getStudentTargetsWithDateRange(s, filterYear, fromDate, toDate)
+      : getStudentTargets(s, filterYear);
+  };
+
   const getDeptSummaryData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     const rows: { department: string; code: string; courseType: string; entryLabel: string; count: number; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalReceived: number; totalBalance: number }[] = [];
@@ -166,7 +174,7 @@ export const Reports: React.FC = () => {
       const calcRow = (subset: typeof deptStudents, label: string) => {
         let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
         subset.forEach(s => {
-          const t = getStudentTargets(s, filterYear);
+          const t = getTargetsForStudent(s, filterYear);
           tTarget += t.tTarget; uTarget += t.uTarget; tPaid += t.tPaid; uPaid += t.uPaid;
         });
         rows.push({
@@ -186,8 +194,18 @@ export const Reports: React.FC = () => {
   };
 
   const getFinancialYearData = () => {
+    const fromDate = flDateFrom ? new Date(flDateFrom) : null;
+    const toDate = flDateTo ? new Date(flDateTo + 'T23:59:59') : null;
     const grouped: Record<string, { tuition: number; university: number; other: number; count: number }> = {};
-    const approvedTxs = transactions.filter(t => t.status === 'APPROVED');
+    const approvedTxs = transactions.filter(t => {
+      if (t.status !== 'APPROVED') return false;
+      if (fromDate || toDate) {
+        const txDate = new Date(t.paymentDate);
+        if (fromDate && txDate < fromDate) return false;
+        if (toDate && txDate > toDate) return false;
+      }
+      return true;
+    });
     approvedTxs.forEach(t => {
       const fy = t.financialYear || 'Unknown';
       if (!grouped[fy]) grouped[fy] = { tuition: 0, university: 0, other: 0, count: 0 };
@@ -211,7 +229,7 @@ export const Reports: React.FC = () => {
     return Object.entries(grouped).map(([batch, batchStudents]) => {
       let totalTarget = 0, totalPaid = 0;
       batchStudents.forEach(s => {
-        const t = getStudentTargets(s, null);
+        const t = getTargetsForStudent(s, null);
         totalTarget += t.tTarget + t.uTarget;
         totalPaid += t.tPaid + t.uPaid;
       });
@@ -265,13 +283,8 @@ export const Reports: React.FC = () => {
     }
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
-    const fromDate = flDateFrom ? new Date(flDateFrom) : null;
-    const toDate = flDateTo ? new Date(flDateTo + 'T23:59:59') : null;
-    const useDateFilter = !!(flDateFrom || flDateTo);
     return filtered.map(s => {
-      const t = useDateFilter
-        ? getStudentTargetsWithDateRange(s, filterYear, fromDate, toDate)
-        : getStudentTargets(s, filterYear);
+      const t = getTargetsForStudent(s, filterYear);
       return { ...s, tTarget: t.tTarget, tPaid: t.tPaid, tBalance: t.tTarget - t.tPaid, uTarget: t.uTarget, uPaid: t.uPaid, uBalance: t.uTarget - t.uPaid, totalPaid: t.tPaid + t.uPaid, totalBalance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid) };
     }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
   };
@@ -293,12 +306,12 @@ export const Reports: React.FC = () => {
     return students.filter(s => {
       if (batchFilter !== 'all' && s.batch !== batchFilter) return false;
       if (filterDeptObj && !matchesDept(s.department, filterDeptObj)) return false;
-      const t = getStudentTargets(s, filterYear);
+      const t = getTargetsForStudent(s, filterYear);
       const totalTarget = t.tTarget + t.uTarget;
       const totalPaid = t.tPaid + t.uPaid;
       return totalPaid < totalTarget;
     }).map(s => {
-      const t = getStudentTargets(s, filterYear);
+      const t = getTargetsForStudent(s, filterYear);
       const totalTarget = t.tTarget + t.uTarget;
       const totalPaid = t.tPaid + t.uPaid;
       return { ...s, totalTarget, totalPaid, balance: totalTarget - totalPaid };
@@ -334,7 +347,8 @@ export const Reports: React.FC = () => {
       <td class="text-right">${formatCurrency(total.uTarget)}</td><td class="text-right">${formatCurrency(total.uPaid)}</td>
       <td class="text-right">${formatCurrency(total.totalReceived)}</td><td class="text-right">${formatCurrency(total.totalBalance)}</td>
     </tr></tbody></table>`;
-    exportPDF(`Dept Summary Report${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ' - All Years'}`, html);
+    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
+    exportPDF(`Dept Summary Report${dateLabel}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ' - All Years'}`, html);
   };
 
   const handleExportFinYear = () => {
@@ -360,7 +374,8 @@ export const Reports: React.FC = () => {
       <td class="text-right">${formatCurrency(total.tuition)}</td><td class="text-right">${formatCurrency(total.university)}</td>
       <td class="text-right">${formatCurrency(total.other)}</td><td class="text-right">${formatCurrency(total.total)}</td>
     </tr></tbody></table>`;
-    exportPDF('Financial Year Wise Report', html);
+    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
+    exportPDF(`Financial Year Wise Report${dateLabel}`, html);
   };
 
   const handleExportBatchWise = () => {
@@ -384,7 +399,8 @@ export const Reports: React.FC = () => {
       <td class="text-right">${formatCurrency(total.totalTarget)}</td><td class="text-right">${formatCurrency(total.totalPaid)}</td>
       <td class="text-right">${formatCurrency(total.balance)}</td>
     </tr></tbody></table>`;
-    exportPDF('Batch Wise Fee Report', html);
+    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
+    exportPDF(`Batch Wise Fee Report${dateLabel}`, html);
   };
 
   const handleExportStudentMaster = () => {
@@ -480,7 +496,8 @@ export const Reports: React.FC = () => {
       <td class="text-right">${formatCurrency(totals.totalPaid)}</td>
       <td class="text-right">${formatCurrency(totals.balance)}</td>
     </tr></tbody></table>`;
-    exportPDF(`Fee Defaulters Report${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
+    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
+    exportPDF(`Fee Defaulters Report${dateLabel}${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
   };
 
   const getCategoryAnalysisData = () => {
@@ -500,7 +517,7 @@ export const Reports: React.FC = () => {
     const getCatFees = (sList: typeof students, fy: number | null) => {
       let tuiTarget = 0, uniTarget = 0, tuiPaid = 0, uniPaid = 0;
       sList.forEach(s => {
-        const t = getStudentTargets(s, fy);
+        const t = getTargetsForStudent(s, fy);
         tuiTarget += t.tTarget;
         uniTarget += t.uTarget;
         tuiPaid += t.tPaid;
@@ -594,7 +611,8 @@ export const Reports: React.FC = () => {
       <td class="text-right">${formatCurrency(total.convTuiPaid)}</td><td class="text-right">${formatCurrency(total.convUniPaid)}</td><td class="text-right">${formatCurrency(total.convBalance)}</td>
       <td class="text-center font-bold">${total.all}</td>
     </tr></tbody></table>`;
-    exportPDF(`Admission Category Fee Analysis${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
+    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
+    exportPDF(`Admission Category Fee Analysis${dateLabel}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
   };
 
   const getDateRangeData = () => {
@@ -928,6 +946,27 @@ export const Reports: React.FC = () => {
     </div>
   );
 
+  const DateFilterInputs = () => (
+    <>
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">From Date</label>
+        <input type="date" value={flDateFrom} onChange={e => setFlDateFrom(e.target.value)}
+          className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">To Date</label>
+        <input type="date" value={flDateTo} onChange={e => setFlDateTo(e.target.value)}
+          className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
+      </div>
+    </>
+  );
+
+  const DateRangeBanner = () => (flDateFrom || flDateTo) ? (
+    <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+      Showing fee payments from <strong>{flDateFrom || 'beginning'}</strong> to <strong>{flDateTo || 'present'}</strong>. Targets reflect full fee obligation. Paid/Balance columns show amounts collected in this period.
+    </div>
+  ) : null;
+
   const renderDeptSummary = () => {
     const data = getDeptSummaryData();
     const total = data.reduce((acc, d) => ({
@@ -939,6 +978,7 @@ export const Reports: React.FC = () => {
     return (
       <div>
         <FilterBar>
+          <DateFilterInputs />
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
             {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
@@ -951,6 +991,7 @@ export const Reports: React.FC = () => {
             <option value="4">4th Year</option>
           </SelectFilter>
         </FilterBar>
+        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -1003,7 +1044,12 @@ export const Reports: React.FC = () => {
     }), { tuition: 0, university: 0, other: 0, count: 0, total: 0 });
 
     return (
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <div>
+        <FilterBar>
+          <DateFilterInputs />
+        </FilterBar>
+        <DateRangeBanner />
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80">
@@ -1040,6 +1086,7 @@ export const Reports: React.FC = () => {
           </tbody>
         </table>
       </div>
+      </div>
     );
   };
 
@@ -1051,7 +1098,12 @@ export const Reports: React.FC = () => {
     }), { count: 0, totalTarget: 0, totalPaid: 0, balance: 0 });
 
     return (
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <div>
+        <FilterBar>
+          <DateFilterInputs />
+        </FilterBar>
+        <DateRangeBanner />
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80">
@@ -1103,6 +1155,7 @@ export const Reports: React.FC = () => {
           </tbody>
         </table>
       </div>
+      </div>
     );
   };
 
@@ -1117,16 +1170,7 @@ export const Reports: React.FC = () => {
     return (
       <div>
         <FilterBar count={data.length} countLabel="students">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">From Date</label>
-            <input type="date" value={flDateFrom} onChange={e => setFlDateFrom(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">To Date</label>
-            <input type="date" value={flDateTo} onChange={e => setFlDateTo(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
-          </div>
+          <DateFilterInputs />
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
             {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
@@ -1143,11 +1187,7 @@ export const Reports: React.FC = () => {
             <option value="4">4th Year</option>
           </SelectFilter>
         </FilterBar>
-        {(flDateFrom || flDateTo) && (
-          <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
-            Showing fee payments from <strong>{flDateFrom || 'beginning'}</strong> to <strong>{flDateTo || 'present'}</strong>. Targets reflect full fee obligation. Paid/Balance columns show amounts collected in this period.
-          </div>
-        )}
+        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
@@ -1282,6 +1322,7 @@ export const Reports: React.FC = () => {
     return (
       <div>
         <FilterBar count={data.length} countLabel="defaulters">
+          <DateFilterInputs />
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
             {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
@@ -1305,6 +1346,7 @@ export const Reports: React.FC = () => {
             </div>
           )}
         </FilterBar>
+        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -1369,6 +1411,7 @@ export const Reports: React.FC = () => {
     return (
       <div>
         <FilterBar count={total.all} countLabel="students">
+          <DateFilterInputs />
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
             {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
@@ -1381,6 +1424,7 @@ export const Reports: React.FC = () => {
             <option value="4">4th Year</option>
           </SelectFilter>
         </FilterBar>
+        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
