@@ -103,6 +103,8 @@ export const Reports: React.FC = () => {
   const [drDeptFilter, setDrDeptFilter] = useState<string>('all');
   const [drBatchFilter, setDrBatchFilter] = useState<string>('all');
   const [expandedDrDept, setExpandedDrDept] = useState<string | null>(null);
+  const [flDateFrom, setFlDateFrom] = useState<string>('');
+  const [flDateTo, setFlDateTo] = useState<string>('');
 
   const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} />, desc: 'Revenue by department' },
@@ -217,6 +219,43 @@ export const Reports: React.FC = () => {
     }).sort((a, b) => a.batch.localeCompare(b.batch));
   };
 
+  const getStudentTargetsWithDateRange = (s: Student, filterYear: number | null, fromDate: Date | null, toDate: Date | null) => {
+    const dept = departments.find(d => matchesDept(s.department, d));
+    const duration = dept?.duration || 4;
+    const isLateral = s.entryType === 'LATERAL';
+    const startYear = isLateral ? 2 : 1;
+    let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
+    const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
+    if (filterYear && (filterYear > duration || (isLateral && filterYear < startYear))) {
+      return { tTarget: 0, uTarget: 0, tPaid: 0, uPaid: 0 };
+    }
+    if (lockers.length > 0) {
+      lockers.forEach(l => {
+        tTarget += l.tuitionTarget;
+        uTarget += l.universityTarget;
+        l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
+          const txDate = new Date(t.paymentDate);
+          const inRange = (!fromDate || txDate >= fromDate) && (!toDate || txDate <= toDate);
+          if (inRange) {
+            if (t.feeType === 'Tuition') tPaid += t.amount;
+            else if (t.feeType === 'University') uPaid += t.amount;
+          }
+        });
+      });
+    } else {
+      if (filterYear) {
+        const targets = getFeeTargets(s.department, filterYear, s.entryType, s.admissionYear);
+        tTarget = targets.tuition; uTarget = targets.university;
+      } else {
+        for (let y = startYear; y <= Math.min(s.currentYear, duration); y++) {
+          const targets = getFeeTargets(s.department, y, s.entryType, s.admissionYear);
+          tTarget += targets.tuition; uTarget += targets.university;
+        }
+      }
+    }
+    return { tTarget, uTarget, tPaid, uPaid };
+  };
+
   const getStudentMasterData = () => {
     let filtered = [...students];
     if (deptFilter !== 'all') {
@@ -226,8 +265,13 @@ export const Reports: React.FC = () => {
     }
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
+    const fromDate = flDateFrom ? new Date(flDateFrom) : null;
+    const toDate = flDateTo ? new Date(flDateTo + 'T23:59:59') : null;
+    const useDateFilter = !!(flDateFrom || flDateTo);
     return filtered.map(s => {
-      const t = getStudentTargets(s, filterYear);
+      const t = useDateFilter
+        ? getStudentTargetsWithDateRange(s, filterYear, fromDate, toDate)
+        : getStudentTargets(s, filterYear);
       return { ...s, tTarget: t.tTarget, tPaid: t.tPaid, tBalance: t.tTarget - t.tPaid, uTarget: t.uTarget, uPaid: t.uPaid, uBalance: t.uTarget - t.uPaid, totalPaid: t.tPaid + t.uPaid, totalBalance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid) };
     }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
   };
@@ -379,7 +423,8 @@ export const Reports: React.FC = () => {
       <td class="text-right">${formatCurrency(totals.totalPaid)}</td><td class="text-right">${formatCurrency(totals.totalBalance)}</td>
     </tr></tbody></table>
     <div style="margin-top:12px;font-size:9px;color:#718096;text-align:right;">Total Students: ${data.length}</div>`;
-    exportPDF(`Student Master Fee List${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
+    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
+    exportPDF(`Student Master Fee List${dateLabel}${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
   };
 
   const handleExportStudentInfo = () => {
@@ -1072,6 +1117,16 @@ export const Reports: React.FC = () => {
     return (
       <div>
         <FilterBar count={data.length} countLabel="students">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">From Date</label>
+            <input type="date" value={flDateFrom} onChange={e => setFlDateFrom(e.target.value)}
+              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">To Date</label>
+            <input type="date" value={flDateTo} onChange={e => setFlDateTo(e.target.value)}
+              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
+          </div>
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
             {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
@@ -1088,6 +1143,11 @@ export const Reports: React.FC = () => {
             <option value="4">4th Year</option>
           </SelectFilter>
         </FilterBar>
+        {(flDateFrom || flDateTo) && (
+          <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+            Showing fee payments from <strong>{flDateFrom || 'beginning'}</strong> to <strong>{flDateTo || 'present'}</strong>. Targets reflect full fee obligation. Paid/Balance columns show amounts collected in this period.
+          </div>
+        )}
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
@@ -1448,7 +1508,7 @@ export const Reports: React.FC = () => {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setYearFilter('all'); setDeptFilter('all'); setBatchFilter('all'); }}
+            onClick={() => { setActiveTab(tab.id); setYearFilter('all'); setDeptFilter('all'); setBatchFilter('all'); setFlDateFrom(''); setFlDateTo(''); }}
             className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-all border ${
               activeTab === tab.id
                 ? 'bg-[#1a365d] text-white border-[#1a365d] shadow-md shadow-blue-900/20'
