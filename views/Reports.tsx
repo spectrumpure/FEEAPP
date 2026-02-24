@@ -39,12 +39,13 @@ const exportPDF = (title: string, tableHtml: string) => {
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #1a202c; }
-  .header { text-align: center; border-bottom: 3px double #1a365d; padding-bottom: 16px; margin-bottom: 20px; }
-  .header img { width: 70px; height: 70px; object-fit: contain; margin-bottom: 6px; }
+  .header { display: flex; align-items: center; gap: 14px; border-bottom: 3px double #1a365d; padding-bottom: 12px; margin-bottom: 16px; }
+  .header img { width: 64px; height: 64px; object-fit: contain; flex-shrink: 0; }
+  .header-text { flex: 1; }
   .header .society { font-size: 10px; font-weight: 600; color: #4a5568; letter-spacing: 2px; text-transform: uppercase; }
-  .header .college { font-size: 16px; font-weight: 800; color: #1a365d; margin: 4px 0; }
+  .header .college { font-size: 15px; font-weight: 800; color: #1a365d; margin: 2px 0; }
   .header .address { font-size: 9px; color: #718096; }
-  .header .accreditation { font-size: 8px; color: #000; margin-top: 2px; font-weight: 600; }
+  .header .accreditation { font-size: 8px; color: #000; margin-top: 1px; font-weight: 600; }
   .report-title { text-align: center; font-size: 13px; font-weight: 700; color: #2c5282; text-transform: uppercase; letter-spacing: 1.5px; margin: 16px 0 12px; }
   .report-meta { text-align: center; font-size: 9px; color: #a0aec0; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 10px; }
@@ -63,11 +64,13 @@ const exportPDF = (title: string, tableHtml: string) => {
 </style></head><body>
 <div class="header">
   <img src="${COLLEGE_HEADER.logo}" alt="Logo" />
-  <div class="society">${COLLEGE_HEADER.society}</div>
-  <div class="college">${COLLEGE_HEADER.name}</div>
-  <div class="address">${COLLEGE_HEADER.address}</div>
-  <div class="accreditation">${COLLEGE_HEADER.accreditation1}</div>
-  <div class="accreditation">${COLLEGE_HEADER.accreditation2}</div>
+  <div class="header-text">
+    <div class="society">${COLLEGE_HEADER.society}</div>
+    <div class="college">${COLLEGE_HEADER.name}</div>
+    <div class="address">${COLLEGE_HEADER.address}</div>
+    <div class="accreditation">${COLLEGE_HEADER.accreditation1}</div>
+    <div class="accreditation">${COLLEGE_HEADER.accreditation2}</div>
+  </div>
 </div>
 <div class="report-title">${title}</div>
 <div class="report-meta">Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })} | MJCET Fee App</div>
