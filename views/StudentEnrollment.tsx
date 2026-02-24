@@ -64,8 +64,8 @@ export const StudentEnrollment: React.FC = () => {
     );
   }, [enrollmentData]);
 
-  const beData = enrollmentData.filter(d => d.dept.courseType === 'BE');
-  const meData = enrollmentData.filter(d => d.dept.courseType === 'ME');
+  const beData = enrollmentData.filter(d => d.dept.courseType === 'B.E');
+  const meData = enrollmentData.filter(d => d.dept.courseType === 'M.E');
 
   const beTotals = beData.reduce((acc, d) => ({ total: acc.total + d.total, regular: acc.regular + d.regular, lateral: acc.lateral + d.lateral }), { total: 0, regular: 0, lateral: 0 });
   const meTotals = meData.reduce((acc, d) => ({ total: acc.total + d.total, regular: acc.regular + d.regular, lateral: acc.lateral + d.lateral }), { total: 0, regular: 0, lateral: 0 });
@@ -179,7 +179,7 @@ export const StudentEnrollment: React.FC = () => {
               {isExpanded ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-slate-400" />}
               <span className="font-semibold text-sm text-slate-700">{data.dept.name}</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-medium">{data.dept.code}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${data.dept.courseType === 'BE' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>{data.dept.courseType}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${data.dept.courseType === 'B.E' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>{data.dept.courseType}</span>
             </div>
           </td>
           <td className="px-4 py-3.5 text-center">
@@ -204,7 +204,7 @@ export const StudentEnrollment: React.FC = () => {
                       <p className="text-lg font-bold text-slate-800">{yb.total}</p>
                       <div className="flex gap-3 mt-1">
                         <span className="text-[10px] text-blue-600">Regular: {yb.regular}</span>
-                        {(data.dept.courseType === 'BE' || y >= 2) && (
+                        {(data.dept.courseType === 'B.E' || y >= 2) && (
                           <span className="text-[10px] text-amber-600">LE: {yb.lateral}</span>
                         )}
                       </div>
