@@ -700,6 +700,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                       <span className={`text-[10px] font-semibold px-2 py-1 rounded inline-block ${
                         student.admissionCategory.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : 
                         student.admissionCategory.includes('CONVENOR') || student.admissionCategory.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                        student.admissionCategory.includes('J&K') || student.admissionCategory.includes('J & K') ? 'bg-green-50 text-green-700 border border-green-200' :
                         'bg-blue-50 text-blue-700 border border-blue-200'
                       }`}>
                         {student.admissionCategory}
@@ -923,6 +924,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                     <option>TSMFC</option>
                     <option>MANAGEMENT QUOTA</option>
                     <option>CONVENOR</option>
+                    <option>J&amp;K</option>
                     <option>SPOT</option>
                     <option>LATERAL ENTRY TSMFC</option>
                     <option>LATERAL ENTRY TSECET</option>
