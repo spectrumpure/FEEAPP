@@ -249,7 +249,7 @@ const MainApp: React.FC = () => {
       case 'fee-entry': return <FeeEntry preSelectedHTN={preSelectedFeeHTN} />;
       case 'bulk-upload': return <BulkUpload />;
       case 'approvals': return <Approvals />;
-      case 'reports': return <Reports />;
+      case 'reports': return <Reports onStudentClick={(htn) => { setSelectedStudentHTN(htn); setActiveView('students'); }} />;
       case 'certificates': return <Certificates />;
       case 'fee-lockers': return <FeeLockers />;
       case 'defaulters': return <DefaulterList />;

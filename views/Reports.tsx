@@ -111,7 +111,7 @@ const matchesDept = (studentDept: string, dept: { name: string; code: string }) 
 const findDeptForStudent = (studentDept: string, deptList: { name: string; code: string; duration?: number; courseType?: string }[]) =>
   deptList.find(d => matchesDept(studentDept, d));
 
-export const Reports: React.FC = () => {
+export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ onStudentClick }) => {
   const { students, departments, transactions, getFeeTargets } = useApp();
   const [activeTab, setActiveTab] = useState<ReportTab>('dept_summary');
   const [yearFilter, setYearFilter] = useState<string>('all');
@@ -125,6 +125,7 @@ export const Reports: React.FC = () => {
   const [expandedDrDept, setExpandedDrDept] = useState<string | null>(null);
   const [expandedFY, setExpandedFY] = useState<string | null>(null);
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
+  const [expandedDeptKey, setExpandedDeptKey] = useState<string | null>(null);
   const [flDateFrom, setFlDateFrom] = useState<string>('');
   const [flDateTo, setFlDateTo] = useState<string>('');
 
@@ -187,7 +188,7 @@ export const Reports: React.FC = () => {
 
   const getDeptSummaryData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
-    const rows: { department: string; code: string; courseType: string; entryLabel: string; count: number; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalReceived: number; totalBalance: number }[] = [];
+    const rows: { department: string; code: string; courseType: string; entryLabel: string; count: number; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalReceived: number; totalBalance: number; students: Student[] }[] = [];
     departments.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
@@ -203,6 +204,7 @@ export const Reports: React.FC = () => {
           department: dept.name, code: dept.code, courseType: dept.courseType, entryLabel: label,
           count: subset.length, tTarget, uTarget, tPaid, uPaid,
           totalReceived: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
+          students: subset,
         });
       };
       if (lateralStudents.length > 0) {
@@ -873,8 +875,8 @@ export const Reports: React.FC = () => {
                                   <tbody>
                                     {d.results.sort((a, b) => a.student.hallTicketNumber.localeCompare(b.student.hallTicketNumber)).map((r, ri) => (
                                       <tr key={r.student.hallTicketNumber} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                                        <td className="px-3 py-2 text-xs font-mono text-slate-600">{r.student.hallTicketNumber}</td>
-                                        <td className="px-3 py-2 text-xs text-slate-700 font-medium">{r.student.name}</td>
+                                        <td className="px-3 py-2 text-xs font-mono text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(r.student.hallTicketNumber); }}>{r.student.hallTicketNumber}</td>
+                                        <td className="px-3 py-2 text-xs text-blue-600 font-medium cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(r.student.hallTicketNumber); }}>{r.student.name}</td>
                                         <td className="px-3 py-2 text-xs text-center">{r.student.currentYear}</td>
                                         <td className="px-3 py-2 text-xs text-center">
                                           {r.student.entryType === 'LATERAL' ? <span className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">LE</span> : <span className="text-slate-400">R</span>}
@@ -1030,9 +1032,24 @@ export const Reports: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {data.map((d, i) => (
-                <tr key={`${d.code}-${d.entryLabel}`} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                  <td className={`${tdClass} font-semibold text-slate-800`}>{d.courseType}({d.code}){d.entryLabel ? <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${d.entryLabel === 'Lateral' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{d.entryLabel}</span> : ''}</td>
+              {data.map((d, i) => {
+                const deptKey = `${d.code}-${d.entryLabel}`;
+                const isDeptExpanded = expandedDeptKey === deptKey;
+                const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
+                const deptStudentDetails = isDeptExpanded ? d.students.map(s => {
+                  const t = getTargetsForStudent(s, filterYear);
+                  return { ...s, tTarget: t.tTarget, uTarget: t.uTarget, tPaid: t.tPaid, uPaid: t.uPaid, totalPaid: t.tPaid + t.uPaid, totalBalance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid) };
+                }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber)) : [];
+                return (
+                <React.Fragment key={deptKey}>
+                <tr className={`border-b border-slate-100 cursor-pointer hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                  onClick={() => setExpandedDeptKey(isDeptExpanded ? null : deptKey)}>
+                  <td className={`${tdClass} font-semibold text-slate-800`}>
+                    <div className="flex items-center gap-2">
+                      {isDeptExpanded ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-slate-400" />}
+                      {d.courseType}({d.code}){d.entryLabel ? <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${d.entryLabel === 'Lateral' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{d.entryLabel}</span> : ''}
+                    </div>
+                  </td>
                   <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
                   <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tTarget)}</td>
                   <td className={`${tdClass} font-semibold text-amber-600 text-right`}>{formatCurrency(d.tPaid)}</td>
@@ -1041,7 +1058,57 @@ export const Reports: React.FC = () => {
                   <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.totalReceived)}</td>
                   <td className={`${tdClass} font-semibold text-right ${d.totalBalance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(d.totalBalance)}</td>
                 </tr>
-              ))}
+                {isDeptExpanded && (
+                  <tr className="bg-blue-50/20">
+                    <td colSpan={8} className="px-4 py-3">
+                      <div className="rounded-lg border border-slate-200 overflow-hidden">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-100">
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">S.No</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Hall Ticket</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Student Name</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Year</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Mode</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">T.Target</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">T.Paid</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">U.Target</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">U.Paid</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Total Paid</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Balance</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {deptStudentDetails.map((s, idx) => (
+                              <tr key={s.hallTicketNumber} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                                <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
+                                <td className="px-3 py-2 text-xs font-mono text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(s.hallTicketNumber); }}>{s.hallTicketNumber}</td>
+                                <td className="px-3 py-2 text-xs font-medium text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(s.hallTicketNumber); }}>
+                                  {s.name}
+                                  {s.entryType === 'LATERAL' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE</span>}
+                                </td>
+                                <td className="px-3 py-2 text-xs text-slate-500 text-center">{s.currentYear}</td>
+                                <td className="px-3 py-2 text-center">
+                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{s.admissionCategory || '-'}</span>
+                                </td>
+                                <td className="px-3 py-2 text-xs text-right">{formatCurrency(s.tTarget)}</td>
+                                <td className="px-3 py-2 text-xs font-semibold text-amber-600 text-right">{formatCurrency(s.tPaid)}</td>
+                                <td className="px-3 py-2 text-xs text-right">{formatCurrency(s.uTarget)}</td>
+                                <td className="px-3 py-2 text-xs font-semibold text-blue-600 text-right">{formatCurrency(s.uPaid)}</td>
+                                <td className="px-3 py-2 text-xs font-semibold text-emerald-600 text-right">{formatCurrency(s.totalPaid)}</td>
+                                <td className={`px-3 py-2 text-xs font-semibold text-right ${s.totalBalance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(s.totalBalance)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-2">{deptStudentDetails.length} students</p>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
+                );
+              })}
               <tr className="bg-[#1a365d] text-white">
                 <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
                 <td className={`${tdClass} font-bold text-center`}>{total.count}</td>
@@ -1140,8 +1207,8 @@ export const Reports: React.FC = () => {
                           {studentList.map(([htn, s], idx) => (
                             <tr key={htn} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                               <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
-                              <td className="px-3 py-2 text-xs font-mono text-slate-600">{htn}</td>
-                              <td className="px-3 py-2 text-xs font-medium text-slate-700">
+                              <td className="px-3 py-2 text-xs font-mono text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(htn); }}>{htn}</td>
+                              <td className="px-3 py-2 text-xs font-medium text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(htn); }}>
                                 {s.name}
                                 {s.entryType === 'LATERAL' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE</span>}
                               </td>
@@ -1274,8 +1341,8 @@ export const Reports: React.FC = () => {
                               return (
                               <tr key={s.hallTicketNumber} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                                 <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
-                                <td className="px-3 py-2 text-xs font-mono text-slate-600">{s.hallTicketNumber}</td>
-                                <td className="px-3 py-2 text-xs font-medium text-slate-700">
+                                <td className="px-3 py-2 text-xs font-mono text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(s.hallTicketNumber); }}>{s.hallTicketNumber}</td>
+                                <td className="px-3 py-2 text-xs font-medium text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(s.hallTicketNumber); }}>
                                   {s.name}
                                   {s.entryType === 'LATERAL' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE</span>}
                                 </td>
@@ -1379,8 +1446,8 @@ export const Reports: React.FC = () => {
               {data.map((s, i) => (
                 <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className="px-3 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
-                  <td className="px-3 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
-                  <td className="px-3 py-2.5 text-xs font-semibold text-slate-800">{s.name}</td>
+                  <td className="px-3 py-2.5 text-xs font-mono font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.hallTicketNumber}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.name}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
                   <td className="px-3 py-2.5 text-center">
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : s.admissionCategory?.includes('CONVENOR') || s.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
@@ -1455,8 +1522,8 @@ export const Reports: React.FC = () => {
               {data.map((s, i) => (
                 <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className="px-3 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
-                  <td className="px-3 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
-                  <td className="px-3 py-2.5 text-xs font-semibold text-slate-800">{s.name}</td>
+                  <td className="px-3 py-2.5 text-xs font-mono font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.hallTicketNumber}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.name}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500">{s.fatherName}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500">{s.motherName}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.sex}</td>
@@ -1534,8 +1601,8 @@ export const Reports: React.FC = () => {
               {data.map((s, i) => (
                 <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-red-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className="px-4 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
-                  <td className="px-4 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
-                  <td className="px-4 py-2.5 text-sm font-semibold text-slate-800">{s.name}{s.entryType === 'LATERAL' && <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-purple-100 text-purple-700">LE</span>}</td>
+                  <td className="px-4 py-2.5 text-xs font-mono font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.hallTicketNumber}</td>
+                  <td className="px-4 py-2.5 text-sm font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.name}{s.entryType === 'LATERAL' && <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-purple-100 text-purple-700">LE</span>}</td>
                   <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
                   <td className="px-4 py-2.5 text-center">
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : s.admissionCategory?.includes('CONVENOR') || s.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
