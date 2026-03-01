@@ -4,10 +4,23 @@ const { Pool } = pg;
 
 const connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
 
-const pool = new Pool({
-  connectionString,
-  ssl: connectionString?.includes('supabase') ? { rejectUnauthorized: false } : undefined,
-});
+let pool: pg.Pool;
+
+if (connectionString && connectionString.includes('supabase')) {
+  const url = new URL(connectionString);
+  pool = new Pool({
+    host: url.hostname,
+    port: parseInt(url.port || '5432'),
+    database: url.pathname.slice(1),
+    user: url.username,
+    password: decodeURIComponent(url.password),
+    ssl: { rejectUnauthorized: false },
+  });
+} else {
+  pool = new Pool({
+    connectionString,
+  });
+}
 
 export default pool;
 
