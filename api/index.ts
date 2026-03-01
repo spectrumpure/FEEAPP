@@ -9,16 +9,26 @@ app.use(routes);
 let dbInitialized = false;
 let dbInitPromise: Promise<void> | null = null;
 
-const handler = async (req: any, res: any) => {
-  if (!dbInitialized) {
-    if (!dbInitPromise) {
-      dbInitPromise = initDB().then(() => { dbInitialized = true; }).catch((err) => { dbInitPromise = null; throw err; });
+export default async function handler(req: any, res: any) {
+  try {
+    if (!dbInitialized) {
+      if (!dbInitPromise) {
+        dbInitPromise = initDB()
+          .then(() => { dbInitialized = true; })
+          .catch((err) => { dbInitPromise = null; throw err; });
+      }
+      await dbInitPromise;
     }
-    await dbInitPromise;
+    await new Promise<void>((resolve, reject) => {
+      app(req, res, (err: any) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  } catch (err: any) {
+    console.error('Handler error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message || 'Internal server error' });
+    }
   }
-  return new Promise((resolve) => {
-    app(req, res, () => { resolve(undefined); });
-  });
-};
-
-export default handler;
+}
