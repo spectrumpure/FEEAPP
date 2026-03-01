@@ -1091,13 +1091,14 @@ export const Reports: React.FC = () => {
               const studentMap: Record<string, { name: string; dept: string; entryType: string; courseType: string; tuition: number; university: number; other: number; txCount: number }> = {};
               if (isExpanded) {
                 d.txns.forEach(t => {
-                  const s = students.find(st => st.hallTicketNumber === t.studentId);
+                  const htn = t.studentHTN;
+                  const s = students.find(st => st.hallTicketNumber === htn);
                   const sDept = s ? departments.find(dd => matchesDept(s.department, dd)) : null;
-                  if (!studentMap[t.studentId]) studentMap[t.studentId] = { name: s?.name || t.studentId, dept: s?.department || '-', entryType: s?.entryType || 'REGULAR', courseType: sDept?.courseType || 'B.E', tuition: 0, university: 0, other: 0, txCount: 0 };
-                  studentMap[t.studentId].txCount++;
-                  if (t.feeType === 'Tuition') studentMap[t.studentId].tuition += t.amount;
-                  else if (t.feeType === 'University') studentMap[t.studentId].university += t.amount;
-                  else studentMap[t.studentId].other += t.amount;
+                  if (!studentMap[htn]) studentMap[htn] = { name: s?.name || htn, dept: s?.department || '-', entryType: s?.entryType || 'REGULAR', courseType: sDept?.courseType || 'B.E', tuition: 0, university: 0, other: 0, txCount: 0 };
+                  studentMap[htn].txCount++;
+                  if (t.feeType === 'Tuition') studentMap[htn].tuition += t.amount;
+                  else if (t.feeType === 'University') studentMap[htn].university += t.amount;
+                  else studentMap[htn].other += t.amount;
                 });
               }
               const studentList = Object.entries(studentMap).sort((a, b) => a[0].localeCompare(b[0]));
