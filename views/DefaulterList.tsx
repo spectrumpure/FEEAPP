@@ -14,7 +14,7 @@ export const DefaulterList: React.FC = () => {
   };
 
   const matchDeptHelper = (sDept: string, dept: { name: string; code: string }) =>
-    sDept === dept.name || sDept === dept.code || sDept.toUpperCase() === dept.code.toUpperCase();
+    sDept && (sDept === dept.name || sDept === dept.code || sDept.toUpperCase() === dept.code.toUpperCase());
 
   const getStudentTotalTarget = (s: typeof students[0]) => {
     if (s.feeLockers.length > 0) {

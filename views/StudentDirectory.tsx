@@ -136,7 +136,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       s.hallTicketNumber.includes(searchTerm);
     const deptObj = departments.find(d => d.name === departmentFilter);
     const matchesDept = !departmentFilter || s.department === departmentFilter || 
-      (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
+      (deptObj && s.department && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
     const matchesYear = !yearFilter || s.currentYear === Number(yearFilter);
     return matchesSearch && matchesDept && matchesYear;
   }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
@@ -323,7 +323,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     const deptObj = departments.find(d => d.name === deptName);
     const deptStudents = filteredStudents.filter(s => 
       s.department === deptName || 
-      (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()))
+      (deptObj && s.department && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()))
     );
     const deptHTNs = deptStudents.map(s => s.hallTicketNumber);
     const allSelected = deptHTNs.every(h => selectedHTNs.has(h));
@@ -342,7 +342,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     const deptObj = departments.find(d => d.name === deptName);
     return filteredStudents.filter(s => 
       s.department === deptName || 
-      (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()))
+      (deptObj && s.department && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()))
     ).length;
   };
 
@@ -350,7 +350,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     const deptObj = departments.find(d => d.name === deptName);
     return filteredStudents.filter(s => 
       (s.department === deptName || 
-      (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()))) &&
+      (deptObj && s.department && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()))) &&
       selectedHTNs.has(s.hallTicketNumber)
     ).length;
   };
