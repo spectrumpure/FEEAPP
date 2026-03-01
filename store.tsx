@@ -229,6 +229,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const getFeeTargets = useCallback((department: string, year: number, entryType?: 'REGULAR' | 'LATERAL', admissionYear?: string): { tuition: number; university: number } => {
+    if (!department) return { tuition: 0, university: 0 };
     const allDepts = [...DEPARTMENTS, ...customDepartments];
     const dept = allDepts.find(d => d.name === department || d.code === department || d.code.toUpperCase() === department.toUpperCase());
     const code = dept?.code || '';
@@ -252,7 +253,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return configToUse.deptYearTargets[code][String(year)];
     }
     const isME = configToUse.groupC.departments.includes(code) || 
-      department.startsWith('M.E') || code.startsWith('ME-');
+      (department || '').startsWith('M.E') || code.startsWith('ME-');
     if (isME) {
       return year === 1
         ? { tuition: configToUse.groupC.year1Tuition, university: configToUse.groupC.year1University }
