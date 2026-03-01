@@ -36,7 +36,7 @@ const getYearText = (year: number, course: string) => {
 };
 
 const getDeptBranch = (department: string) => {
-  return department
+  return (department || '')
     .replace('B.E(', '')
     .replace('M.E(', '')
     .replace('M.E ', '')
