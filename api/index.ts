@@ -7,13 +7,18 @@ app.use(express.json({ limit: '50mb' }));
 app.use(routes);
 
 let dbInitialized = false;
+let dbInitPromise: Promise<void> | null = null;
 
 const handler = async (req: any, res: any) => {
   if (!dbInitialized) {
-    await initDB();
-    dbInitialized = true;
+    if (!dbInitPromise) {
+      dbInitPromise = initDB().then(() => { dbInitialized = true; }).catch((err) => { dbInitPromise = null; throw err; });
+    }
+    await dbInitPromise;
   }
-  return app(req, res);
+  return new Promise((resolve) => {
+    app(req, res, () => { resolve(undefined); });
+  });
 };
 
 export default handler;
