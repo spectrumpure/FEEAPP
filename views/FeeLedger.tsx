@@ -218,7 +218,7 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
             <YearSummaryCard key={locker.year} locker={locker} currentYear={student.currentYear} isCurrent={locker.year === student.currentYear} />
           ))}
           {(() => {
-            const maxYears = student.department.startsWith('M.E') || student.course === 'M.E' ? 2 : 4;
+            const maxYears = (student.department || '').startsWith('M.E') || student.course === 'M.E' ? 2 : 4;
             const startYear = student.entryType === 'LATERAL' ? 2 : 1;
             const existingYears = new Set(student.feeLockers.map(l => l.year));
             const emptyYears = Array.from({ length: maxYears - startYear + 1 }, (_, i) => i + startYear).filter(y => !existingYears.has(y));

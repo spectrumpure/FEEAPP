@@ -87,7 +87,7 @@ export const Dashboard: React.FC = () => {
     setRemarkHTN(val);
     setRemarkError('');
     setRemarkSuccess('');
-    const found = students.find(s => s.hallTicketNumber.toLowerCase() === val.toLowerCase());
+    const found = students.find(s => (s.hallTicketNumber || '').toLowerCase() === val.toLowerCase());
     setRemarkStudentName(found ? found.name : '');
   };
 

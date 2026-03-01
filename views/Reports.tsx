@@ -229,7 +229,7 @@ export const Reports: React.FC = () => {
     return filtered.map(s => {
       const t = getStudentTargets(s, filterYear);
       return { ...s, tTarget: t.tTarget, tPaid: t.tPaid, tBalance: t.tTarget - t.tPaid, uTarget: t.uTarget, uPaid: t.uPaid, uBalance: t.uTarget - t.uPaid, totalPaid: t.tPaid + t.uPaid, totalBalance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid) };
-    }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
+    }).sort((a, b) => (a.hallTicketNumber || '').localeCompare(b.hallTicketNumber || ''));
   };
 
   const getStudentInfoData = () => {
@@ -240,7 +240,7 @@ export const Reports: React.FC = () => {
       else filtered = filtered.filter(s => s.department === deptFilter);
     }
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
-    return filtered.sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
+    return filtered.sort((a, b) => (a.hallTicketNumber || '').localeCompare(b.hallTicketNumber || ''));
   };
 
   const getDefaultersData = () => {
@@ -258,7 +258,7 @@ export const Reports: React.FC = () => {
       const totalTarget = t.tTarget + t.uTarget;
       const totalPaid = t.tPaid + t.uPaid;
       return { ...s, totalTarget, totalPaid, balance: totalTarget - totalPaid };
-    }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
+    }).sort((a, b) => (a.hallTicketNumber || '').localeCompare(b.hallTicketNumber || ''));
   };
 
   const handleExportDeptSummary = () => {
@@ -354,7 +354,7 @@ export const Reports: React.FC = () => {
       <td class="text-center">${i + 1}</td>
       <td class="font-bold" style="font-size:9px">${s.hallTicketNumber}</td>
       <td>${s.name}</td>
-      <td class="text-center">${s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+      <td class="text-center">${(s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
       <td class="text-center">${s.admissionCategory || '-'}</td>
       <td class="text-right">${formatCurrency(s.tTarget)}</td>
       <td class="text-right text-green">${formatCurrency(s.tPaid)}</td>
@@ -390,14 +390,14 @@ export const Reports: React.FC = () => {
       <td>${s.name}</td>
       <td style="font-size:8px">${s.fatherName}</td>
       <td style="font-size:8px">${s.motherName}</td>
-      <td class="text-center">${s.sex}</td>
-      <td class="text-center">${s.dob}</td>
-      <td class="text-center">${s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
-      <td class="text-center">${s.batch}</td>
-      <td class="text-center">${s.admissionCategory}</td>
-      <td>${s.mobile}</td>
-      <td>${s.fatherMobile}</td>
-      <td style="font-size:7px;max-width:120px">${s.address}</td>
+      <td class="text-center">${s.sex || '-'}</td>
+      <td class="text-center">${s.dob || '-'}</td>
+      <td class="text-center">${(s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+      <td class="text-center">${s.batch || '-'}</td>
+      <td class="text-center">${s.admissionCategory || '-'}</td>
+      <td>${s.mobile || '-'}</td>
+      <td>${s.fatherMobile || '-'}</td>
+      <td style="font-size:7px;max-width:120px">${s.address || '-'}</td>
     </tr>`).join('');
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th><th>Father Name</th><th>Mother Name</th>
@@ -418,7 +418,7 @@ export const Reports: React.FC = () => {
       <td class="text-center">${i + 1}</td>
       <td class="font-bold" style="font-size:9px">${s.hallTicketNumber}</td>
       <td>${s.name}</td>
-      <td class="text-center">${s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+      <td class="text-center">${(s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
       <td class="text-center">${s.admissionCategory || '-'}</td>
       <td class="text-center">${s.currentYear}</td>
       <td class="text-right">${formatCurrency(s.totalTarget)}</td>
@@ -785,7 +785,7 @@ export const Reports: React.FC = () => {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {d.results.sort((a, b) => a.student.hallTicketNumber.localeCompare(b.student.hallTicketNumber)).map((r, ri) => (
+                                    {d.results.sort((a, b) => (a.student.hallTicketNumber || '').localeCompare(b.student.hallTicketNumber || '')).map((r, ri) => (
                                       <tr key={r.student.hallTicketNumber} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
                                         <td className="px-3 py-2 text-xs font-mono text-slate-600">{r.student.hallTicketNumber}</td>
                                         <td className="px-3 py-2 text-xs text-slate-700 font-medium">{r.student.name}</td>
@@ -1114,7 +1114,7 @@ export const Reports: React.FC = () => {
                   <td className="px-3 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
                   <td className="px-3 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
                   <td className="px-3 py-2.5 text-xs font-semibold text-slate-800">{s.name}</td>
-                  <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{(s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
                   <td className="px-3 py-2.5 text-center">
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : s.admissionCategory?.includes('CONVENOR') || s.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
                       {s.admissionCategory || '-'}
@@ -1194,11 +1194,11 @@ export const Reports: React.FC = () => {
                   <td className="px-3 py-2.5 text-xs text-slate-500">{s.motherName}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.sex}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.dob}</td>
-                  <td className="px-3 py-2.5 text-xs text-slate-600 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-600 text-center">{(s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.batch}</td>
                   <td className="px-3 py-2.5 text-center">
-                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded ${s.admissionCategory.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-                      {s.admissionCategory}
+                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded ${(s.admissionCategory || '').includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                      {s.admissionCategory || '-'}
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-xs text-slate-500">{s.mobile}</td>
@@ -1267,7 +1267,7 @@ export const Reports: React.FC = () => {
                   <td className="px-4 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
                   <td className="px-4 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
                   <td className="px-4 py-2.5 text-sm font-semibold text-slate-800">{s.name}{s.entryType === 'LATERAL' && <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-purple-100 text-purple-700">LE</span>}</td>
-                  <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{(s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
                   <td className="px-4 py-2.5 text-center">
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : s.admissionCategory?.includes('CONVENOR') || s.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
                       {s.admissionCategory || '-'}

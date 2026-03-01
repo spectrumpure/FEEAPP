@@ -333,7 +333,7 @@ export const BulkUpload: React.FC = () => {
           return;
         }
 
-        const existingStudent = students.find(s => s.hallTicketNumber.toLowerCase() === htn.toLowerCase());
+        const existingStudent = students.find(s => (s.hallTicketNumber || '').toLowerCase() === htn.toLowerCase());
         const feeYearRaw = getCol(row, mapping, 'fee_year');
         const feeYear = parseInt(feeYearRaw) || 1;
         const dept = getCol(row, mapping, 'department') ? normalizeDepartment(getCol(row, mapping, 'department')) : (existingStudent?.department || '');
@@ -629,7 +629,7 @@ export const BulkUpload: React.FC = () => {
         const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || 0;
         const admissionCat = getCol(row, mapping, 'mode_of_admission').toUpperCase() || 'TSMFC';
 
-        const existingStudent = students.find(s => s.hallTicketNumber.toLowerCase() === htn.toLowerCase());
+        const existingStudent = students.find(s => (s.hallTicketNumber || '').toLowerCase() === htn.toLowerCase());
 
         const feeLockers: YearLocker[] = [];
 
@@ -819,7 +819,7 @@ export const BulkUpload: React.FC = () => {
         deptBreakdown[s.department] = (deptBreakdown[s.department] || 0) + 1;
         const txCount = s.feeLockers.reduce((sum, l) => sum + l.transactions.length, 0);
         totalTx += txCount;
-        if (students.find(ex => ex.hallTicketNumber.trim().toLowerCase() === s.hallTicketNumber.trim().toLowerCase())) {
+        if (students.find(ex => (ex.hallTicketNumber || '').trim().toLowerCase() === (s.hallTicketNumber || '').trim().toLowerCase())) {
           existingCount++;
         } else {
           newCount++;
@@ -1189,7 +1189,7 @@ export const BulkUpload: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {previewData.sampleRows.map((row, i) => {
-                          const isExisting = students.find(s => s.hallTicketNumber.trim().toLowerCase() === row.htn.trim().toLowerCase());
+                          const isExisting = students.find(s => (s.hallTicketNumber || '').trim().toLowerCase() === (row.htn || '').trim().toLowerCase());
                           return (
                             <tr key={i} className={isExisting ? 'bg-amber-50/50' : ''}>
                               <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>

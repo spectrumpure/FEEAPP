@@ -52,16 +52,16 @@ export const DefaulterList: React.FC = () => {
       (s.hallTicketNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
     const deptObj = departments.find(d => d.name === filterDept);
     const matchesDept = filterDept === 'all' || s.department === filterDept || 
-      (deptObj && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
+      (deptObj && s.department && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
     return matchesSearch && matchesDept;
   });
 
   const deptGroups = departments.map(dept => {
-    const deptDefaulters = filteredDefaulters.filter(s => s.department === dept.name || s.department === dept.code || s.department.toUpperCase() === dept.code.toUpperCase());
+    const deptDefaulters = filteredDefaulters.filter(s => s.department && (s.department === dept.name || s.department === dept.code || s.department.toUpperCase() === dept.code.toUpperCase()));
     const totalDue = deptDefaulters.reduce((sum, s) => {
       return sum + (getStudentTotalTarget(s) - getStudentTotalPaid(s));
     }, 0);
-    return { dept, defaulters: deptDefaulters.sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber)), totalDue };
+    return { dept, defaulters: deptDefaulters.sort((a, b) => (a.hallTicketNumber || '').localeCompare(b.hallTicketNumber || '')), totalDue };
   }).filter(g => g.defaulters.length > 0);
 
   const totalDefaulterCount = filteredDefaulters.length;

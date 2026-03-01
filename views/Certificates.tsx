@@ -68,9 +68,9 @@ export const Certificates: React.FC = () => {
 
   const filtered = searchQuery.trim().length > 0
     ? students.filter(s =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.hallTicketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.department.toLowerCase().includes(searchQuery.toLowerCase())
+        (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.hallTicketNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.department || '').toLowerCase().includes(searchQuery.toLowerCase())
       ).slice(0, 20)
     : [];
 

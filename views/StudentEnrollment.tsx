@@ -31,7 +31,7 @@ export const StudentEnrollment: React.FC = () => {
   const enrollmentData = useMemo(() => {
     return departments.map(dept => {
       const deptStudents = filteredStudents.filter(
-        s => s.department === dept.name || s.department === dept.code || s.department.toUpperCase() === dept.code.toUpperCase()
+        s => s.department && (s.department === dept.name || s.department === dept.code || s.department.toUpperCase() === dept.code.toUpperCase())
       );
       const regular = deptStudents.filter(s => s.entryType !== 'LATERAL');
       const lateral = deptStudents.filter(s => s.entryType === 'LATERAL');

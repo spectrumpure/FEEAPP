@@ -132,14 +132,14 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
 
 
   const filteredStudents = students.filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      s.hallTicketNumber.includes(searchTerm);
+    const matchesSearch = (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (s.hallTicketNumber || '').includes(searchTerm);
     const deptObj = departments.find(d => d.name === departmentFilter);
     const matchesDept = !departmentFilter || s.department === departmentFilter || 
       (deptObj && s.department && (s.department === deptObj.code || s.department.toUpperCase() === deptObj.code.toUpperCase() || s.department.toUpperCase() === deptObj.name.toUpperCase()));
     const matchesYear = !yearFilter || s.currentYear === Number(yearFilter);
     return matchesSearch && matchesDept && matchesYear;
-  }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
+  }).sort((a, b) => (a.hallTicketNumber || '').localeCompare(b.hallTicketNumber || ''));
 
   const resetForm = () => {
     setFormData({
