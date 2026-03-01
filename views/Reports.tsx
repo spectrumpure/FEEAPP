@@ -85,6 +85,24 @@ const thClass = "px-4 py-3.5 text-[10px] font-bold text-slate-700 uppercase trac
 const tdClass = "px-4 py-3 text-sm";
 const selectClass = "bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all cursor-pointer";
 
+const parsePaymentDate = (dateStr: string): Date => {
+  if (!dateStr) return new Date(NaN);
+  const dotParts = dateStr.trim().split('.');
+  if (dotParts.length === 3) {
+    const [dd, mm, yyyy] = dotParts;
+    return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+  }
+  const dashParts = dateStr.trim().split('-');
+  if (dashParts.length === 3 && dashParts[0].length === 4) {
+    return new Date(dateStr);
+  }
+  if (dashParts.length === 3 && dashParts[2].length === 4) {
+    const [dd, mm, yyyy] = dashParts;
+    return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+  }
+  return new Date(dateStr);
+};
+
 const matchesDept = (studentDept: string, dept: { name: string; code: string }) =>
   studentDept === dept.name || studentDept === dept.code || studentDept.toUpperCase() === dept.code.toUpperCase();
 
@@ -200,7 +218,7 @@ export const Reports: React.FC = () => {
     const approvedTxs = transactions.filter(t => {
       if (t.status !== 'APPROVED') return false;
       if (fromDate || toDate) {
-        const txDate = new Date(t.paymentDate);
+        const txDate = parsePaymentDate(t.paymentDate);
         if (fromDate && txDate < fromDate) return false;
         if (toDate && txDate > toDate) return false;
       }
@@ -252,7 +270,7 @@ export const Reports: React.FC = () => {
         tTarget += l.tuitionTarget;
         uTarget += l.universityTarget;
         l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-          const txDate = new Date(t.paymentDate);
+          const txDate = parsePaymentDate(t.paymentDate);
           const inRange = (!fromDate || txDate >= fromDate) && (!toDate || txDate <= toDate);
           if (inRange) {
             if (t.feeType === 'Tuition') tPaid += t.amount;
@@ -642,7 +660,7 @@ export const Reports: React.FC = () => {
             tTarget += l.tuitionTarget;
             uTarget += l.universityTarget;
             l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-              const txDate = new Date(t.paymentDate);
+              const txDate = parsePaymentDate(t.paymentDate);
               const inRange = (!from || txDate >= from) && (!to || txDate <= to);
               if (inRange) {
                 if (t.feeType === 'Tuition') tPaid += t.amount;
