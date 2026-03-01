@@ -233,7 +233,7 @@ const MainApp: React.FC = () => {
     }
 
     switch (activeView) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <Dashboard onNavigate={setActiveView} />;
       case 'students': return (
         <StudentDirectory 
           onFeeEntry={(htn) => {

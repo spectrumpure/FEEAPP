@@ -124,6 +124,7 @@ export const Reports: React.FC = () => {
   const [drBatchFilter, setDrBatchFilter] = useState<string>('all');
   const [expandedDrDept, setExpandedDrDept] = useState<string | null>(null);
   const [expandedFY, setExpandedFY] = useState<string | null>(null);
+  const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
   const [flDateFrom, setFlDateFrom] = useState<string>('');
   const [flDateTo, setFlDateTo] = useState<string>('');
 
@@ -255,7 +256,7 @@ export const Reports: React.FC = () => {
         totalTarget += t.tTarget + t.uTarget;
         totalPaid += t.tPaid + t.uPaid;
       });
-      return { batch, count: batchStudents.length, totalTarget, totalPaid, balance: totalTarget - totalPaid };
+      return { batch, count: batchStudents.length, totalTarget, totalPaid, balance: totalTarget - totalPaid, students: batchStudents };
     }).sort((a, b) => a.batch.localeCompare(b.batch));
   };
 
@@ -1202,9 +1203,21 @@ export const Reports: React.FC = () => {
           <tbody>
             {data.map((d, i) => {
               const pct = d.totalTarget > 0 ? (d.totalPaid / d.totalTarget) * 100 : 0;
+              const isBatchExpanded = expandedBatch === d.batch;
+              const batchStudentDetails = isBatchExpanded ? d.students.map(s => {
+                const t = getTargetsForStudent(s, null);
+                return { ...s, target: t.tTarget + t.uTarget, paid: t.tPaid + t.uPaid, balance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid) };
+              }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber)) : [];
               return (
-                <tr key={d.batch} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                  <td className={`${tdClass} font-semibold text-slate-800`}>{d.batch}</td>
+                <React.Fragment key={d.batch}>
+                <tr className={`border-b border-slate-100 cursor-pointer hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                  onClick={() => setExpandedBatch(isBatchExpanded ? null : d.batch)}>
+                  <td className={`${tdClass} font-semibold text-slate-800`}>
+                    <div className="flex items-center gap-2">
+                      {isBatchExpanded ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-slate-400" />}
+                      {d.batch}
+                    </div>
+                  </td>
                   <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
                   <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.totalTarget)}</td>
                   <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.totalPaid)}</td>
@@ -1220,6 +1233,48 @@ export const Reports: React.FC = () => {
                     </div>
                   </td>
                 </tr>
+                {isBatchExpanded && (
+                  <tr className="bg-blue-50/20">
+                    <td colSpan={6} className="px-4 py-3">
+                      <div className="rounded-lg border border-slate-200 overflow-hidden">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-100">
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">S.No</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Hall Ticket</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Student Name</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Dept</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Year</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Mode</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Target</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Paid</th>
+                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Balance</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {batchStudentDetails.map((s, idx) => (
+                              <tr key={s.hallTicketNumber} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                                <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
+                                <td className="px-3 py-2 text-xs font-mono text-slate-600">{s.hallTicketNumber}</td>
+                                <td className="px-3 py-2 text-xs font-medium text-slate-700">{s.name}</td>
+                                <td className="px-3 py-2 text-xs text-slate-500">{s.department}</td>
+                                <td className="px-3 py-2 text-xs text-slate-500 text-center">{s.currentYear}</td>
+                                <td className="px-3 py-2 text-center">
+                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{s.admissionCategory || '-'}</span>
+                                </td>
+                                <td className="px-3 py-2 text-xs text-right">{formatCurrency(s.target)}</td>
+                                <td className="px-3 py-2 text-xs font-semibold text-emerald-600 text-right">{formatCurrency(s.paid)}</td>
+                                <td className={`px-3 py-2 text-xs font-semibold text-right ${s.balance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(s.balance)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-2">{batchStudentDetails.length} students in batch {d.batch}</p>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               );
             })}
             {data.length > 0 && (

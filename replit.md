@@ -83,6 +83,8 @@ Student columns (14) + Current Year, Tuition Fee Challan No, Tuition Fee Challan
 Note: Also backward-compatible with old 21-column format (without Current Year, Tuition Fee Challan No, Fee Year)
 
 ## Recent Changes
+- 2026-03-01: Added expandable Batch Wise report - click any batch row to see student-wise breakdown with hall ticket, name, dept, year, mode, target/paid/balance
+- 2026-03-01: Added "New Admission" button to Dashboard header - green button navigates admin to Student Directory for quick student entry
 - 2026-03-01: Added expandable Financial Year Wise report - click any FY row to see student-wise breakdown with hall ticket, name, dept, transaction count, tuition/university/other amounts; grouped by student for cleaner view
 - 2026-03-01: Added expandable Student Enrollment year cards - click Year 1/2/3/4 within expanded department to see full student list with hall ticket, name, batch, mode, entry type, mobile
 - 2026-03-01: Fixed date parsing bug in Reports - payment dates stored as DD.MM.YYYY were incorrectly parsed by JS Date(); added parsePaymentDate() helper for proper DD.MM.YYYY and DD-MM-YYYY format handling
