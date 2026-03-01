@@ -7,16 +7,19 @@ A centralized college fee management and governance system built with React, Typ
 - **Frontend**: React 19 with TypeScript
 - **Backend**: Express.js server with PostgreSQL database
 - **Build Tool**: Vite 6 (served via Express middleware in dev)
-- **Database**: PostgreSQL (Neon-backed via Replit)
+- **Database**: PostgreSQL (Supabase free tier, session pooler)
 - **Styling**: Tailwind CSS (via CDN)
 - **Charts**: Recharts
 - **Icons**: Lucide React
 - **Auth**: bcryptjs for password hashing
+- **Deployment**: Vercel (frontend static + API serverless functions)
 - **Entry Point**: `server/index.ts` (Express) -> Vite middleware -> `index.tsx` -> `App.tsx`
+- **Vercel Entry**: `api/index.ts` (Express serverless wrapper)
 
 ## Project Structure
 - `/` - Root contains main frontend app files (App.tsx, index.tsx, store.tsx, types.ts, constants.tsx)
 - `/server/` - Backend Express server (index.ts, db.ts, routes.ts)
+- `/api/` - Vercel serverless function wrapper (index.ts)
 - `/components/` - Shared layout components
 - `/views/` - Page-level view components (Dashboard, FeeEntry, FeeLedger, Reports, DefaulterList, etc.)
 - `/public/` - Static assets (logo, college photo)
