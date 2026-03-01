@@ -43,3 +43,8 @@ deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
 publicDir = "dist"
 run = ["npm", "run", "start"]
+
+[userenv]
+
+[userenv.shared]
+SUPABASE_DATABASE_URL = "postgresql://postgres:%5BArr%409703557860%5D@db.wfucbnamdxdjuwosgyhd.supabase.co:5432/postgres"

@@ -2,8 +2,11 @@ import pg from 'pg';
 import bcrypt from 'bcryptjs';
 const { Pool } = pg;
 
+const connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
+  ssl: connectionString?.includes('supabase') ? { rejectUnauthorized: false } : undefined,
 });
 
 export default pool;
