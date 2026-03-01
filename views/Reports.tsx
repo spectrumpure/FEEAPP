@@ -1214,6 +1214,9 @@ export const Reports: React.FC = () => {
             {data.map((d, i) => {
               const pct = d.totalTarget > 0 ? (d.totalPaid / d.totalTarget) * 100 : 0;
               const isBatchExpanded = expandedBatch === d.batch;
+              const beCount = d.students.filter(s => { const dd = departments.find(dep => matchesDept(s.department, dep)); return dd?.courseType === 'B.E'; }).length;
+              const meCount = d.students.filter(s => { const dd = departments.find(dep => matchesDept(s.department, dep)); return dd?.courseType === 'M.E'; }).length;
+              const leCount = d.students.filter(s => s.entryType === 'LATERAL').length;
               const batchStudentDetails = isBatchExpanded ? d.students.map(s => {
                 const t = getTargetsForStudent(s, null);
                 return { ...s, target: t.tTarget + t.uTarget, paid: t.tPaid + t.uPaid, balance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid) };
@@ -1226,6 +1229,9 @@ export const Reports: React.FC = () => {
                     <div className="flex items-center gap-2">
                       {isBatchExpanded ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-slate-400" />}
                       {d.batch}
+                      {beCount > 0 && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">B.E {beCount}</span>}
+                      {meCount > 0 && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-200">M.E {meCount}</span>}
+                      {leCount > 0 && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE {leCount}</span>}
                     </div>
                   </td>
                   <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
