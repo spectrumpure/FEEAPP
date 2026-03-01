@@ -1088,11 +1088,12 @@ export const Reports: React.FC = () => {
             {data.length === 0 && <EmptyState message="No approved transactions found." />}
             {data.map((d, i) => {
               const isExpanded = expandedFY === d.financialYear;
-              const studentMap: Record<string, { name: string; dept: string; tuition: number; university: number; other: number; txCount: number }> = {};
+              const studentMap: Record<string, { name: string; dept: string; entryType: string; courseType: string; tuition: number; university: number; other: number; txCount: number }> = {};
               if (isExpanded) {
                 d.txns.forEach(t => {
                   const s = students.find(st => st.hallTicketNumber === t.studentId);
-                  if (!studentMap[t.studentId]) studentMap[t.studentId] = { name: s?.name || t.studentId, dept: s?.department || '-', tuition: 0, university: 0, other: 0, txCount: 0 };
+                  const sDept = s ? departments.find(dd => matchesDept(s.department, dd)) : null;
+                  if (!studentMap[t.studentId]) studentMap[t.studentId] = { name: s?.name || t.studentId, dept: s?.department || '-', entryType: s?.entryType || 'REGULAR', courseType: sDept?.courseType || 'B.E', tuition: 0, university: 0, other: 0, txCount: 0 };
                   studentMap[t.studentId].txCount++;
                   if (t.feeType === 'Tuition') studentMap[t.studentId].tuition += t.amount;
                   else if (t.feeType === 'University') studentMap[t.studentId].university += t.amount;
@@ -1139,8 +1140,16 @@ export const Reports: React.FC = () => {
                             <tr key={htn} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                               <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
                               <td className="px-3 py-2 text-xs font-mono text-slate-600">{htn}</td>
-                              <td className="px-3 py-2 text-xs font-medium text-slate-700">{s.name}</td>
-                              <td className="px-3 py-2 text-xs text-slate-500">{s.dept}</td>
+                              <td className="px-3 py-2 text-xs font-medium text-slate-700">
+                                {s.name}
+                                {s.entryType === 'LATERAL' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE</span>}
+                              </td>
+                              <td className="px-3 py-2 text-xs text-slate-500">
+                                <div className="flex items-center gap-1">
+                                  {s.dept}
+                                  <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${s.courseType === 'M.E' ? 'bg-purple-50 text-purple-600 border border-purple-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>{s.courseType}</span>
+                                </div>
+                              </td>
                               <td className="px-3 py-2 text-xs text-slate-500 text-center">{s.txCount}</td>
                               <td className="px-3 py-2 text-xs text-right">{s.tuition > 0 ? formatCurrency(s.tuition) : '-'}</td>
                               <td className="px-3 py-2 text-xs text-right">{s.university > 0 ? formatCurrency(s.university) : '-'}</td>
