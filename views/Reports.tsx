@@ -1252,12 +1252,23 @@ export const Reports: React.FC = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {batchStudentDetails.map((s, idx) => (
+                            {batchStudentDetails.map((s, idx) => {
+                              const sDept = departments.find(dd => matchesDept(s.department, dd));
+                              const courseType = sDept?.courseType || 'B.E';
+                              return (
                               <tr key={s.hallTicketNumber} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                                 <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
                                 <td className="px-3 py-2 text-xs font-mono text-slate-600">{s.hallTicketNumber}</td>
-                                <td className="px-3 py-2 text-xs font-medium text-slate-700">{s.name}</td>
-                                <td className="px-3 py-2 text-xs text-slate-500">{s.department}</td>
+                                <td className="px-3 py-2 text-xs font-medium text-slate-700">
+                                  {s.name}
+                                  {s.entryType === 'LATERAL' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE</span>}
+                                </td>
+                                <td className="px-3 py-2 text-xs text-slate-500">
+                                  <div className="flex items-center gap-1">
+                                    {s.department}
+                                    <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${courseType === 'M.E' ? 'bg-purple-50 text-purple-600 border border-purple-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>{courseType}</span>
+                                  </div>
+                                </td>
                                 <td className="px-3 py-2 text-xs text-slate-500 text-center">{s.currentYear}</td>
                                 <td className="px-3 py-2 text-center">
                                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{s.admissionCategory || '-'}</span>
@@ -1266,7 +1277,8 @@ export const Reports: React.FC = () => {
                                 <td className="px-3 py-2 text-xs font-semibold text-emerald-600 text-right">{formatCurrency(s.paid)}</td>
                                 <td className={`px-3 py-2 text-xs font-semibold text-right ${s.balance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(s.balance)}</td>
                               </tr>
-                            ))}
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
