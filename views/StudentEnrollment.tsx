@@ -17,6 +17,7 @@ export const StudentEnrollment: React.FC = () => {
   const { students, departments } = useApp();
   const [batchFilter, setBatchFilter] = useState<string>('all');
   const [expandedDept, setExpandedDept] = useState<string | null>(null);
+  const [expandedYear, setExpandedYear] = useState<number | null>(null);
 
   const batches = useMemo(() => {
     const batchSet = new Set(students.map(s => s.batch).filter(Boolean));
@@ -72,6 +73,7 @@ export const StudentEnrollment: React.FC = () => {
 
   const toggleDept = (code: string) => {
     setExpandedDept(expandedDept === code ? null : code);
+    setExpandedYear(null);
   };
 
   const exportEnrollmentData = () => {
@@ -198,9 +200,14 @@ export const StudentEnrollment: React.FC = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {Array.from({ length: maxYear }, (_, i) => i + 1).map(y => {
                   const yb = data.yearBreakdown[y] || { regular: 0, lateral: 0, total: 0 };
+                  const isYearExpanded = expandedYear === y;
                   return (
-                    <div key={y} className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Year {y}</p>
+                    <div key={y} className={`rounded-xl p-3 border shadow-sm cursor-pointer transition-all ${isYearExpanded ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200' : 'bg-white border-slate-100 hover:border-blue-200'}`}
+                      onClick={(e) => { e.stopPropagation(); setExpandedYear(isYearExpanded ? null : y); }}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Year {y}</p>
+                        {isYearExpanded ? <ChevronUp size={12} className="text-blue-500" /> : <ChevronDown size={12} className="text-slate-400" />}
+                      </div>
                       <p className="text-lg font-bold text-slate-800">{yb.total}</p>
                       <div className="flex gap-3 mt-1">
                         <span className="text-[10px] text-blue-600">Regular: {yb.regular}</span>
@@ -212,6 +219,47 @@ export const StudentEnrollment: React.FC = () => {
                   );
                 })}
               </div>
+              {expandedYear && (() => {
+                const deptStudents = filteredStudents.filter(
+                  s => (s.department === data.dept.name || s.department === data.dept.code || s.department.toUpperCase() === data.dept.code.toUpperCase()) && s.currentYear === expandedYear
+                ).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
+                if (deptStudents.length === 0) return <p className="text-xs text-slate-400 mt-3">No students in Year {expandedYear}</p>;
+                return (
+                  <div className="mt-3 rounded-lg border border-slate-200 overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100">
+                          <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">S.No</th>
+                          <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Hall Ticket</th>
+                          <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Student Name</th>
+                          <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Batch</th>
+                          <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Mode</th>
+                          <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Entry</th>
+                          <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Mobile</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deptStudents.map((s, idx) => (
+                          <tr key={s.hallTicketNumber} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                            <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
+                            <td className="px-3 py-2 text-xs font-mono text-slate-600">{s.hallTicketNumber}</td>
+                            <td className="px-3 py-2 text-xs font-medium text-slate-700">{s.name}</td>
+                            <td className="px-3 py-2 text-xs text-slate-500">{s.batch || '-'}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{s.admissionCategory || '-'}</span>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {s.entryType === 'LATERAL' ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE</span> : <span className="text-[9px] text-slate-400">Regular</span>}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-slate-500">{s.mobile || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="px-3 py-2 bg-slate-50 text-[10px] text-slate-400 font-medium">{deptStudents.length} students in Year {expandedYear}</div>
+                  </div>
+                );
+              })()}
             </td>
           </tr>
         )}

@@ -14,7 +14,9 @@ import {
   Filter,
   Printer,
   BarChart3,
-  TrendingUp
+  TrendingUp,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Student } from '../types';
 
@@ -121,6 +123,7 @@ export const Reports: React.FC = () => {
   const [drDeptFilter, setDrDeptFilter] = useState<string>('all');
   const [drBatchFilter, setDrBatchFilter] = useState<string>('all');
   const [expandedDrDept, setExpandedDrDept] = useState<string | null>(null);
+  const [expandedFY, setExpandedFY] = useState<string | null>(null);
   const [flDateFrom, setFlDateFrom] = useState<string>('');
   const [flDateTo, setFlDateTo] = useState<string>('');
 
@@ -214,7 +217,7 @@ export const Reports: React.FC = () => {
   const getFinancialYearData = () => {
     const fromDate = flDateFrom ? new Date(flDateFrom) : null;
     const toDate = flDateTo ? new Date(flDateTo + 'T23:59:59') : null;
-    const grouped: Record<string, { tuition: number; university: number; other: number; count: number }> = {};
+    const grouped: Record<string, { tuition: number; university: number; other: number; count: number; txns: typeof transactions }> = {};
     const approvedTxs = transactions.filter(t => {
       if (t.status !== 'APPROVED') return false;
       if (fromDate || toDate) {
@@ -226,8 +229,9 @@ export const Reports: React.FC = () => {
     });
     approvedTxs.forEach(t => {
       const fy = t.financialYear || 'Unknown';
-      if (!grouped[fy]) grouped[fy] = { tuition: 0, university: 0, other: 0, count: 0 };
+      if (!grouped[fy]) grouped[fy] = { tuition: 0, university: 0, other: 0, count: 0, txns: [] };
       grouped[fy].count++;
+      grouped[fy].txns.push(t);
       if (t.feeType === 'Tuition') grouped[fy].tuition += t.amount;
       else if (t.feeType === 'University') grouped[fy].university += t.amount;
       else grouped[fy].other += t.amount;
@@ -1081,16 +1085,78 @@ export const Reports: React.FC = () => {
           </thead>
           <tbody>
             {data.length === 0 && <EmptyState message="No approved transactions found." />}
-            {data.map((d, i) => (
-              <tr key={d.financialYear} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                <td className={`${tdClass} font-semibold text-slate-800`}>{d.financialYear}</td>
+            {data.map((d, i) => {
+              const isExpanded = expandedFY === d.financialYear;
+              const studentMap: Record<string, { name: string; dept: string; tuition: number; university: number; other: number; txCount: number }> = {};
+              if (isExpanded) {
+                d.txns.forEach(t => {
+                  const s = students.find(st => st.hallTicketNumber === t.studentId);
+                  if (!studentMap[t.studentId]) studentMap[t.studentId] = { name: s?.name || t.studentId, dept: s?.department || '-', tuition: 0, university: 0, other: 0, txCount: 0 };
+                  studentMap[t.studentId].txCount++;
+                  if (t.feeType === 'Tuition') studentMap[t.studentId].tuition += t.amount;
+                  else if (t.feeType === 'University') studentMap[t.studentId].university += t.amount;
+                  else studentMap[t.studentId].other += t.amount;
+                });
+              }
+              const studentList = Object.entries(studentMap).sort((a, b) => a[0].localeCompare(b[0]));
+              return (
+              <React.Fragment key={d.financialYear}>
+              <tr className={`border-b border-slate-100 cursor-pointer hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                onClick={() => setExpandedFY(isExpanded ? null : d.financialYear)}>
+                <td className={`${tdClass} font-semibold text-slate-800`}>
+                  <div className="flex items-center gap-2">
+                    {isExpanded ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-slate-400" />}
+                    {d.financialYear}
+                  </div>
+                </td>
                 <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
                 <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tuition)}</td>
                 <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.university)}</td>
                 <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.other)}</td>
                 <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.total)}</td>
               </tr>
-            ))}
+              {isExpanded && (
+                <tr className="bg-blue-50/20">
+                  <td colSpan={6} className="px-4 py-3">
+                    <div className="rounded-lg border border-slate-200 overflow-hidden">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100">
+                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">S.No</th>
+                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Hall Ticket</th>
+                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Student Name</th>
+                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Dept</th>
+                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Txns</th>
+                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Tuition</th>
+                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">University</th>
+                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Other</th>
+                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {studentList.map(([htn, s], idx) => (
+                            <tr key={htn} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                              <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
+                              <td className="px-3 py-2 text-xs font-mono text-slate-600">{htn}</td>
+                              <td className="px-3 py-2 text-xs font-medium text-slate-700">{s.name}</td>
+                              <td className="px-3 py-2 text-xs text-slate-500">{s.dept}</td>
+                              <td className="px-3 py-2 text-xs text-slate-500 text-center">{s.txCount}</td>
+                              <td className="px-3 py-2 text-xs text-right">{s.tuition > 0 ? formatCurrency(s.tuition) : '-'}</td>
+                              <td className="px-3 py-2 text-xs text-right">{s.university > 0 ? formatCurrency(s.university) : '-'}</td>
+                              <td className="px-3 py-2 text-xs text-right">{s.other > 0 ? formatCurrency(s.other) : '-'}</td>
+                              <td className="px-3 py-2 text-xs font-semibold text-emerald-600 text-right">{formatCurrency(s.tuition + s.university + s.other)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2">{studentList.length} students, {d.count} transactions</p>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
+              );
+            })}
             {data.length > 0 && (
               <tr className="bg-[#1a365d] text-white">
                 <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
