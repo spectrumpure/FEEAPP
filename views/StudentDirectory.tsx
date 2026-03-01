@@ -669,7 +669,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                     <td className="px-5 py-3">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 rounded-full bg-[#2c5282] text-white flex items-center justify-center font-bold text-[10px] uppercase flex-shrink-0">
-                          {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          {(student.name || '?').split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
@@ -698,11 +698,11 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                     </td>
                     <td className="px-5 py-3">
                       <span className={`text-[10px] font-semibold px-2 py-1 rounded inline-block ${
-                        student.admissionCategory.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : 
-                        student.admissionCategory.includes('CONVENOR') || student.admissionCategory.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                        (student.admissionCategory || '').includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : 
+                        (student.admissionCategory || '').includes('CONVENOR') || (student.admissionCategory || '').includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' :
                         'bg-blue-50 text-blue-700 border border-blue-200'
                       }`}>
-                        {student.admissionCategory}
+                        {student.admissionCategory || '-'}
                       </span>
                       {student.entryType === 'LATERAL' && (
                         <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200 inline-block">LE</span>

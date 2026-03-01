@@ -352,7 +352,7 @@ export const FeeEntry: React.FC<FeeEntryProps> = ({ preSelectedHTN }) => {
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                   <div className="flex items-center space-x-4 mb-6">
                     <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-lg shadow-blue-100">
-                      {selectedStudent.name[0]}
+                      {(selectedStudent.name || '?')[0]}
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-900 uppercase leading-tight">{selectedStudent.name}</h4>
