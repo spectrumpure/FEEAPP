@@ -47,4 +47,4 @@ run = ["npm", "run", "start"]
 [userenv]
 
 [userenv.shared]
-SUPABASE_DATABASE_URL = "postgresql://postgres:%5BArr%409703557860%5D@db.wfucbnamdxdjuwosgyhd.supabase.co:5432/postgres"
+SUPABASE_DATABASE_URL = "postgresql://postgres.wfucbnamdxdjuwosgyhd:Arr%409703557860@aws-1-ap-southeast-2.pooler.supabase.com:5432/postgres"
