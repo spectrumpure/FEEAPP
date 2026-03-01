@@ -20,8 +20,7 @@ import {
   Download,
   GraduationCap,
   IndianRupee,
-  AlertTriangle,
-  UserPlus
+  AlertTriangle
 } from 'lucide-react';
 import { Student } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, LineChart, Line } from 'recharts';
@@ -48,7 +47,7 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string, 
   </div>
 );
 
-export const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNavigate }) => {
+export const Dashboard: React.FC = () => {
   const { students, departments, transactions, currentUser, getFeeTargets } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showResults, setShowResults] = useState(false);
@@ -374,33 +373,25 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ o
             <p className="text-blue-200 text-xs mt-0.5">Autonomous & Accredited by NAAC with A+ and NBA | Affiliated to Osmania University & Approved by AICTE</p>
             <p className="text-blue-300/70 text-[10px] mt-0.5 font-medium uppercase tracking-wider">Sultan-Ul-Uloom Education Society | Fee Management System</p>
           </div>
-          <div className="flex items-center gap-2">
-            {isAdmin && onNavigate && (
-              <button onClick={() => onNavigate('students')} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/80 hover:bg-emerald-500 border border-emerald-400/50 rounded-xl text-sm font-semibold transition-all backdrop-blur-sm cursor-pointer shrink-0">
-                <UserPlus size={16} />
-                <span>New Admission</span>
-              </button>
-            )}
-            {isAdmin && (
-              <button onClick={() => {
-                fetch('/api/export/students-csv')
-                  .then(r => r.blob())
-                  .then(blob => {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'students_export.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  });
-              }} className="flex items-center gap-2 px-4 py-2.5 bg-white/15 hover:bg-white/25 border border-white/30 rounded-xl text-sm font-semibold transition-all backdrop-blur-sm cursor-pointer shrink-0">
-                <Download size={16} />
-                <span>Export Data</span>
-              </button>
-            )}
-          </div>
+          {isAdmin && (
+            <button onClick={() => {
+              fetch('/api/export/students-csv')
+                .then(r => r.blob())
+                .then(blob => {
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'students_export.csv';
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                });
+            }} className="flex items-center gap-2 px-4 py-2.5 bg-white/15 hover:bg-white/25 border border-white/30 rounded-xl text-sm font-semibold transition-all backdrop-blur-sm cursor-pointer shrink-0">
+              <Download size={16} />
+              <span>Export Data</span>
+            </button>
+          )}
         </div>
       </div>
 

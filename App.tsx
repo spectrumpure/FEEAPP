@@ -233,7 +233,7 @@ const MainApp: React.FC = () => {
     }
 
     switch (activeView) {
-      case 'dashboard': return <Dashboard onNavigate={setActiveView} />;
+      case 'dashboard': return <Dashboard />;
       case 'students': return (
         <StudentDirectory 
           onFeeEntry={(htn) => {
@@ -249,7 +249,7 @@ const MainApp: React.FC = () => {
       case 'fee-entry': return <FeeEntry preSelectedHTN={preSelectedFeeHTN} />;
       case 'bulk-upload': return <BulkUpload />;
       case 'approvals': return <Approvals />;
-      case 'reports': return <Reports onStudentClick={(htn) => { setSelectedStudentHTN(htn); setActiveView('students'); }} />;
+      case 'reports': return <Reports />;
       case 'certificates': return <Certificates />;
       case 'fee-lockers': return <FeeLockers />;
       case 'defaulters': return <DefaulterList />;

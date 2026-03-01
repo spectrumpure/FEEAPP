@@ -14,9 +14,7 @@ import {
   Filter,
   Printer,
   BarChart3,
-  TrendingUp,
-  ChevronDown,
-  ChevronUp
+  TrendingUp
 } from 'lucide-react';
 import { Student } from '../types';
 
@@ -83,27 +81,9 @@ ${tableHtml}
   setTimeout(() => win.print(), 500);
 };
 
-const thClass = "px-4 py-3.5 text-[10px] font-bold text-slate-700 uppercase tracking-wider";
+const thClass = "px-4 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider";
 const tdClass = "px-4 py-3 text-sm";
 const selectClass = "bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all cursor-pointer";
-
-const parsePaymentDate = (dateStr: string): Date => {
-  if (!dateStr) return new Date(NaN);
-  const dotParts = dateStr.trim().split('.');
-  if (dotParts.length === 3) {
-    const [dd, mm, yyyy] = dotParts;
-    return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
-  }
-  const dashParts = dateStr.trim().split('-');
-  if (dashParts.length === 3 && dashParts[0].length === 4) {
-    return new Date(dateStr);
-  }
-  if (dashParts.length === 3 && dashParts[2].length === 4) {
-    const [dd, mm, yyyy] = dashParts;
-    return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
-  }
-  return new Date(dateStr);
-};
 
 const matchesDept = (studentDept: string, dept: { name: string; code: string }) =>
   studentDept === dept.name || studentDept === dept.code || studentDept.toUpperCase() === dept.code.toUpperCase();
@@ -111,7 +91,7 @@ const matchesDept = (studentDept: string, dept: { name: string; code: string }) 
 const findDeptForStudent = (studentDept: string, deptList: { name: string; code: string; duration?: number; courseType?: string }[]) =>
   deptList.find(d => matchesDept(studentDept, d));
 
-export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ onStudentClick }) => {
+export const Reports: React.FC = () => {
   const { students, departments, transactions, getFeeTargets } = useApp();
   const [activeTab, setActiveTab] = useState<ReportTab>('dept_summary');
   const [yearFilter, setYearFilter] = useState<string>('all');
@@ -123,11 +103,6 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
   const [drDeptFilter, setDrDeptFilter] = useState<string>('all');
   const [drBatchFilter, setDrBatchFilter] = useState<string>('all');
   const [expandedDrDept, setExpandedDrDept] = useState<string | null>(null);
-  const [expandedFY, setExpandedFY] = useState<string | null>(null);
-  const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
-  const [expandedDeptKey, setExpandedDeptKey] = useState<string | null>(null);
-  const [flDateFrom, setFlDateFrom] = useState<string>('');
-  const [flDateTo, setFlDateTo] = useState<string>('');
 
   const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} />, desc: 'Revenue by department' },
@@ -178,17 +153,9 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     return { tTarget, uTarget, tPaid, uPaid };
   };
 
-  const getTargetsForStudent = (s: Student, filterYear: number | null) => {
-    const fromDate = flDateFrom ? new Date(flDateFrom) : null;
-    const toDate = flDateTo ? new Date(flDateTo + 'T23:59:59') : null;
-    return (flDateFrom || flDateTo)
-      ? getStudentTargetsWithDateRange(s, filterYear, fromDate, toDate)
-      : getStudentTargets(s, filterYear);
-  };
-
   const getDeptSummaryData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
-    const rows: { department: string; code: string; courseType: string; entryLabel: string; count: number; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalReceived: number; totalBalance: number; students: Student[] }[] = [];
+    const rows: { department: string; code: string; courseType: string; entryLabel: string; count: number; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalReceived: number; totalBalance: number }[] = [];
     departments.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
@@ -197,14 +164,13 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
       const calcRow = (subset: typeof deptStudents, label: string) => {
         let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
         subset.forEach(s => {
-          const t = getTargetsForStudent(s, filterYear);
+          const t = getStudentTargets(s, filterYear);
           tTarget += t.tTarget; uTarget += t.uTarget; tPaid += t.tPaid; uPaid += t.uPaid;
         });
         rows.push({
           department: dept.name, code: dept.code, courseType: dept.courseType, entryLabel: label,
           count: subset.length, tTarget, uTarget, tPaid, uPaid,
           totalReceived: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
-          students: subset,
         });
       };
       if (lateralStudents.length > 0) {
@@ -218,23 +184,12 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
   };
 
   const getFinancialYearData = () => {
-    const fromDate = flDateFrom ? new Date(flDateFrom) : null;
-    const toDate = flDateTo ? new Date(flDateTo + 'T23:59:59') : null;
-    const grouped: Record<string, { tuition: number; university: number; other: number; count: number; txns: typeof transactions }> = {};
-    const approvedTxs = transactions.filter(t => {
-      if (t.status !== 'APPROVED') return false;
-      if (fromDate || toDate) {
-        const txDate = parsePaymentDate(t.paymentDate);
-        if (fromDate && txDate < fromDate) return false;
-        if (toDate && txDate > toDate) return false;
-      }
-      return true;
-    });
+    const grouped: Record<string, { tuition: number; university: number; other: number; count: number }> = {};
+    const approvedTxs = transactions.filter(t => t.status === 'APPROVED');
     approvedTxs.forEach(t => {
       const fy = t.financialYear || 'Unknown';
-      if (!grouped[fy]) grouped[fy] = { tuition: 0, university: 0, other: 0, count: 0, txns: [] };
+      if (!grouped[fy]) grouped[fy] = { tuition: 0, university: 0, other: 0, count: 0 };
       grouped[fy].count++;
-      grouped[fy].txns.push(t);
       if (t.feeType === 'Tuition') grouped[fy].tuition += t.amount;
       else if (t.feeType === 'University') grouped[fy].university += t.amount;
       else grouped[fy].other += t.amount;
@@ -254,49 +209,12 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     return Object.entries(grouped).map(([batch, batchStudents]) => {
       let totalTarget = 0, totalPaid = 0;
       batchStudents.forEach(s => {
-        const t = getTargetsForStudent(s, null);
+        const t = getStudentTargets(s, null);
         totalTarget += t.tTarget + t.uTarget;
         totalPaid += t.tPaid + t.uPaid;
       });
-      return { batch, count: batchStudents.length, totalTarget, totalPaid, balance: totalTarget - totalPaid, students: batchStudents };
+      return { batch, count: batchStudents.length, totalTarget, totalPaid, balance: totalTarget - totalPaid };
     }).sort((a, b) => a.batch.localeCompare(b.batch));
-  };
-
-  const getStudentTargetsWithDateRange = (s: Student, filterYear: number | null, fromDate: Date | null, toDate: Date | null) => {
-    const dept = departments.find(d => matchesDept(s.department, d));
-    const duration = dept?.duration || 4;
-    const isLateral = s.entryType === 'LATERAL';
-    const startYear = isLateral ? 2 : 1;
-    let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
-    const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
-    if (filterYear && (filterYear > duration || (isLateral && filterYear < startYear))) {
-      return { tTarget: 0, uTarget: 0, tPaid: 0, uPaid: 0 };
-    }
-    if (lockers.length > 0) {
-      lockers.forEach(l => {
-        tTarget += l.tuitionTarget;
-        uTarget += l.universityTarget;
-        l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-          const txDate = parsePaymentDate(t.paymentDate);
-          const inRange = (!fromDate || txDate >= fromDate) && (!toDate || txDate <= toDate);
-          if (inRange) {
-            if (t.feeType === 'Tuition') tPaid += t.amount;
-            else if (t.feeType === 'University') uPaid += t.amount;
-          }
-        });
-      });
-    } else {
-      if (filterYear) {
-        const targets = getFeeTargets(s.department, filterYear, s.entryType, s.admissionYear);
-        tTarget = targets.tuition; uTarget = targets.university;
-      } else {
-        for (let y = startYear; y <= Math.min(s.currentYear, duration); y++) {
-          const targets = getFeeTargets(s.department, y, s.entryType, s.admissionYear);
-          tTarget += targets.tuition; uTarget += targets.university;
-        }
-      }
-    }
-    return { tTarget, uTarget, tPaid, uPaid };
   };
 
   const getStudentMasterData = () => {
@@ -309,7 +227,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     return filtered.map(s => {
-      const t = getTargetsForStudent(s, filterYear);
+      const t = getStudentTargets(s, filterYear);
       return { ...s, tTarget: t.tTarget, tPaid: t.tPaid, tBalance: t.tTarget - t.tPaid, uTarget: t.uTarget, uPaid: t.uPaid, uBalance: t.uTarget - t.uPaid, totalPaid: t.tPaid + t.uPaid, totalBalance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid) };
     }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
   };
@@ -331,12 +249,12 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     return students.filter(s => {
       if (batchFilter !== 'all' && s.batch !== batchFilter) return false;
       if (filterDeptObj && !matchesDept(s.department, filterDeptObj)) return false;
-      const t = getTargetsForStudent(s, filterYear);
+      const t = getStudentTargets(s, filterYear);
       const totalTarget = t.tTarget + t.uTarget;
       const totalPaid = t.tPaid + t.uPaid;
       return totalPaid < totalTarget;
     }).map(s => {
-      const t = getTargetsForStudent(s, filterYear);
+      const t = getStudentTargets(s, filterYear);
       const totalTarget = t.tTarget + t.uTarget;
       const totalPaid = t.tPaid + t.uPaid;
       return { ...s, totalTarget, totalPaid, balance: totalTarget - totalPaid };
@@ -372,8 +290,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
       <td class="text-right">${formatCurrency(total.uTarget)}</td><td class="text-right">${formatCurrency(total.uPaid)}</td>
       <td class="text-right">${formatCurrency(total.totalReceived)}</td><td class="text-right">${formatCurrency(total.totalBalance)}</td>
     </tr></tbody></table>`;
-    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
-    exportPDF(`Dept Summary Report${dateLabel}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ' - All Years'}`, html);
+    exportPDF(`Dept Summary Report${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ' - All Years'}`, html);
   };
 
   const handleExportFinYear = () => {
@@ -399,8 +316,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
       <td class="text-right">${formatCurrency(total.tuition)}</td><td class="text-right">${formatCurrency(total.university)}</td>
       <td class="text-right">${formatCurrency(total.other)}</td><td class="text-right">${formatCurrency(total.total)}</td>
     </tr></tbody></table>`;
-    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
-    exportPDF(`Financial Year Wise Report${dateLabel}`, html);
+    exportPDF('Financial Year Wise Report', html);
   };
 
   const handleExportBatchWise = () => {
@@ -424,8 +340,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
       <td class="text-right">${formatCurrency(total.totalTarget)}</td><td class="text-right">${formatCurrency(total.totalPaid)}</td>
       <td class="text-right">${formatCurrency(total.balance)}</td>
     </tr></tbody></table>`;
-    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
-    exportPDF(`Batch Wise Fee Report${dateLabel}`, html);
+    exportPDF('Batch Wise Fee Report', html);
   };
 
   const handleExportStudentMaster = () => {
@@ -464,8 +379,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
       <td class="text-right">${formatCurrency(totals.totalPaid)}</td><td class="text-right">${formatCurrency(totals.totalBalance)}</td>
     </tr></tbody></table>
     <div style="margin-top:12px;font-size:9px;color:#718096;text-align:right;">Total Students: ${data.length}</div>`;
-    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
-    exportPDF(`Student Master Fee List${dateLabel}${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
+    exportPDF(`Student Master Fee List${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
   };
 
   const handleExportStudentInfo = () => {
@@ -521,8 +435,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
       <td class="text-right">${formatCurrency(totals.totalPaid)}</td>
       <td class="text-right">${formatCurrency(totals.balance)}</td>
     </tr></tbody></table>`;
-    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
-    exportPDF(`Fee Defaulters Report${dateLabel}${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
+    exportPDF(`Fee Defaulters Report${deptFilter !== 'all' ? ` - ${deptFilter}` : ''}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
   };
 
   const getCategoryAnalysisData = () => {
@@ -542,7 +455,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     const getCatFees = (sList: typeof students, fy: number | null) => {
       let tuiTarget = 0, uniTarget = 0, tuiPaid = 0, uniPaid = 0;
       sList.forEach(s => {
-        const t = getTargetsForStudent(s, fy);
+        const t = getStudentTargets(s, fy);
         tuiTarget += t.tTarget;
         uniTarget += t.uTarget;
         tuiPaid += t.tPaid;
@@ -636,8 +549,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
       <td class="text-right">${formatCurrency(total.convTuiPaid)}</td><td class="text-right">${formatCurrency(total.convUniPaid)}</td><td class="text-right">${formatCurrency(total.convBalance)}</td>
       <td class="text-center font-bold">${total.all}</td>
     </tr></tbody></table>`;
-    const dateLabel = (flDateFrom || flDateTo) ? ` (${flDateFrom || '...'} to ${flDateTo || '...'})` : '';
-    exportPDF(`Admission Category Fee Analysis${dateLabel}${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
+    exportPDF(`Admission Category Fee Analysis${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
   };
 
   const getDateRangeData = () => {
@@ -667,7 +579,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
             tTarget += l.tuitionTarget;
             uTarget += l.universityTarget;
             l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-              const txDate = parsePaymentDate(t.paymentDate);
+              const txDate = new Date(t.paymentDate);
               const inRange = (!from || txDate >= from) && (!to || txDate <= to);
               if (inRange) {
                 if (t.feeType === 'Tuition') tPaid += t.amount;
@@ -820,7 +732,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full">
             <thead>
-              <tr className="bg-slate-200/80">
+              <tr className="bg-slate-50">
                 <th className={thClass + ' text-left'}>Department</th>
                 <th className={thClass + ' text-center'}>Total</th>
                 <th className={thClass + ' text-center'}>Paid</th>
@@ -875,8 +787,8 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
                                   <tbody>
                                     {d.results.sort((a, b) => a.student.hallTicketNumber.localeCompare(b.student.hallTicketNumber)).map((r, ri) => (
                                       <tr key={r.student.hallTicketNumber} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                                        <td className="px-3 py-2 text-xs font-mono text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(r.student.hallTicketNumber); }}>{r.student.hallTicketNumber}</td>
-                                        <td className="px-3 py-2 text-xs text-blue-600 font-medium cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(r.student.hallTicketNumber); }}>{r.student.name}</td>
+                                        <td className="px-3 py-2 text-xs font-mono text-slate-600">{r.student.hallTicketNumber}</td>
+                                        <td className="px-3 py-2 text-xs text-slate-700 font-medium">{r.student.name}</td>
                                         <td className="px-3 py-2 text-xs text-center">{r.student.currentYear}</td>
                                         <td className="px-3 py-2 text-xs text-center">
                                           {r.student.entryType === 'LATERAL' ? <span className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">LE</span> : <span className="text-slate-400">R</span>}
@@ -971,27 +883,6 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     </div>
   );
 
-  const DateFilterInputs = () => (
-    <>
-      <div className="flex flex-col gap-1">
-        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">From Date</label>
-        <input type="date" value={flDateFrom} onChange={e => setFlDateFrom(e.target.value)}
-          className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">To Date</label>
-        <input type="date" value={flDateTo} onChange={e => setFlDateTo(e.target.value)}
-          className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
-      </div>
-    </>
-  );
-
-  const DateRangeBanner = () => (flDateFrom || flDateTo) ? (
-    <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
-      Showing fee payments from <strong>{flDateFrom || 'beginning'}</strong> to <strong>{flDateTo || 'present'}</strong>. Targets reflect full fee obligation. Paid/Balance columns show amounts collected in this period.
-    </div>
-  ) : null;
-
   const renderDeptSummary = () => {
     const data = getDeptSummaryData();
     const total = data.reduce((acc, d) => ({
@@ -1003,7 +894,6 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     return (
       <div>
         <FilterBar>
-          <DateFilterInputs />
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
             {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
@@ -1016,11 +906,10 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
             <option value="4">4th Year</option>
           </SelectFilter>
         </FilterBar>
-        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-200/80">
+              <tr className="bg-slate-50/80">
                 <th className={thClass}>Department</th>
                 <th className={`${thClass} text-center`}>Students</th>
                 <th className={`${thClass} text-right`}>T.Target</th>
@@ -1032,24 +921,9 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
               </tr>
             </thead>
             <tbody>
-              {data.map((d, i) => {
-                const deptKey = `${d.code}-${d.entryLabel}`;
-                const isDeptExpanded = expandedDeptKey === deptKey;
-                const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
-                const deptStudentDetails = isDeptExpanded ? d.students.map(s => {
-                  const t = getTargetsForStudent(s, filterYear);
-                  return { ...s, tTarget: t.tTarget, uTarget: t.uTarget, tPaid: t.tPaid, uPaid: t.uPaid, totalPaid: t.tPaid + t.uPaid, totalBalance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid) };
-                }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber)) : [];
-                return (
-                <React.Fragment key={deptKey}>
-                <tr className={`border-b border-slate-100 cursor-pointer hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
-                  onClick={() => setExpandedDeptKey(isDeptExpanded ? null : deptKey)}>
-                  <td className={`${tdClass} font-semibold text-slate-800`}>
-                    <div className="flex items-center gap-2">
-                      {isDeptExpanded ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-slate-400" />}
-                      {d.courseType}({d.code}){d.entryLabel ? <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${d.entryLabel === 'Lateral' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{d.entryLabel}</span> : ''}
-                    </div>
-                  </td>
+              {data.map((d, i) => (
+                <tr key={`${d.code}-${d.entryLabel}`} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <td className={`${tdClass} font-semibold text-slate-800`}>{d.courseType}({d.code}){d.entryLabel ? <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${d.entryLabel === 'Lateral' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{d.entryLabel}</span> : ''}</td>
                   <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
                   <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tTarget)}</td>
                   <td className={`${tdClass} font-semibold text-amber-600 text-right`}>{formatCurrency(d.tPaid)}</td>
@@ -1058,57 +932,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
                   <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.totalReceived)}</td>
                   <td className={`${tdClass} font-semibold text-right ${d.totalBalance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(d.totalBalance)}</td>
                 </tr>
-                {isDeptExpanded && (
-                  <tr className="bg-blue-50/20">
-                    <td colSpan={8} className="px-4 py-3">
-                      <div className="rounded-lg border border-slate-200 overflow-hidden">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-slate-100">
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">S.No</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Hall Ticket</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Student Name</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Year</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Mode</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">T.Target</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">T.Paid</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">U.Target</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">U.Paid</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Total Paid</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Balance</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {deptStudentDetails.map((s, idx) => (
-                              <tr key={s.hallTicketNumber} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                                <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
-                                <td className="px-3 py-2 text-xs font-mono text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(s.hallTicketNumber); }}>{s.hallTicketNumber}</td>
-                                <td className="px-3 py-2 text-xs font-medium text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(s.hallTicketNumber); }}>
-                                  {s.name}
-                                  {s.entryType === 'LATERAL' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE</span>}
-                                </td>
-                                <td className="px-3 py-2 text-xs text-slate-500 text-center">{s.currentYear}</td>
-                                <td className="px-3 py-2 text-center">
-                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{s.admissionCategory || '-'}</span>
-                                </td>
-                                <td className="px-3 py-2 text-xs text-right">{formatCurrency(s.tTarget)}</td>
-                                <td className="px-3 py-2 text-xs font-semibold text-amber-600 text-right">{formatCurrency(s.tPaid)}</td>
-                                <td className="px-3 py-2 text-xs text-right">{formatCurrency(s.uTarget)}</td>
-                                <td className="px-3 py-2 text-xs font-semibold text-blue-600 text-right">{formatCurrency(s.uPaid)}</td>
-                                <td className="px-3 py-2 text-xs font-semibold text-emerald-600 text-right">{formatCurrency(s.totalPaid)}</td>
-                                <td className={`px-3 py-2 text-xs font-semibold text-right ${s.totalBalance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(s.totalBalance)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-2">{deptStudentDetails.length} students</p>
-                    </td>
-                  </tr>
-                )}
-                </React.Fragment>
-                );
-              })}
+              ))}
               <tr className="bg-[#1a365d] text-white">
                 <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
                 <td className={`${tdClass} font-bold text-center`}>{total.count}</td>
@@ -1134,15 +958,10 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     }), { tuition: 0, university: 0, other: 0, count: 0, total: 0 });
 
     return (
-      <div>
-        <FilterBar>
-          <DateFilterInputs />
-        </FilterBar>
-        <DateRangeBanner />
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-200/80">
+            <tr className="bg-slate-50/80">
               <th className={thClass}>Financial Year</th>
               <th className={`${thClass} text-center`}>Transactions</th>
               <th className={`${thClass} text-right`}>Tuition Collected</th>
@@ -1153,88 +972,16 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
           </thead>
           <tbody>
             {data.length === 0 && <EmptyState message="No approved transactions found." />}
-            {data.map((d, i) => {
-              const isExpanded = expandedFY === d.financialYear;
-              const studentMap: Record<string, { name: string; dept: string; entryType: string; courseType: string; tuition: number; university: number; other: number; txCount: number }> = {};
-              if (isExpanded) {
-                d.txns.forEach(t => {
-                  const htn = t.studentHTN;
-                  const s = students.find(st => st.hallTicketNumber === htn);
-                  const sDept = s ? departments.find(dd => matchesDept(s.department, dd)) : null;
-                  if (!studentMap[htn]) studentMap[htn] = { name: s?.name || htn, dept: s?.department || '-', entryType: s?.entryType || 'REGULAR', courseType: sDept?.courseType || 'B.E', tuition: 0, university: 0, other: 0, txCount: 0 };
-                  studentMap[htn].txCount++;
-                  if (t.feeType === 'Tuition') studentMap[htn].tuition += t.amount;
-                  else if (t.feeType === 'University') studentMap[htn].university += t.amount;
-                  else studentMap[htn].other += t.amount;
-                });
-              }
-              const studentList = Object.entries(studentMap).sort((a, b) => a[0].localeCompare(b[0]));
-              return (
-              <React.Fragment key={d.financialYear}>
-              <tr className={`border-b border-slate-100 cursor-pointer hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
-                onClick={() => setExpandedFY(isExpanded ? null : d.financialYear)}>
-                <td className={`${tdClass} font-semibold text-slate-800`}>
-                  <div className="flex items-center gap-2">
-                    {isExpanded ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-slate-400" />}
-                    {d.financialYear}
-                  </div>
-                </td>
+            {data.map((d, i) => (
+              <tr key={d.financialYear} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                <td className={`${tdClass} font-semibold text-slate-800`}>{d.financialYear}</td>
                 <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
                 <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tuition)}</td>
                 <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.university)}</td>
                 <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.other)}</td>
                 <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.total)}</td>
               </tr>
-              {isExpanded && (
-                <tr className="bg-blue-50/20">
-                  <td colSpan={6} className="px-4 py-3">
-                    <div className="rounded-lg border border-slate-200 overflow-hidden">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-100">
-                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">S.No</th>
-                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Hall Ticket</th>
-                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Student Name</th>
-                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Dept</th>
-                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Txns</th>
-                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Tuition</th>
-                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">University</th>
-                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Other</th>
-                            <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {studentList.map(([htn, s], idx) => (
-                            <tr key={htn} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                              <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
-                              <td className="px-3 py-2 text-xs font-mono text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(htn); }}>{htn}</td>
-                              <td className="px-3 py-2 text-xs font-medium text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(htn); }}>
-                                {s.name}
-                                {s.entryType === 'LATERAL' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE</span>}
-                              </td>
-                              <td className="px-3 py-2 text-xs text-slate-500">
-                                <div className="flex items-center gap-1">
-                                  {s.dept}
-                                  <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${s.courseType === 'M.E' ? 'bg-purple-50 text-purple-600 border border-purple-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>{s.courseType}</span>
-                                </div>
-                              </td>
-                              <td className="px-3 py-2 text-xs text-slate-500 text-center">{s.txCount}</td>
-                              <td className="px-3 py-2 text-xs text-right">{s.tuition > 0 ? formatCurrency(s.tuition) : '-'}</td>
-                              <td className="px-3 py-2 text-xs text-right">{s.university > 0 ? formatCurrency(s.university) : '-'}</td>
-                              <td className="px-3 py-2 text-xs text-right">{s.other > 0 ? formatCurrency(s.other) : '-'}</td>
-                              <td className="px-3 py-2 text-xs font-semibold text-emerald-600 text-right">{formatCurrency(s.tuition + s.university + s.other)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-2">{studentList.length} students, {d.count} transactions</p>
-                  </td>
-                </tr>
-              )}
-              </React.Fragment>
-              );
-            })}
+            ))}
             {data.length > 0 && (
               <tr className="bg-[#1a365d] text-white">
                 <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
@@ -1248,7 +995,6 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
           </tbody>
         </table>
       </div>
-      </div>
     );
   };
 
@@ -1260,15 +1006,10 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     }), { count: 0, totalTarget: 0, totalPaid: 0, balance: 0 });
 
     return (
-      <div>
-        <FilterBar>
-          <DateFilterInputs />
-        </FilterBar>
-        <DateRangeBanner />
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-200/80">
+            <tr className="bg-slate-50/80">
               <th className={thClass}>Batch</th>
               <th className={`${thClass} text-center`}>Students</th>
               <th className={`${thClass} text-right`}>Total Target</th>
@@ -1280,27 +1021,9 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
           <tbody>
             {data.map((d, i) => {
               const pct = d.totalTarget > 0 ? (d.totalPaid / d.totalTarget) * 100 : 0;
-              const isBatchExpanded = expandedBatch === d.batch;
-              const beCount = d.students.filter(s => { const dd = departments.find(dep => matchesDept(s.department, dep)); return dd?.courseType === 'B.E'; }).length;
-              const meCount = d.students.filter(s => { const dd = departments.find(dep => matchesDept(s.department, dep)); return dd?.courseType === 'M.E'; }).length;
-              const leCount = d.students.filter(s => s.entryType === 'LATERAL').length;
-              const batchStudentDetails = isBatchExpanded ? d.students.map(s => {
-                const t = getTargetsForStudent(s, null);
-                return { ...s, target: t.tTarget + t.uTarget, paid: t.tPaid + t.uPaid, balance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid) };
-              }).sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber)) : [];
               return (
-                <React.Fragment key={d.batch}>
-                <tr className={`border-b border-slate-100 cursor-pointer hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
-                  onClick={() => setExpandedBatch(isBatchExpanded ? null : d.batch)}>
-                  <td className={`${tdClass} font-semibold text-slate-800`}>
-                    <div className="flex items-center gap-2">
-                      {isBatchExpanded ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-slate-400" />}
-                      {d.batch}
-                      {beCount > 0 && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">B.E {beCount}</span>}
-                      {meCount > 0 && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-200">M.E {meCount}</span>}
-                      {leCount > 0 && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE {leCount}</span>}
-                    </div>
-                  </td>
+                <tr key={d.batch} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <td className={`${tdClass} font-semibold text-slate-800`}>{d.batch}</td>
                   <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
                   <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.totalTarget)}</td>
                   <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.totalPaid)}</td>
@@ -1316,60 +1039,6 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
                     </div>
                   </td>
                 </tr>
-                {isBatchExpanded && (
-                  <tr className="bg-blue-50/20">
-                    <td colSpan={6} className="px-4 py-3">
-                      <div className="rounded-lg border border-slate-200 overflow-hidden">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-slate-100">
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">S.No</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Hall Ticket</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Student Name</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase">Dept</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Year</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-center">Mode</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Target</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Paid</th>
-                              <th className="px-3 py-2 text-[9px] font-bold text-slate-600 uppercase text-right">Balance</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {batchStudentDetails.map((s, idx) => {
-                              const sDept = departments.find(dd => matchesDept(s.department, dd));
-                              const courseType = sDept?.courseType || 'B.E';
-                              return (
-                              <tr key={s.hallTicketNumber} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                                <td className="px-3 py-2 text-xs text-slate-400">{idx + 1}</td>
-                                <td className="px-3 py-2 text-xs font-mono text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(s.hallTicketNumber); }}>{s.hallTicketNumber}</td>
-                                <td className="px-3 py-2 text-xs font-medium text-blue-600 cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onStudentClick?.(s.hallTicketNumber); }}>
-                                  {s.name}
-                                  {s.entryType === 'LATERAL' && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE</span>}
-                                </td>
-                                <td className="px-3 py-2 text-xs text-slate-500">
-                                  <div className="flex items-center gap-1">
-                                    {s.department}
-                                    <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${courseType === 'M.E' ? 'bg-purple-50 text-purple-600 border border-purple-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>{courseType}</span>
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2 text-xs text-slate-500 text-center">{s.currentYear}</td>
-                                <td className="px-3 py-2 text-center">
-                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{s.admissionCategory || '-'}</span>
-                                </td>
-                                <td className="px-3 py-2 text-xs text-right">{formatCurrency(s.target)}</td>
-                                <td className="px-3 py-2 text-xs font-semibold text-emerald-600 text-right">{formatCurrency(s.paid)}</td>
-                                <td className={`px-3 py-2 text-xs font-semibold text-right ${s.balance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(s.balance)}</td>
-                              </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-2">{batchStudentDetails.length} students in batch {d.batch}</p>
-                    </td>
-                  </tr>
-                )}
-                </React.Fragment>
               );
             })}
             {data.length > 0 && (
@@ -1389,7 +1058,6 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
           </tbody>
         </table>
       </div>
-      </div>
     );
   };
 
@@ -1404,7 +1072,6 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     return (
       <div>
         <FilterBar count={data.length} countLabel="students">
-          <DateFilterInputs />
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
             {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
@@ -1421,11 +1088,10 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
             <option value="4">4th Year</option>
           </SelectFilter>
         </FilterBar>
-        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="bg-slate-200/80">
+              <tr className="bg-slate-50/80">
                 <th className={`${thClass} text-center w-10`}>S.No</th>
                 <th className={thClass}>Hall Ticket</th>
                 <th className={thClass}>Name</th>
@@ -1446,8 +1112,8 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
               {data.map((s, i) => (
                 <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className="px-3 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
-                  <td className="px-3 py-2.5 text-xs font-mono font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.hallTicketNumber}</td>
-                  <td className="px-3 py-2.5 text-xs font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.name}</td>
+                  <td className="px-3 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-slate-800">{s.name}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
                   <td className="px-3 py-2.5 text-center">
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : s.admissionCategory?.includes('CONVENOR') || s.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
@@ -1501,7 +1167,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="bg-slate-200/80">
+              <tr className="bg-slate-50/80">
                 <th className={`${thClass} text-center w-10`}>S.No</th>
                 <th className={thClass}>Hall Ticket</th>
                 <th className={thClass}>Name</th>
@@ -1522,8 +1188,8 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
               {data.map((s, i) => (
                 <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className="px-3 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
-                  <td className="px-3 py-2.5 text-xs font-mono font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.hallTicketNumber}</td>
-                  <td className="px-3 py-2.5 text-xs font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.name}</td>
+                  <td className="px-3 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-slate-800">{s.name}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500">{s.fatherName}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500">{s.motherName}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.sex}</td>
@@ -1556,7 +1222,6 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     return (
       <div>
         <FilterBar count={data.length} countLabel="defaulters">
-          <DateFilterInputs />
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
             {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
@@ -1580,11 +1245,10 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
             </div>
           )}
         </FilterBar>
-        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-200/80">
+              <tr className="bg-slate-50/80">
                 <th className={`${thClass} text-center w-12`}>S.No</th>
                 <th className={thClass}>Hall Ticket</th>
                 <th className={thClass}>Student Name</th>
@@ -1601,8 +1265,8 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
               {data.map((s, i) => (
                 <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-red-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className="px-4 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
-                  <td className="px-4 py-2.5 text-xs font-mono font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.hallTicketNumber}</td>
-                  <td className="px-4 py-2.5 text-sm font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => onStudentClick?.(s.hallTicketNumber)}>{s.name}{s.entryType === 'LATERAL' && <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-purple-100 text-purple-700">LE</span>}</td>
+                  <td className="px-4 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
+                  <td className="px-4 py-2.5 text-sm font-semibold text-slate-800">{s.name}{s.entryType === 'LATERAL' && <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-purple-100 text-purple-700">LE</span>}</td>
                   <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{s.department.replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
                   <td className="px-4 py-2.5 text-center">
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : s.admissionCategory?.includes('CONVENOR') || s.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
@@ -1645,7 +1309,6 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
     return (
       <div>
         <FilterBar count={total.all} countLabel="students">
-          <DateFilterInputs />
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
             {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
@@ -1658,18 +1321,17 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
             <option value="4">4th Year</option>
           </SelectFilter>
         </FilterBar>
-        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="bg-slate-200/80">
+              <tr className="bg-slate-50/80">
                 <th className={thClass} rowSpan={2}>Department</th>
                 <th className="px-2 py-2 text-[9px] font-bold text-blue-800 uppercase tracking-wider bg-blue-50 text-center border-b border-blue-200" colSpan={5}>TSMFC</th>
                 <th className="px-2 py-2 text-[9px] font-bold text-amber-800 uppercase tracking-wider bg-amber-50 text-center border-b border-amber-200" colSpan={5}>Management Quota</th>
                 <th className="px-2 py-2 text-[9px] font-bold text-purple-800 uppercase tracking-wider bg-purple-50 text-center border-b border-purple-200" colSpan={5}>Convenor</th>
                 <th className="px-2 py-2 text-[9px] font-bold text-slate-700 uppercase tracking-wider bg-slate-100 text-center border-b border-slate-300" rowSpan={2}>Total</th>
               </tr>
-              <tr className="bg-slate-200/80">
+              <tr className="bg-slate-50/80">
                 <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-center">Count</th>
                 <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Target</th>
                 <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Tui. Paid</th>
@@ -1786,7 +1448,7 @@ export const Reports: React.FC<{ onStudentClick?: (htn: string) => void }> = ({ 
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setYearFilter('all'); setDeptFilter('all'); setBatchFilter('all'); setFlDateFrom(''); setFlDateTo(''); }}
+            onClick={() => { setActiveTab(tab.id); setYearFilter('all'); setDeptFilter('all'); setBatchFilter('all'); }}
             className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-all border ${
               activeTab === tab.id
                 ? 'bg-[#1a365d] text-white border-[#1a365d] shadow-md shadow-blue-900/20'

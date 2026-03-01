@@ -16,12 +16,7 @@ import {
   Edit2,
   Save,
   StickyNote,
-  X,
-  ChevronDown,
-  ChevronUp,
-  Building2,
-  List,
-  LayoutGrid
+  X
 } from 'lucide-react';
 import { Student, CourseType, YearLocker, StudentRemark } from '../types';
 import { COURSES, SECTIONS, normalizeDepartment } from '../constants';
@@ -134,8 +129,6 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
 
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [yearFilter, setYearFilter] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'department'>('department');
-  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
 
 
   const filteredStudents = students.filter(s => {
@@ -495,22 +488,6 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
             <option value="3">3rd Year</option>
             <option value="4">4th Year</option>
           </select>
-          <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-            <button
-              onClick={() => setViewMode('department')}
-              className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors ${viewMode === 'department' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-            >
-              <LayoutGrid size={14} />
-              <span>By Dept</span>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-            >
-              <List size={14} />
-              <span>List</span>
-            </button>
-          </div>
         </div>
         <div className="flex items-center space-x-2">
           <button 
@@ -632,144 +609,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         </div>
       )}
 
-      {viewMode === 'department' && (() => {
-        const matchDept = (sDept: string, dept: { name: string; code: string }) => {
-          const norm = sDept.toUpperCase().trim();
-          return norm === dept.name.toUpperCase().trim() || norm === dept.code.toUpperCase().trim() || norm === normalizeDepartment(dept.name).toUpperCase().trim();
-        };
-        const deptGroups = departments.map(dept => {
-          const deptStudents = filteredStudents.filter(s => matchDept(s.department, dept));
-          return { dept, students: deptStudents };
-        }).filter(g => g.students.length > 0);
-        const toggleDept = (deptName: string) => {
-          setExpandedDepts(prev => {
-            const next = new Set(prev);
-            if (next.has(deptName)) next.delete(deptName); else next.add(deptName);
-            return next;
-          });
-        };
-        return (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between px-1 mb-3">
-              <p className="text-xs font-medium text-slate-500">
-                <span className="font-bold text-slate-700">{deptGroups.length}</span> departments, <span className="font-bold text-slate-700">{filteredStudents.length}</span> students
-              </p>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setExpandedDepts(new Set(deptGroups.map(g => g.dept.name)))} className="text-[10px] text-blue-600 hover:underline font-medium">Expand All</button>
-                <span className="text-slate-300">|</span>
-                <button onClick={() => setExpandedDepts(new Set())} className="text-[10px] text-blue-600 hover:underline font-medium">Collapse All</button>
-              </div>
-            </div>
-            {deptGroups.map(({ dept, students: deptStudents }) => {
-              const isExpanded = expandedDepts.has(dept.name);
-              const leCount = deptStudents.filter(s => s.entryType === 'LATERAL').length;
-              return (
-                <div key={dept.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div
-                    className="px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-blue-50/30 transition-colors"
-                    onClick={() => toggleDept(dept.name)}
-                  >
-                    <div className="flex items-center gap-3">
-                      {isExpanded ? <ChevronUp size={16} className="text-blue-500" /> : <ChevronDown size={16} className="text-slate-400" />}
-                      <Building2 size={18} className={isExpanded ? 'text-blue-600' : 'text-slate-400'} />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-800 text-sm">{dept.code}</span>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${dept.courseType === 'M.E' ? 'bg-purple-50 text-purple-600 border border-purple-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>{dept.courseType}</span>
-                          {leCount > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE {leCount}</span>}
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{dept.name}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <span className="text-lg font-bold text-slate-700">{deptStudents.length}</span>
-                        <p className="text-[10px] text-slate-400">students</p>
-                      </div>
-                    </div>
-                  </div>
-                  {isExpanded && (
-                    <div className="border-t border-slate-100">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-slate-100/80">
-                              <th className="px-4 py-2.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider">S.No</th>
-                              <th className="px-4 py-2.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider">Hall Ticket</th>
-                              <th className="px-4 py-2.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider">Student Name</th>
-                              <th className="px-4 py-2.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider text-center">Year</th>
-                              <th className="px-4 py-2.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider text-center">Batch</th>
-                              <th className="px-4 py-2.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider text-center">Mode</th>
-                              <th className="px-4 py-2.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider">Fee Status</th>
-                              <th className="px-4 py-2.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider text-center">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50">
-                            {deptStudents.sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber)).map((student, idx) => {
-                              const locker = student.feeLockers.find(l => l.year === student.currentYear);
-                              const paid = locker?.transactions.filter(t => t.status === 'APPROVED').reduce((sum, t) => sum + t.amount, 0) || 0;
-                              const target = (locker?.tuitionTarget || 0) + (locker?.universityTarget || 0);
-                              const progress = target > 0 ? (paid / target) * 100 : 0;
-                              return (
-                                <tr
-                                  key={student.hallTicketNumber}
-                                  className="hover:bg-blue-50/40 transition-colors cursor-pointer"
-                                  onClick={(e) => handleView(e, student.hallTicketNumber)}
-                                >
-                                  <td className="px-4 py-2.5 text-xs text-slate-400">{idx + 1}</td>
-                                  <td className="px-4 py-2.5 text-xs font-mono font-semibold text-blue-600">{student.hallTicketNumber}</td>
-                                  <td className="px-4 py-2.5 text-xs font-medium text-slate-800">
-                                    {student.name}
-                                    {student.entryType === 'LATERAL' && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">LE</span>}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{student.currentYear}</td>
-                                  <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{student.batch}</td>
-                                  <td className="px-4 py-2.5 text-center">
-                                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${student.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : student.admissionCategory?.includes('CONVENOR') || student.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-                                      {student.admissionCategory || '-'}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className={`h-full rounded-full ${progress >= 100 ? 'bg-emerald-500' : progress > 0 ? 'bg-blue-500' : 'bg-slate-200'}`} style={{ width: `${Math.min(progress, 100)}%` }} />
-                                      </div>
-                                      <span className={`text-[10px] font-bold ${progress >= 100 ? 'text-emerald-600' : progress > 0 ? 'text-blue-600' : 'text-slate-400'}`}>
-                                        {progress >= 100 ? 'PAID' : `${progress.toFixed(0)}%`}
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    <div className="flex items-center justify-center space-x-1">
-                                      {currentUser?.role === 'ADMIN' && (
-                                        <button onClick={(e) => handleCollect(e, student.hallTicketNumber)} className="p-1.5 text-[#2c5282] bg-blue-50 border border-blue-100 rounded-md transition-all hover:bg-[#2c5282] hover:text-white hover:border-[#2c5282]" title="Collect Fee"><Wallet size={14} /></button>
-                                      )}
-                                      <button onClick={(e) => handleView(e, student.hallTicketNumber)} className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-slate-700 hover:bg-slate-50" title="View Details"><Eye size={14} /></button>
-                                      <button onClick={(e) => { e.stopPropagation(); setRemarksModalHTN(student.hallTicketNumber); }} className={`p-1.5 border rounded-md transition-all ${allRemarks[student.hallTicketNumber] ? 'text-amber-500 bg-amber-50 border-amber-200 hover:bg-amber-100' : 'text-slate-400 bg-white border-slate-200 hover:text-amber-500 hover:bg-amber-50 hover:border-amber-200'}`} title="Remarks"><StickyNote size={14} /></button>
-                                      {currentUser?.role === 'ADMIN' && (
-                                        <>
-                                          <button onClick={(e) => handleEditClick(e, student)} className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200" title="Edit"><Edit2 size={14} /></button>
-                                          <button onClick={(e) => handleDelete(e, student.hallTicketNumber, student.name)} className="p-1.5 text-slate-400 bg-white border border-slate-200 rounded-md transition-all hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200" title="Delete"><Trash2 size={14} /></button>
-                                        </>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
-
-      {viewMode === 'list' && <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <p className="text-xs font-medium text-slate-500">Showing <span className="font-bold text-slate-700">{filteredStudents.length}</span> of <span className="font-bold text-slate-700">{students.length}</span> students</p>
           <div className="flex items-center gap-2">
@@ -860,7 +700,6 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                       <span className={`text-[10px] font-semibold px-2 py-1 rounded inline-block ${
                         student.admissionCategory.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : 
                         student.admissionCategory.includes('CONVENOR') || student.admissionCategory.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' :
-                        student.admissionCategory.includes('J&K') || student.admissionCategory.includes('J & K') ? 'bg-green-50 text-green-700 border border-green-200' :
                         'bg-blue-50 text-blue-700 border border-blue-200'
                       }`}>
                         {student.admissionCategory}
@@ -938,7 +777,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
             </tbody>
           </table>
         </div>
-      </div>}
+      </div>
 
       {remarksModalHTN && (() => {
         const student = students.find(s => s.hallTicketNumber === remarksModalHTN);
@@ -1084,11 +923,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                     <option>TSMFC</option>
                     <option>MANAGEMENT QUOTA</option>
                     <option>CONVENOR</option>
-                    <option>J&amp;K</option>
                     <option>SPOT</option>
-                    <option>DETAIN</option>
-                    <option>STAFF 50%</option>
-                    <option>READMIT</option>
                     <option>LATERAL ENTRY TSMFC</option>
                     <option>LATERAL ENTRY TSECET</option>
                     <option>LATERAL ENTRY MANAGEMENT</option>
