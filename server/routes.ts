@@ -172,15 +172,16 @@ router.get('/api/remarks/:htn', async (req: Request, res: Response) => {
 });
 
 router.post('/api/remarks', async (req: Request, res: Response) => {
-  const { studentHTN, remark, addedBy } = req.body;
+  const { studentHTN, hallTicketNumber, remark, addedBy } = req.body;
+  const htn = studentHTN || hallTicketNumber;
   try {
-    const studentCheck = await pool.query('SELECT hall_ticket_number FROM students WHERE hall_ticket_number = $1', [studentHTN]);
+    const studentCheck = await pool.query('SELECT hall_ticket_number FROM students WHERE hall_ticket_number = $1', [htn]);
     if (studentCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Student not found with this roll number' });
     }
     const result = await pool.query(
       'INSERT INTO student_remarks (student_htn, remark, added_by) VALUES ($1, $2, $3) RETURNING id, student_htn, remark, added_by, created_at',
-      [studentHTN, remark, addedBy]
+      [htn, remark, addedBy]
     );
     const r = result.rows[0];
     res.json({ id: r.id, studentHTN: r.student_htn, remark: r.remark, addedBy: r.added_by, createdAt: r.created_at });
