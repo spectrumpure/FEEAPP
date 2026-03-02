@@ -11,16 +11,17 @@ let pool: pg.Pool;
 
 if (connectionString && connectionString.includes('supabase')) {
   const url = new URL(connectionString);
+  const useTransactionPooler = isVercel;
   pool = new Pool({
     host: url.hostname,
-    port: parseInt(url.port || '5432'),
+    port: useTransactionPooler ? 6543 : parseInt(url.port || '5432'),
     database: url.pathname.slice(1),
     user: url.username,
     password: decodeURIComponent(url.password),
     ssl: { rejectUnauthorized: false },
-    max: 3,
-    idleTimeoutMillis: 10000,
-    connectionTimeoutMillis: 10000,
+    max: 1,
+    idleTimeoutMillis: 5000,
+    connectionTimeoutMillis: 15000,
   });
 } else {
   pool = new Pool({
