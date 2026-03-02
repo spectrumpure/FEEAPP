@@ -720,25 +720,27 @@ const requireAdmin = (req: Request, res: Response, next: Function) => {
 
 router.get('/api/admin/db-overview', requireAdmin, async (_req: Request, res: Response) => {
   try {
-    const [studentsCount, lockersCount, txCount, remarksCount, usersCount, configCount, batchConfigCount] = await Promise.all([
-      pool.query('SELECT COUNT(*) as count FROM students'),
-      pool.query('SELECT COUNT(*) as count FROM year_lockers'),
-      pool.query('SELECT COUNT(*) as count FROM fee_transactions'),
-      pool.query('SELECT COUNT(*) as count FROM student_remarks'),
-      pool.query('SELECT COUNT(*) as count FROM app_users'),
-      pool.query('SELECT COUNT(*) as count FROM fee_locker_config'),
-      pool.query('SELECT COUNT(*) as count FROM batch_fee_config'),
-    ]);
+    const countsResult = await pool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM students) as students_count,
+        (SELECT COUNT(*) FROM year_lockers) as lockers_count,
+        (SELECT COUNT(*) FROM fee_transactions) as tx_count,
+        (SELECT COUNT(*) FROM student_remarks) as remarks_count,
+        (SELECT COUNT(*) FROM app_users) as users_count,
+        (SELECT COUNT(*) FROM fee_locker_config) as config_count,
+        (SELECT COUNT(*) FROM batch_fee_config) as batch_config_count
+    `);
+    const c = countsResult.rows[0];
     const deptBreakdown = await pool.query('SELECT department, COUNT(*) as count FROM students GROUP BY department ORDER BY department');
     res.json({
       tables: {
-        students: parseInt(studentsCount.rows[0].count),
-        year_lockers: parseInt(lockersCount.rows[0].count),
-        fee_transactions: parseInt(txCount.rows[0].count),
-        student_remarks: parseInt(remarksCount.rows[0].count),
-        app_users: parseInt(usersCount.rows[0].count),
-        fee_locker_config: parseInt(configCount.rows[0].count),
-        batch_fee_config: parseInt(batchConfigCount.rows[0].count),
+        students: parseInt(c.students_count),
+        year_lockers: parseInt(c.lockers_count),
+        fee_transactions: parseInt(c.tx_count),
+        student_remarks: parseInt(c.remarks_count),
+        app_users: parseInt(c.users_count),
+        fee_locker_config: parseInt(c.config_count),
+        batch_fee_config: parseInt(c.batch_config_count),
       },
       departmentBreakdown: deptBreakdown.rows,
     });

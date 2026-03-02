@@ -15,10 +15,14 @@ if (connectionString && connectionString.includes('supabase')) {
     user: url.username,
     password: decodeURIComponent(url.password),
     ssl: { rejectUnauthorized: false },
+    max: 3,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 10000,
   });
 } else {
   pool = new Pool({
     connectionString,
+    max: 5,
   });
 }
 
