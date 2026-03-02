@@ -2,7 +2,10 @@ import pg from 'pg';
 import bcrypt from 'bcryptjs';
 const { Pool } = pg;
 
-const connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+const isVercel = !!process.env.VERCEL;
+const connectionString = isVercel
+  ? (process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL)
+  : (process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL);
 
 let pool: pg.Pool;
 
