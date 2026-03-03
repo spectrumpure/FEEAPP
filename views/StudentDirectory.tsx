@@ -331,9 +331,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
       }
 
       s.feeLockers.forEach(locker => {
-        const approved = locker.transactions.filter(tx => tx.status === 'APPROVED');
-        const tuiTxs = approved.filter(tx => tx.feeType === 'Tuition');
-        const uniTxs = approved.filter(tx => tx.feeType === 'University');
+        const tuiTxs = locker.transactions.filter(tx => tx.feeType === 'Tuition');
+        const uniTxs = locker.transactions.filter(tx => tx.feeType === 'University');
 
         const maxRows = Math.max(1, tuiTxs.length, uniTxs.length);
 
@@ -342,7 +341,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           const uni = uniTxs[i];
           allRows.push([
             ...studentCols,
-            locker.year,
+            s.currentYear,
             tui?.challanNumber || '', tui?.paymentDate || '',
             tui?.paymentMode || '', tui ? tui.amount : '',
             uni?.paymentMode || '', uni?.challanNumber || '',
