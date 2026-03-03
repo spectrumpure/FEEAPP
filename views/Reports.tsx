@@ -85,6 +85,16 @@ const thClass = "px-4 py-3.5 text-[10px] font-semibold text-slate-500 uppercase 
 const tdClass = "px-4 py-3 text-sm";
 const selectClass = "bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all cursor-pointer";
 
+const parsePaymentDate = (dateStr: string | null | undefined): Date | null => {
+  if (!dateStr) return null;
+  const dotMatch = dateStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (dotMatch) return new Date(parseInt(dotMatch[3]), parseInt(dotMatch[2]) - 1, parseInt(dotMatch[1]));
+  const dashMatch = dateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dashMatch) return new Date(parseInt(dashMatch[3]), parseInt(dashMatch[2]) - 1, parseInt(dashMatch[1]));
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+};
+
 const matchesDept = (studentDept: string, dept: { name: string; code: string }) =>
   studentDept && (studentDept === dept.name || studentDept === dept.code || studentDept.toUpperCase() === dept.code.toUpperCase());
 
@@ -118,7 +128,7 @@ export const Reports: React.FC = () => {
   const allBatches = Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort();
   const allFinYears = Array.from(new Set(transactions.map(t => t.financialYear))).filter(Boolean).sort();
 
-  const getStudentTargets = (s: Student, filterYear: number | null) => {
+  const getStudentTargets = (s: Student, filterYear: number | null, fromDate?: Date | null, toDate?: Date | null) => {
     let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
     const dept = departments.find(d => matchesDept(s.department, d));
     const duration = dept?.duration || 4;
@@ -133,6 +143,15 @@ export const Reports: React.FC = () => {
         tTarget += l.tuitionTarget;
         uTarget += l.universityTarget;
         l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
+          if (fromDate || toDate) {
+            const txDate = parsePaymentDate(t.paymentDate);
+            if (txDate) {
+              if (fromDate && txDate < fromDate) return;
+              if (toDate && txDate > toDate) return;
+            } else {
+              return;
+            }
+          }
           if (t.feeType === 'Tuition') tPaid += t.amount;
           else if (t.feeType === 'University') uPaid += t.amount;
         });
@@ -155,6 +174,8 @@ export const Reports: React.FC = () => {
 
   const getDeptSummaryData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
     const rows: { department: string; code: string; courseType: string; entryLabel: string; count: number; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalReceived: number; totalBalance: number }[] = [];
     departments.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
@@ -164,7 +185,7 @@ export const Reports: React.FC = () => {
       const calcRow = (subset: typeof deptStudents, label: string) => {
         let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
         subset.forEach(s => {
-          const t = getStudentTargets(s, filterYear);
+          const t = getStudentTargets(s, filterYear, from, to);
           tTarget += t.tTarget; uTarget += t.uTarget; tPaid += t.tPaid; uPaid += t.uPaid;
         });
         rows.push({
@@ -200,6 +221,8 @@ export const Reports: React.FC = () => {
   };
 
   const getBatchWiseData = () => {
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
     const grouped: Record<string, Student[]> = {};
     students.forEach(s => {
       const b = s.batch || 'Unknown';
@@ -209,7 +232,7 @@ export const Reports: React.FC = () => {
     return Object.entries(grouped).map(([batch, batchStudents]) => {
       let totalTarget = 0, totalPaid = 0;
       batchStudents.forEach(s => {
-        const t = getStudentTargets(s, null);
+        const t = getStudentTargets(s, null, from, to);
         totalTarget += t.tTarget + t.uTarget;
         totalPaid += t.tPaid + t.uPaid;
       });
@@ -246,15 +269,17 @@ export const Reports: React.FC = () => {
   const getDefaultersData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     const filterDeptObj = deptFilter === 'all' ? null : departments.find(d => d.name === deptFilter);
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
     return students.filter(s => {
       if (batchFilter !== 'all' && s.batch !== batchFilter) return false;
       if (filterDeptObj && !matchesDept(s.department, filterDeptObj)) return false;
-      const t = getStudentTargets(s, filterYear);
+      const t = getStudentTargets(s, filterYear, from, to);
       const totalTarget = t.tTarget + t.uTarget;
       const totalPaid = t.tPaid + t.uPaid;
       return totalPaid < totalTarget;
     }).map(s => {
-      const t = getStudentTargets(s, filterYear);
+      const t = getStudentTargets(s, filterYear, from, to);
       const totalTarget = t.tTarget + t.uTarget;
       const totalPaid = t.tPaid + t.uPaid;
       return { ...s, totalTarget, totalPaid, balance: totalTarget - totalPaid };
@@ -440,6 +465,8 @@ export const Reports: React.FC = () => {
 
   const getCategoryAnalysisData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
     const isManagement = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('MANAGEMENT') || u === 'MQ' || u === 'SPOT'; };
     const isConvenor = (cat: string) => { const u = (cat || '').trim().toUpperCase().replace(/[^A-Z]/g, ''); return u.includes('CONVENOR') || u.includes('CONVENER') || u === 'CON'; };
     const isTSMFC = (cat: string) => { const u = (cat || '').trim().toUpperCase(); return u.includes('TSMFC') || u.includes('TSECET'); };
@@ -455,7 +482,7 @@ export const Reports: React.FC = () => {
     const getCatFees = (sList: typeof students, fy: number | null) => {
       let tuiTarget = 0, uniTarget = 0, tuiPaid = 0, uniPaid = 0;
       sList.forEach(s => {
-        const t = getStudentTargets(s, fy);
+        const t = getStudentTargets(s, fy, from, to);
         tuiTarget += t.tTarget;
         uniTarget += t.uTarget;
         tuiPaid += t.tPaid;
@@ -579,8 +606,8 @@ export const Reports: React.FC = () => {
             tTarget += l.tuitionTarget;
             uTarget += l.universityTarget;
             l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-              const txDate = new Date(t.paymentDate);
-              const inRange = (!from || txDate >= from) && (!to || txDate <= to);
+              const txDate = parsePaymentDate(t.paymentDate);
+              const inRange = txDate ? ((!from || txDate >= from) && (!to || txDate <= to)) : false;
               if (inRange) {
                 if (t.feeType === 'Tuition') tPaid += t.amount;
                 else if (t.feeType === 'University') uPaid += t.amount;
@@ -883,6 +910,33 @@ export const Reports: React.FC = () => {
     </div>
   );
 
+  const DateFilter = () => (
+    <>
+      <div>
+        <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider block mb-1.5">From Date</label>
+        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+          className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
+      </div>
+      <div>
+        <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider block mb-1.5">To Date</label>
+        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+          className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400" />
+      </div>
+      {(dateFrom || dateTo) && (
+        <button onClick={() => { setDateFrom(''); setDateTo(''); }}
+          className="self-end mb-0.5 text-xs text-red-500 hover:text-red-700 font-medium px-2 py-2 rounded hover:bg-red-50 transition-colors">
+          Clear Dates
+        </button>
+      )}
+    </>
+  );
+
+  const DateRangeBanner = () => (dateFrom || dateTo) ? (
+    <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+      Showing fee collections from <strong>{dateFrom || 'beginning'}</strong> to <strong>{dateTo || 'present'}</strong>. Targets reflect full fee obligation.
+    </div>
+  ) : null;
+
   const renderDeptSummary = () => {
     const data = getDeptSummaryData();
     const total = data.reduce((acc, d) => ({
@@ -905,7 +959,9 @@ export const Reports: React.FC = () => {
             <option value="3">3rd Year</option>
             <option value="4">4th Year</option>
           </SelectFilter>
+          <DateFilter />
         </FilterBar>
+        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -1006,7 +1062,12 @@ export const Reports: React.FC = () => {
     }), { count: 0, totalTarget: 0, totalPaid: 0, balance: 0 });
 
     return (
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <div>
+        <FilterBar>
+          <DateFilter />
+        </FilterBar>
+        <DateRangeBanner />
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80">
@@ -1057,6 +1118,7 @@ export const Reports: React.FC = () => {
             )}
           </tbody>
         </table>
+      </div>
       </div>
     );
   };
@@ -1237,6 +1299,7 @@ export const Reports: React.FC = () => {
             <option value="3">3rd Year</option>
             <option value="4">4th Year</option>
           </SelectFilter>
+          <DateFilter />
           {data.length > 0 && (
             <div className="ml-2 self-end pb-0.5">
               <span className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
@@ -1245,6 +1308,7 @@ export const Reports: React.FC = () => {
             </div>
           )}
         </FilterBar>
+        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -1320,7 +1384,9 @@ export const Reports: React.FC = () => {
             <option value="3">3rd Year</option>
             <option value="4">4th Year</option>
           </SelectFilter>
+          <DateFilter />
         </FilterBar>
+        <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>

@@ -502,7 +502,8 @@ export const Dashboard: React.FC = () => {
                   const balanceDue = Math.max(0, totalTarget - totalPaid);
                   const progress = totalTarget > 0 ? Math.round((totalPaid / totalTarget) * 100) : 0;
                   const status = lockerStatus(locker);
-                  const lastTxn = [...locker.transactions].filter(t => t.status === 'APPROVED').sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0];
+                  const parsePD = (d: string) => { if (!d) return 0; const m = d.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/); if (m) return new Date(+m[3], +m[2]-1, +m[1]).getTime(); const m2 = d.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/); if (m2) return new Date(+m2[3], +m2[2]-1, +m2[1]).getTime(); const v = new Date(d).getTime(); return isNaN(v) ? 0 : v; };
+                  const lastTxn = [...locker.transactions].filter(t => t.status === 'APPROVED').sort((a, b) => parsePD(b.paymentDate) - parsePD(a.paymentDate))[0];
                   return (
                     <div key={locker.year} className="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between mb-3">
