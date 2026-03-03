@@ -302,6 +302,64 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     XLSX.writeFile(wb, `MJCET_Student_Data_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const downloadFullBackupExcel = () => {
+    const wb = XLSX.utils.book_new();
+
+    const studentHeaders = [
+      "Roll No", "Student Name", "Department", "Sex", "Date of Birth",
+      "Mode of Admission", "Student Mobile No", "Father Mobile No", "Father Name",
+      "Mother Name", "Address", "Student Aadhaar Card No", "Admission year", "Entry Type", "Current Year"
+    ];
+    const studentRows = students.map(s => [
+      s.hallTicketNumber, s.name, s.department, s.sex, s.dob,
+      s.admissionCategory, s.mobile, s.fatherMobile, s.fatherName,
+      s.motherName, s.address, s.aadhaarNumber || '', s.admissionYear, s.entryType || 'REGULAR', s.currentYear
+    ]);
+    const studentWs = XLSX.utils.aoa_to_sheet([studentHeaders, ...studentRows]);
+    studentWs['!cols'] = [20, 30, 15, 6, 14, 18, 15, 15, 30, 25, 35, 18, 12, 12, 10].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, studentWs, 'Students');
+
+    const txHeaders = [
+      "Roll No", "Student Name", "Department",
+      "Fee Year", "Fee Type", "Amount", "Challan No", "Challan Date",
+      "Payment Mode", "Academic Year", "Financial Year", "Status"
+    ];
+    const txRows: any[][] = [];
+    students.forEach(s => {
+      s.feeLockers.forEach(locker => {
+        locker.transactions.forEach(tx => {
+          txRows.push([
+            s.hallTicketNumber, s.name, s.department,
+            locker.year, tx.feeType, tx.amount, tx.challanNumber || '', tx.paymentDate || '',
+            tx.paymentMode || '', tx.academicYear || '', tx.financialYear || '', tx.status || 'PENDING'
+          ]);
+        });
+      });
+    });
+    const txWs = XLSX.utils.aoa_to_sheet([txHeaders, ...txRows]);
+    txWs['!cols'] = [20, 30, 15, 8, 12, 12, 18, 14, 12, 14, 14, 12].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, txWs, 'Fee Transactions');
+
+    const lockerHeaders = [
+      "Roll No", "Student Name", "Department",
+      "Fee Year", "Tuition Target", "University Target"
+    ];
+    const lockerRows: any[][] = [];
+    students.forEach(s => {
+      s.feeLockers.forEach(locker => {
+        lockerRows.push([
+          s.hallTicketNumber, s.name, s.department,
+          locker.year, locker.tuitionTarget, locker.universityTarget
+        ]);
+      });
+    });
+    const lockerWs = XLSX.utils.aoa_to_sheet([lockerHeaders, ...lockerRows]);
+    lockerWs['!cols'] = [20, 30, 15, 8, 14, 14].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, lockerWs, 'Fee Targets');
+
+    XLSX.writeFile(wb, `MJCET_Full_Backup_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const toggleSelectHTN = (htn: string) => {
     setSelectedHTNs(prev => {
       const next = new Set(prev);
@@ -496,6 +554,13 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
           >
             <Download size={16} />
             <span>Export Excel</span>
+          </button>
+          <button 
+            onClick={downloadFullBackupExcel}
+            className="flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+          >
+            <Download size={16} />
+            <span>Full Backup</span>
           </button>
           {currentUser?.role === 'ADMIN' && !selectionMode && (
             <>
