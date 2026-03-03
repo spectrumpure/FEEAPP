@@ -126,6 +126,17 @@ export async function initDB() {
         created_at TIMESTAMP DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS certificate_counters (
+        cert_type VARCHAR(20) PRIMARY KEY,
+        last_number INT NOT NULL DEFAULT 0,
+        prefix VARCHAR(20) DEFAULT '',
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+
+      INSERT INTO certificate_counters (cert_type, last_number, prefix)
+        VALUES ('bonafide', 0, 'MJCET/BC/'), ('tc', 0, 'MJCET/TC/')
+        ON CONFLICT (cert_type) DO NOTHING;
+
       CREATE INDEX IF NOT EXISTS idx_year_lockers_student ON year_lockers(student_htn);
       CREATE INDEX IF NOT EXISTS idx_fee_transactions_student ON fee_transactions(student_htn);
       CREATE INDEX IF NOT EXISTS idx_fee_transactions_status ON fee_transactions(status);

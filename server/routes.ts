@@ -923,4 +923,56 @@ router.delete('/api/departments/:id', requireAdmin, async (req: Request, res: Re
   }
 });
 
+router.get('/api/cert-counter/:type', async (req: Request, res: Response) => {
+  const certType = req.params.type;
+  try {
+    const result = await pool.query('SELECT last_number, prefix FROM certificate_counters WHERE cert_type = $1', [certType]);
+    if (result.rows.length === 0) {
+      res.json({ lastNumber: 0, prefix: '' });
+    } else {
+      res.json({ lastNumber: result.rows[0].last_number, prefix: result.rows[0].prefix });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/cert-counter/:type/next', async (req: Request, res: Response) => {
+  const certType = req.params.type;
+  try {
+    const result = await pool.query(
+      `UPDATE certificate_counters SET last_number = last_number + 1, updated_at = NOW()
+       WHERE cert_type = $1 RETURNING last_number, prefix`,
+      [certType]
+    );
+    if (result.rows.length === 0) {
+      const insert = await pool.query(
+        `INSERT INTO certificate_counters (cert_type, last_number, prefix) VALUES ($1, 1, '')
+         RETURNING last_number, prefix`,
+        [certType]
+      );
+      res.json({ number: insert.rows[0].last_number, prefix: insert.rows[0].prefix });
+    } else {
+      res.json({ number: result.rows[0].last_number, prefix: result.rows[0].prefix });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/api/cert-counter/:type', async (req: Request, res: Response) => {
+  const certType = req.params.type;
+  const { lastNumber, prefix } = req.body;
+  try {
+    await pool.query(
+      `UPDATE certificate_counters SET last_number = $1, prefix = COALESCE($2, prefix), updated_at = NOW()
+       WHERE cert_type = $3`,
+      [lastNumber, prefix, certType]
+    );
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

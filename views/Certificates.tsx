@@ -51,7 +51,8 @@ export const Certificates: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [certType, setCertType] = useState<CertType | null>(null);
-  const [snoCounter, setSnoCounter] = useState({ bonafide: 1, tc: 1 });
+  const [nextBonafideNo, setNextBonafideNo] = useState<string | null>(null);
+  const [nextTcNo, setNextTcNo] = useState<string | null>(null);
 
   const [bcDate, setBcDate] = useState(formatDate(new Date()));
   const [bcAcademicYear, setBcAcademicYear] = useState('');
@@ -88,11 +89,18 @@ export const Certificates: React.FC = () => {
     setTcDateLeaving(endYear ? `Aug, ${endYear} ${s.course} ${duration}/${duration} (${dept})` : '');
   };
 
-  const printBonafide = () => {
+  const printBonafide = async () => {
     if (!selectedStudent) return;
     const s = selectedStudent;
-    const sno = snoCounter.bonafide;
-    setSnoCounter(p => ({ ...p, bonafide: p.bonafide + 1 }));
+    let sno = '';
+    try {
+      const resp = await fetch('/api/cert-counter/bonafide/next', { method: 'POST' });
+      const data = await resp.json();
+      sno = `${data.prefix || ''}${data.number}`;
+      setNextBonafideNo(sno);
+    } catch {
+      sno = `BC-${Date.now()}`;
+    }
     const dept = getDeptBranch(s.department);
     const duration = s.course === 'M.E' ? 2 : 4;
     const isFemale = s.sex?.toLowerCase() === 'female';
@@ -176,11 +184,18 @@ export const Certificates: React.FC = () => {
     setTimeout(() => win.print(), 600);
   };
 
-  const printTC = () => {
+  const printTC = async () => {
     if (!selectedStudent) return;
     const s = selectedStudent;
-    const sno = snoCounter.tc;
-    setSnoCounter(p => ({ ...p, tc: p.tc + 1 }));
+    let sno = '';
+    try {
+      const resp = await fetch('/api/cert-counter/tc/next', { method: 'POST' });
+      const data = await resp.json();
+      sno = `${data.prefix || ''}${data.number}`;
+      setNextTcNo(sno);
+    } catch {
+      sno = `TC-${Date.now()}`;
+    }
 
     const tcRow = (num: number, label: string, value: string) =>
       `<tr>
