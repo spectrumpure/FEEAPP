@@ -10,7 +10,8 @@ import {
   Download,
   ChevronDown,
   ChevronUp,
-  BarChart3
+  BarChart3,
+  ClipboardCheck
 } from 'lucide-react';
 
 export const StudentEnrollment: React.FC = () => {
@@ -66,6 +67,41 @@ export const StudentEnrollment: React.FC = () => {
 
   const beData = enrollmentData.filter(d => d.dept.courseType === 'B.E');
   const meData = enrollmentData.filter(d => d.dept.courseType === 'M.E');
+
+  const feeEntryStatusData = useMemo(() => {
+    const batchList = batchFilter === 'all' ? batches : [batchFilter];
+    const rows: {
+      deptName: string;
+      deptCode: string;
+      batch: string;
+      enrolled: Record<number, number>;
+      feeEntered: Record<number, number>;
+    }[] = [];
+
+    batchList.forEach(batch => {
+      departments.forEach(dept => {
+        const deptStudents = students.filter(s =>
+          s.batch === batch &&
+          s.department && (s.department === dept.name || s.department === dept.code || s.department.toUpperCase() === dept.code.toUpperCase())
+        );
+        if (deptStudents.length === 0) return;
+
+        const enrolled: Record<number, number> = {};
+        const feeEntered: Record<number, number> = {};
+        for (let y = 1; y <= 4; y++) {
+          const yearStudents = deptStudents.filter(s => s.currentYear === y);
+          enrolled[y] = yearStudents.length;
+          feeEntered[y] = yearStudents.filter(s =>
+            s.feeLockers.some(l => l.year === y && l.transactions.length > 0)
+          ).length;
+        }
+
+        rows.push({ deptName: dept.name, deptCode: dept.code, batch, enrolled, feeEntered });
+      });
+    });
+
+    return rows;
+  }, [students, departments, batches, batchFilter]);
 
   const beTotals = beData.reduce((acc, d) => ({ total: acc.total + d.total, regular: acc.regular + d.regular, lateral: acc.lateral + d.lateral }), { total: 0, regular: 0, lateral: 0 });
   const meTotals = meData.reduce((acc, d) => ({ total: acc.total + d.total, regular: acc.regular + d.regular, lateral: acc.lateral + d.lateral }), { total: 0, regular: 0, lateral: 0 });
@@ -317,6 +353,75 @@ export const StudentEnrollment: React.FC = () => {
               </tr>
             </tbody>
           </table>
+        </div>
+      )}
+
+      {feeEntryStatusData.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck size={16} className="text-teal-600" />
+              <h3 className="text-sm font-bold text-slate-700">Fee Entry Status</h3>
+              <span className="text-xs text-slate-400">(Enrollment vs Fee Entry by Department, Batch &amp; Year)</span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50">
+                  <th rowSpan={2} className="px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-left border-r border-slate-200">Department</th>
+                  <th rowSpan={2} className="px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center border-r border-slate-200">Batch</th>
+                  <th colSpan={4} className="px-2 py-2 text-[10px] font-semibold text-blue-600 uppercase tracking-wider text-center border-r border-slate-200 bg-blue-50">Number of Students Enrolled</th>
+                  <th colSpan={4} className="px-2 py-2 text-[10px] font-semibold text-teal-600 uppercase tracking-wider text-center bg-teal-50">Fee Entry Status</th>
+                </tr>
+                <tr className="bg-slate-50">
+                  {['1st Year', '2nd Year', '3rd Year', '4th Year'].map(y => (
+                    <th key={`en-${y}`} className="px-3 py-2 text-[10px] font-medium text-blue-600 text-center border-r border-slate-100 bg-blue-50">{y}</th>
+                  ))}
+                  {['1st Year', '2nd Year', '3rd Year', '4th Year'].map(y => (
+                    <th key={`fe-${y}`} className="px-3 py-2 text-[10px] font-medium text-teal-600 text-center border-r border-slate-100 bg-teal-50">{y}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {feeEntryStatusData.map((row, i) => (
+                  <tr key={`${row.deptCode}-${row.batch}`} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                    <td className="px-4 py-2.5 text-xs font-medium text-slate-700 border-r border-slate-100">{row.deptCode}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-600 text-center border-r border-slate-100">{row.batch}</td>
+                    {[1, 2, 3, 4].map(y => (
+                      <td key={`en-${y}`} className="px-3 py-2.5 text-xs text-center border-r border-slate-100 font-medium text-slate-700">
+                        {row.enrolled[y] || 0}
+                      </td>
+                    ))}
+                    {[1, 2, 3, 4].map(y => {
+                      const enrolled = row.enrolled[y] || 0;
+                      const entered = row.feeEntered[y] || 0;
+                      const notEntered = enrolled - entered;
+                      const allDone = enrolled > 0 && notEntered === 0;
+                      const noneDone = enrolled > 0 && entered === 0;
+                      const partial = enrolled > 0 && entered > 0 && notEntered > 0;
+                      return (
+                        <td key={`fe-${y}`} className={`px-3 py-2.5 text-xs text-center border-r border-slate-100 font-medium ${
+                          enrolled === 0 ? 'text-slate-300' :
+                          allDone ? 'text-emerald-600 bg-emerald-50' :
+                          noneDone ? 'text-red-600 bg-red-50' :
+                          'text-amber-600 bg-amber-50'
+                        }`}>
+                          {enrolled === 0 ? '-' : `${entered}/${enrolled}`}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-4 text-[10px] text-slate-500">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 inline-block"></span> All Done</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-300 inline-block"></span> Partial</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block"></span> Not Entered</span>
+            <span className="flex items-center gap-1"><span className="text-slate-300">-</span> No Students</span>
+          </div>
         </div>
       )}
 
