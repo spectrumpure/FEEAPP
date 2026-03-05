@@ -18,6 +18,7 @@ export const StudentEnrollment: React.FC = () => {
   const { students, departments } = useApp();
   const [batchFilter, setBatchFilter] = useState<string>('all');
   const [expandedDept, setExpandedDept] = useState<string | null>(null);
+  const [feeStatusBatchFilter, setFeeStatusBatchFilter] = useState<string>('all');
 
   const batches = useMemo(() => {
     const batchSet = new Set(students.map(s => s.batch).filter(Boolean));
@@ -69,7 +70,7 @@ export const StudentEnrollment: React.FC = () => {
   const meData = enrollmentData.filter(d => d.dept.courseType === 'M.E');
 
   const feeEntryStatusData = useMemo(() => {
-    const batchList = batchFilter === 'all' ? batches : [batchFilter];
+    const batchList = feeStatusBatchFilter === 'all' ? batches : [feeStatusBatchFilter];
     const rows: {
       deptName: string;
       deptCode: string;
@@ -106,7 +107,7 @@ export const StudentEnrollment: React.FC = () => {
     });
 
     return rows;
-  }, [students, departments, batches, batchFilter]);
+  }, [students, departments, batches, feeStatusBatchFilter]);
 
   const beTotals = beData.reduce((acc, d) => ({ total: acc.total + d.total, regular: acc.regular + d.regular, lateral: acc.lateral + d.lateral }), { total: 0, regular: 0, lateral: 0 });
   const meTotals = meData.reduce((acc, d) => ({ total: acc.total + d.total, regular: acc.regular + d.regular, lateral: acc.lateral + d.lateral }), { total: 0, regular: 0, lateral: 0 });
@@ -368,6 +369,17 @@ export const StudentEnrollment: React.FC = () => {
               <ClipboardCheck size={16} className="text-teal-600" />
               <h3 className="text-sm font-bold text-slate-700">Fee Entry Status</h3>
               <span className="text-xs text-slate-400">(Enrollment vs Fee Entry by Department, Batch &amp; Year)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter size={14} className="text-slate-400" />
+              <select
+                value={feeStatusBatchFilter}
+                onChange={(e) => setFeeStatusBatchFilter(e.target.value)}
+                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-400 transition-all min-w-[140px] shadow-sm"
+              >
+                <option value="all">All Batches</option>
+                {batches.map(b => <option key={b} value={b}>Batch {b}</option>)}
+              </select>
             </div>
           </div>
           <div className="overflow-x-auto">
