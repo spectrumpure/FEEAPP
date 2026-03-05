@@ -386,7 +386,10 @@ export const StudentEnrollment: React.FC = () => {
               <tbody>
                 {feeEntryStatusData.map((row, i) => (
                   <tr key={`${row.deptCode}-${row.batch}`} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                    <td className="px-4 py-2.5 text-xs font-medium text-slate-700 border-r border-slate-100">{row.deptCode}</td>
+                    <td className="px-4 py-2.5 text-xs font-medium text-slate-700 border-r border-slate-100">
+                      <span>{row.deptName}</span>
+                      <span className="text-slate-400 ml-1">({row.deptCode})</span>
+                    </td>
                     <td className="px-4 py-2.5 text-xs text-slate-600 text-center border-r border-slate-100">{row.batch}</td>
                     {[1, 2, 3, 4].map(y => (
                       <td key={`en-${y}`} className="px-3 py-2.5 text-xs text-center border-r border-slate-100 font-medium text-slate-700">
@@ -399,7 +402,6 @@ export const StudentEnrollment: React.FC = () => {
                       const notEntered = enrolled - entered;
                       const allDone = enrolled > 0 && notEntered === 0;
                       const noneDone = enrolled > 0 && entered === 0;
-                      const partial = enrolled > 0 && entered > 0 && notEntered > 0;
                       return (
                         <td key={`fe-${y}`} className={`px-3 py-2.5 text-xs text-center border-r border-slate-100 font-medium ${
                           enrolled === 0 ? 'text-slate-300' :
