@@ -90,14 +90,13 @@ export const StudentEnrollment: React.FC = () => {
 
         const enrolled: Record<number, { regular: number; lateral: number; total: number }> = {};
         const feeEntered: Record<number, number> = {};
-        let totalEnrolled = 0;
+        const totalEnrolled = deptStudents.length;
         for (let y = 1; y <= 4; y++) {
           const yearStudents = deptStudents.filter(s => s.currentYear === y);
           const regular = yearStudents.filter(s => s.entryType !== 'LATERAL').length;
           const lateral = yearStudents.filter(s => s.entryType === 'LATERAL').length;
           enrolled[y] = { regular, lateral, total: regular + lateral };
-          totalEnrolled += regular + lateral;
-          feeEntered[y] = yearStudents.filter(s =>
+          feeEntered[y] = deptStudents.filter(s =>
             s.feeLockers.some(l => l.year === y && l.transactions.length > 0)
           ).length;
         }
