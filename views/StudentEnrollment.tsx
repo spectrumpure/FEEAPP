@@ -92,7 +92,7 @@ export const StudentEnrollment: React.FC = () => {
         const feeEntered: Record<number, number> = {};
         const totalEnrolled = deptStudents.length;
         for (let y = 1; y <= 4; y++) {
-          const yearStudents = deptStudents.filter(s => s.currentYear === y);
+          const yearStudents = deptStudents.filter(s => s.feeLockers.some(l => l.year === y));
           const regular = yearStudents.filter(s => s.entryType !== 'LATERAL').length;
           const lateral = yearStudents.filter(s => s.entryType === 'LATERAL').length;
           enrolled[y] = { regular, lateral, total: regular + lateral };
@@ -430,20 +430,18 @@ export const StudentEnrollment: React.FC = () => {
                       {row.totalEnrolled}
                     </td>
                     {[1, 2, 3, 4].map(y => {
+                      const enrolled = row.enrolled[y].total;
                       const entered = row.feeEntered[y] || 0;
-                      const total = row.totalEnrolled;
-                      const hasLocker = entered > 0 || row.enrolled[y].total > 0;
-                      const allDone = total > 0 && entered >= total;
-                      const noneDone = total > 0 && entered === 0;
+                      const allDone = enrolled > 0 && entered >= enrolled;
+                      const noneDone = enrolled > 0 && entered === 0;
                       return (
                         <td key={`fe-${y}`} className={`px-2 py-2.5 text-xs text-center border-r border-slate-100 font-medium ${
-                          !hasLocker && entered === 0 ? 'text-slate-300' :
+                          enrolled === 0 ? 'text-slate-300' :
                           allDone ? 'text-emerald-600 bg-emerald-50' :
                           noneDone ? 'text-red-600 bg-red-50' :
-                          entered > 0 ? 'text-amber-600 bg-amber-50' :
-                          'text-slate-300'
+                          'text-amber-600 bg-amber-50'
                         }`}>
-                          {!hasLocker && entered === 0 ? '-' : `${entered}/${total}`}
+                          {enrolled === 0 ? '-' : `${entered}/${enrolled}`}
                         </td>
                       );
                     })}
