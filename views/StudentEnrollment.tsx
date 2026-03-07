@@ -74,10 +74,14 @@ export const StudentEnrollment: React.FC = () => {
     const rows: {
       deptName: string;
       deptCode: string;
+      courseType: string;
+      duration: number;
       batch: string;
       enrolled: Record<number, { regular: number; lateral: number; total: number }>;
       feeEntered: Record<number, number>;
       totalEnrolled: number;
+      totalRegular: number;
+      totalLateral: number;
     }[] = [];
 
     batchList.forEach(batch => {
@@ -91,7 +95,10 @@ export const StudentEnrollment: React.FC = () => {
         const enrolled: Record<number, { regular: number; lateral: number; total: number }> = {};
         const feeEntered: Record<number, number> = {};
         const totalEnrolled = deptStudents.length;
-        for (let y = 1; y <= 4; y++) {
+        const totalRegular = deptStudents.filter(s => s.entryType !== 'LATERAL').length;
+        const totalLateral = deptStudents.filter(s => s.entryType === 'LATERAL').length;
+        const maxYears = dept.duration || (dept.courseType === 'M.E' ? 2 : 4);
+        for (let y = 1; y <= maxYears; y++) {
           const yearStudents = deptStudents.filter(s => s.feeLockers.some(l => l.year === y));
           const regular = yearStudents.filter(s => s.entryType !== 'LATERAL').length;
           const lateral = yearStudents.filter(s => s.entryType === 'LATERAL').length;
@@ -100,8 +107,12 @@ export const StudentEnrollment: React.FC = () => {
             s.feeLockers.some(l => l.year === y && l.transactions.length > 0)
           ).length;
         }
+        for (let y = maxYears + 1; y <= 4; y++) {
+          enrolled[y] = { regular: 0, lateral: 0, total: 0 };
+          feeEntered[y] = 0;
+        }
 
-        rows.push({ deptName: dept.name, deptCode: dept.code, batch, enrolled, feeEntered, totalEnrolled });
+        rows.push({ deptName: dept.name, deptCode: dept.code, courseType: dept.courseType, duration: maxYears, batch, enrolled, feeEntered, totalEnrolled, totalRegular, totalLateral });
       });
     });
 
@@ -361,103 +372,144 @@ export const StudentEnrollment: React.FC = () => {
         </div>
       )}
 
-      {feeEntryStatusData.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ClipboardCheck size={16} className="text-teal-600" />
-              <h3 className="text-sm font-bold text-slate-700">Fee Entry Status</h3>
-              <span className="text-xs text-slate-400">(Enrollment vs Fee Entry by Department, Batch &amp; Year)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter size={14} className="text-slate-400" />
-              <select
-                value={feeStatusBatchFilter}
-                onChange={(e) => setFeeStatusBatchFilter(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-400 transition-all min-w-[140px] shadow-sm"
-              >
-                <option value="all">All Batches</option>
-                {batches.map(b => <option key={b} value={b}>Batch {b}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-slate-50">
-                  <th rowSpan={2} className="px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-left border-r border-slate-200 whitespace-nowrap">Department</th>
-                  <th rowSpan={2} className="px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center border-r border-slate-200 whitespace-nowrap">Batch</th>
-                  <th colSpan={5} className="px-2 py-2 text-[10px] font-semibold text-blue-600 uppercase tracking-wider text-center border-r border-slate-200 bg-blue-50">Number of Students Enrolled</th>
-                  <th colSpan={4} className="px-2 py-2 text-[10px] font-semibold text-teal-600 uppercase tracking-wider text-center bg-teal-50">Fee Entry Status</th>
-                </tr>
-                <tr className="bg-slate-50">
-                  {['1st Year', '2nd Year', '3rd Year', '4th Year'].map(y => (
-                    <th key={`en-${y}`} className="px-2 py-2 text-[10px] font-medium text-blue-600 text-center border-r border-slate-100 bg-blue-50 whitespace-nowrap">{y}</th>
-                  ))}
-                  <th className="px-2 py-2 text-[10px] font-semibold text-blue-700 text-center border-r border-slate-200 bg-blue-100 whitespace-nowrap">Total</th>
-                  {['1st Year', '2nd Year', '3rd Year', '4th Year'].map(y => (
-                    <th key={`fe-${y}`} className="px-2 py-2 text-[10px] font-medium text-teal-600 text-center border-r border-slate-100 bg-teal-50 whitespace-nowrap">{y}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {feeEntryStatusData.map((row, i) => (
-                  <tr key={`${row.deptCode}-${row.batch}`} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                    <td className="px-3 py-2.5 text-xs font-medium text-slate-700 border-r border-slate-100 whitespace-nowrap">
-                      <span>{row.deptName}</span>
-                      <span className="text-slate-400 ml-1">({row.deptCode})</span>
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-slate-600 text-center border-r border-slate-100 whitespace-nowrap">{row.batch}</td>
-                    {[1, 2, 3, 4].map(y => {
-                      const e = row.enrolled[y];
-                      return (
-                        <td key={`en-${y}`} className="px-2 py-2.5 text-xs text-center border-r border-slate-100">
-                          {e.total > 0 ? (
-                            <div>
-                              <span className="font-semibold text-slate-700">{e.total}</span>
-                              <div className="text-[9px] text-slate-400 leading-tight">
-                                <span className="text-blue-500">{e.regular}R</span>
-                                {e.lateral > 0 && <span className="text-amber-500 ml-0.5">+{e.lateral}L</span>}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-slate-300">0</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="px-2 py-2.5 text-xs text-center border-r border-slate-200 font-bold text-blue-800 bg-blue-50/50">
-                      {row.totalEnrolled}
-                    </td>
-                    {[1, 2, 3, 4].map(y => {
-                      const enrolled = row.enrolled[y].total;
-                      const entered = row.feeEntered[y] || 0;
-                      const allDone = enrolled > 0 && entered >= enrolled;
-                      const noneDone = enrolled > 0 && entered === 0;
-                      return (
-                        <td key={`fe-${y}`} className={`px-2 py-2.5 text-xs text-center border-r border-slate-100 font-medium ${
-                          enrolled === 0 ? 'text-slate-300' :
-                          allDone ? 'text-emerald-600 bg-emerald-50' :
-                          noneDone ? 'text-red-600 bg-red-50' :
-                          'text-amber-600 bg-amber-50'
-                        }`}>
-                          {enrolled === 0 ? '-' : `${entered}/${enrolled}`}
-                        </td>
-                      );
-                    })}
+      {feeEntryStatusData.length > 0 && (() => {
+        const beRows = feeEntryStatusData.filter(r => r.courseType === 'B.E');
+        const meRows = feeEntryStatusData.filter(r => r.courseType === 'M.E');
+
+        const renderFeeTable = (rows: typeof feeEntryStatusData, type: 'B.E' | 'M.E') => {
+          const maxYears = type === 'M.E' ? 2 : 4;
+          const yearLabels = type === 'M.E' ? ['1st Year', '2nd Year'] : ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-50">
+                    <th rowSpan={2} className="px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-left border-r border-slate-200 whitespace-nowrap">Department</th>
+                    <th rowSpan={2} className="px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center border-r border-slate-200 whitespace-nowrap">Batch</th>
+                    <th colSpan={maxYears + 1} className="px-2 py-2 text-[10px] font-semibold text-blue-600 uppercase tracking-wider text-center border-r border-slate-200 bg-blue-50">Enrolled (R+L)</th>
+                    <th colSpan={maxYears} className="px-2 py-2 text-[10px] font-semibold text-teal-600 uppercase tracking-wider text-center bg-teal-50">Fee Entry Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                  <tr className="bg-slate-50">
+                    {yearLabels.map(y => (
+                      <th key={`en-${y}`} className="px-2 py-2 text-[10px] font-medium text-blue-600 text-center border-r border-slate-100 bg-blue-50 whitespace-nowrap">{y}</th>
+                    ))}
+                    <th className="px-2 py-2 text-[10px] font-semibold text-blue-700 text-center border-r border-slate-200 bg-blue-100 whitespace-nowrap">Total</th>
+                    {yearLabels.map(y => (
+                      <th key={`fe-${y}`} className="px-2 py-2 text-[10px] font-medium text-teal-600 text-center border-r border-slate-100 bg-teal-50 whitespace-nowrap">{y}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <tr key={`${row.deptCode}-${row.batch}`} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                      <td className="px-3 py-2.5 text-xs font-medium text-slate-700 border-r border-slate-100 whitespace-nowrap">
+                        <span>{row.deptName}</span>
+                        <span className="text-slate-400 ml-1">({row.deptCode})</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-xs text-slate-600 text-center border-r border-slate-100 whitespace-nowrap">{row.batch}</td>
+                      {Array.from({ length: maxYears }, (_, idx) => idx + 1).map(y => {
+                        const e = row.enrolled[y];
+                        return (
+                          <td key={`en-${y}`} className="px-2 py-2.5 text-xs text-center border-r border-slate-100">
+                            {e.total > 0 ? (
+                              <div>
+                                <span className="font-semibold text-slate-700">{e.total}</span>
+                                <div className="text-[9px] text-slate-400 leading-tight">
+                                  <span className="text-blue-500">{e.regular}R</span>
+                                  {e.lateral > 0 && <span className="text-amber-500 ml-0.5">+{e.lateral}L</span>}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-slate-300">0</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="px-2 py-2.5 text-xs text-center border-r border-slate-200 font-bold text-blue-800 bg-blue-50/50">
+                        <div>
+                          <span>{row.totalEnrolled}</span>
+                          {row.totalLateral > 0 && (
+                            <div className="text-[9px] text-slate-400 leading-tight">
+                              <span className="text-blue-500">{row.totalRegular}R</span>
+                              <span className="text-amber-500 ml-0.5">+{row.totalLateral}L</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      {Array.from({ length: maxYears }, (_, idx) => idx + 1).map(y => {
+                        const enrolled = row.enrolled[y].total;
+                        const entered = row.feeEntered[y] || 0;
+                        const allDone = enrolled > 0 && entered >= enrolled;
+                        const noneDone = enrolled > 0 && entered === 0;
+                        return (
+                          <td key={`fe-${y}`} className={`px-2 py-2.5 text-xs text-center border-r border-slate-100 font-medium ${
+                            enrolled === 0 ? 'text-slate-300' :
+                            allDone ? 'text-emerald-600 bg-emerald-50' :
+                            noneDone ? 'text-red-600 bg-red-50' :
+                            'text-amber-600 bg-amber-50'
+                          }`}>
+                            {enrolled === 0 ? '-' : `${entered}/${enrolled}`}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        };
+
+        return (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck size={16} className="text-teal-600" />
+                <h3 className="text-sm font-bold text-slate-700">Fee Entry Status</h3>
+                <span className="text-xs text-slate-400">(Enrollment vs Fee Entry by Department, Batch &amp; Year)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Filter size={14} className="text-slate-400" />
+                <select
+                  value={feeStatusBatchFilter}
+                  onChange={(e) => setFeeStatusBatchFilter(e.target.value)}
+                  className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-400 transition-all min-w-[140px] shadow-sm"
+                >
+                  <option value="all">All Batches</option>
+                  {batches.map(b => <option key={b} value={b}>Batch {b}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {beRows.length > 0 && (
+              <>
+                <div className="px-6 py-2 bg-indigo-50 border-b border-indigo-100">
+                  <span className="text-xs font-bold text-indigo-700">B.E Programs (4-Year)</span>
+                </div>
+                {renderFeeTable(beRows, 'B.E')}
+              </>
+            )}
+
+            {meRows.length > 0 && (
+              <>
+                <div className="px-6 py-2 bg-purple-50 border-b border-purple-100 border-t border-t-purple-100">
+                  <span className="text-xs font-bold text-purple-700">M.E Programs (2-Year)</span>
+                </div>
+                {renderFeeTable(meRows, 'M.E')}
+              </>
+            )}
+
+            <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-4 text-[10px] text-slate-500">
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 inline-block"></span> All Done</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-300 inline-block"></span> Partial</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block"></span> Not Entered</span>
+              <span className="flex items-center gap-1"><span className="text-slate-300">-</span> No Students</span>
+              <span className="ml-2 text-blue-500">R</span><span>= Regular</span>
+              <span className="text-amber-500">L</span><span>= Lateral Entry</span>
+            </div>
           </div>
-          <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-4 text-[10px] text-slate-500">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 inline-block"></span> All Done</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-300 inline-block"></span> Partial</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block"></span> Not Entered</span>
-            <span className="flex items-center gap-1"><span className="text-slate-300">-</span> No Students</span>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="bg-gradient-to-r from-indigo-600 to-blue-700 rounded-2xl p-5 shadow-lg">
         <div className="flex items-center justify-between text-white">
