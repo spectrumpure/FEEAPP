@@ -196,11 +196,13 @@ export const Reports: React.FC = () => {
           totalReceived: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
         });
       };
-      if (lateralStudents.length > 0) {
+      if (dept.courseType === 'B.E') {
         calcRow(regularStudents, 'Regular');
-        calcRow(lateralStudents, 'Lateral');
+        if (filterYear !== 1) {
+          calcRow(lateralStudents, 'Lateral');
+        }
       } else {
-        calcRow(filterYear === 1 ? regularStudents : deptStudents, '');
+        calcRow(deptStudents, '');
       }
     });
     return rows;
