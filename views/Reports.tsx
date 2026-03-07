@@ -113,6 +113,8 @@ export const Reports: React.FC = () => {
   const [drDeptFilter, setDrDeptFilter] = useState<string>('all');
   const [drBatchFilter, setDrBatchFilter] = useState<string>('all');
   const [expandedDrDept, setExpandedDrDept] = useState<string | null>(null);
+  const [expandedFY, setExpandedFY] = useState<string | null>(null);
+  const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
 
   const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} />, desc: 'Revenue by department' },
@@ -218,6 +220,48 @@ export const Reports: React.FC = () => {
     return Object.entries(grouped).map(([fy, data]) => ({
       financialYear: fy, ...data, total: data.tuition + data.university + data.other,
     })).sort((a, b) => a.financialYear.localeCompare(b.financialYear));
+  };
+
+  const getStudentsForFY = (fy: string) => {
+    const studentMap: Record<string, { htn: string; name: string; department: string; batch: string; tuition: number; university: number; other: number; total: number; txCount: number }> = {};
+    students.forEach(s => {
+      s.feeLockers.forEach(l => {
+        l.transactions.filter(t => t.status === 'APPROVED' && (t.financialYear || 'Unknown') === fy).forEach(t => {
+          const key = s.hallTicketNumber;
+          if (!studentMap[key]) {
+            studentMap[key] = {
+              htn: s.hallTicketNumber,
+              name: s.name,
+              department: (s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', ''),
+              batch: s.batch || '-',
+              tuition: 0, university: 0, other: 0, total: 0, txCount: 0
+            };
+          }
+          studentMap[key].txCount++;
+          if (t.feeType === 'Tuition') studentMap[key].tuition += t.amount;
+          else if (t.feeType === 'University') studentMap[key].university += t.amount;
+          else studentMap[key].other += t.amount;
+          studentMap[key].total += t.amount;
+        });
+      });
+    });
+    return Object.values(studentMap).sort((a, b) => a.htn.localeCompare(b.htn));
+  };
+
+  const getStudentsForBatch = (batch: string) => {
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
+    return students.filter(s => (s.batch || 'Unknown') === batch).map(s => {
+      const t = getStudentTargets(s, null, from, to);
+      return {
+        htn: s.hallTicketNumber,
+        name: s.name,
+        department: (s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', ''),
+        totalTarget: t.tTarget + t.uTarget,
+        totalPaid: t.tPaid + t.uPaid,
+        balance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid),
+      };
+    }).sort((a, b) => a.htn.localeCompare(b.htn));
   };
 
   const getBatchWiseData = () => {
@@ -1028,16 +1072,74 @@ export const Reports: React.FC = () => {
           </thead>
           <tbody>
             {data.length === 0 && <EmptyState message="No approved transactions found." />}
-            {data.map((d, i) => (
-              <tr key={d.financialYear} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                <td className={`${tdClass} font-semibold text-slate-800`}>{d.financialYear}</td>
-                <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
-                <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tuition)}</td>
-                <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.university)}</td>
-                <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.other)}</td>
-                <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.total)}</td>
-              </tr>
-            ))}
+            {data.map((d, i) => {
+              const isExpanded = expandedFY === d.financialYear;
+              const fyStudents = isExpanded ? getStudentsForFY(d.financialYear) : [];
+              return (
+                <React.Fragment key={d.financialYear}>
+                  <tr
+                    className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50' : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                    onClick={() => setExpandedFY(isExpanded ? null : d.financialYear)}
+                  >
+                    <td className={`${tdClass} font-semibold text-slate-800`}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`text-[10px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
+                        {d.financialYear}
+                      </span>
+                    </td>
+                    <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
+                    <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tuition)}</td>
+                    <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.university)}</td>
+                    <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.other)}</td>
+                    <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.total)}</td>
+                  </tr>
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={6} className="p-0">
+                        <div className="bg-slate-50 border-y border-slate-200 p-3">
+                          <div className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-2">
+                            <Users size={14} />
+                            Student Details for FY {d.financialYear} ({fyStudents.length} students)
+                          </div>
+                          <div className="overflow-x-auto rounded border border-slate-200 max-h-[400px] overflow-y-auto">
+                            <table className="w-full text-left border-collapse text-[12px]">
+                              <thead className="sticky top-0 z-10">
+                                <tr className="bg-slate-100">
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-center w-10">S.No</th>
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600">Roll Number</th>
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600">Name</th>
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-center">Dept</th>
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-center">Batch</th>
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">Tuition</th>
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">University</th>
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">Other</th>
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {fyStudents.map((s, si) => (
+                                  <tr key={s.htn} className={`border-b border-slate-100 ${si % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                                    <td className="px-2 py-1.5 text-slate-400 text-center">{si + 1}</td>
+                                    <td className="px-2 py-1.5 font-mono font-semibold text-slate-700">{s.htn}</td>
+                                    <td className="px-2 py-1.5 font-semibold text-slate-800">{s.name}</td>
+                                    <td className="px-2 py-1.5 text-slate-500 text-center">{s.department}</td>
+                                    <td className="px-2 py-1.5 text-slate-500 text-center">{s.batch}</td>
+                                    <td className="px-2 py-1.5 text-slate-600 text-right">{s.tuition > 0 ? formatCurrency(s.tuition) : '-'}</td>
+                                    <td className="px-2 py-1.5 text-slate-600 text-right">{s.university > 0 ? formatCurrency(s.university) : '-'}</td>
+                                    <td className="px-2 py-1.5 text-slate-600 text-right">{s.other > 0 ? formatCurrency(s.other) : '-'}</td>
+                                    <td className="px-2 py-1.5 font-semibold text-emerald-600 text-right">{formatCurrency(s.total)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
             {data.length > 0 && (
               <tr className="bg-[#1a365d] text-white">
                 <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
@@ -1082,9 +1184,20 @@ export const Reports: React.FC = () => {
           <tbody>
             {data.map((d, i) => {
               const pct = d.totalTarget > 0 ? (d.totalPaid / d.totalTarget) * 100 : 0;
+              const isBatchExpanded = expandedBatch === d.batch;
+              const batchStudents = isBatchExpanded ? getStudentsForBatch(d.batch) : [];
               return (
-                <tr key={d.batch} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                  <td className={`${tdClass} font-semibold text-slate-800`}>{d.batch}</td>
+                <React.Fragment key={d.batch}>
+                <tr
+                  className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors cursor-pointer ${isBatchExpanded ? 'bg-blue-50' : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                  onClick={() => setExpandedBatch(isBatchExpanded ? null : d.batch)}
+                >
+                  <td className={`${tdClass} font-semibold text-slate-800`}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className={`text-[10px] transition-transform ${isBatchExpanded ? 'rotate-90' : ''}`}>▶</span>
+                      {d.batch}
+                    </span>
+                  </td>
                   <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
                   <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.totalTarget)}</td>
                   <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.totalPaid)}</td>
@@ -1100,6 +1213,47 @@ export const Reports: React.FC = () => {
                     </div>
                   </td>
                 </tr>
+                {isBatchExpanded && (
+                  <tr>
+                    <td colSpan={6} className="p-0">
+                      <div className="bg-slate-50 border-y border-slate-200 p-3">
+                        <div className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-2">
+                          <Users size={14} />
+                          Student Details for Batch {d.batch} ({batchStudents.length} students)
+                        </div>
+                        <div className="overflow-x-auto rounded border border-slate-200 max-h-[400px] overflow-y-auto">
+                          <table className="w-full text-left border-collapse text-[12px]">
+                            <thead className="sticky top-0 z-10">
+                              <tr className="bg-slate-100">
+                                <th className="px-2 py-1.5 font-semibold text-slate-600 text-center w-10">S.No</th>
+                                <th className="px-2 py-1.5 font-semibold text-slate-600">Roll Number</th>
+                                <th className="px-2 py-1.5 font-semibold text-slate-600">Name</th>
+                                <th className="px-2 py-1.5 font-semibold text-slate-600 text-center">Dept</th>
+                                <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">Target</th>
+                                <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">Paid</th>
+                                <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">Balance</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {batchStudents.map((s, si) => (
+                                <tr key={s.htn} className={`border-b border-slate-100 ${si % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                                  <td className="px-2 py-1.5 text-slate-400 text-center">{si + 1}</td>
+                                  <td className="px-2 py-1.5 font-mono font-semibold text-slate-700">{s.htn}</td>
+                                  <td className="px-2 py-1.5 font-semibold text-slate-800">{s.name}</td>
+                                  <td className="px-2 py-1.5 text-slate-500 text-center">{s.department}</td>
+                                  <td className="px-2 py-1.5 text-slate-600 text-right">{formatCurrency(s.totalTarget)}</td>
+                                  <td className="px-2 py-1.5 font-semibold text-emerald-600 text-right">{formatCurrency(s.totalPaid)}</td>
+                                  <td className="px-2 py-1.5 font-semibold text-right" style={{ color: s.balance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(s.balance)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               );
             })}
             {data.length > 0 && (
