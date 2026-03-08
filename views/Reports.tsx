@@ -983,7 +983,7 @@ export const Reports: React.FC = () => {
         }
       };
 
-      if (dept.courseType === 'B.E' && studyYear >= 2 && lateralStudents.length > 0) {
+      if (dept.courseType === 'B.E') {
         calcRow(regularStudents, 'Regular');
         calcRow(lateralStudents, 'Lateral');
       } else {
