@@ -949,9 +949,10 @@ export const Reports: React.FC = () => {
         const bStart = parseInt((s.batch || '').split('-')[0]);
         return bStart === batchStartYear;
       });
-      if (matchingStudents.length === 0) return;
 
-      const batchLabel = matchingStudents[0]?.batch || `${batchStartYear}-${batchStartYear + maxYears}`;
+      const batchLabel = matchingStudents.length > 0
+        ? matchingStudents[0].batch
+        : `${batchStartYear}-${batchStartYear + maxYears}`;
 
       const regularStudents = matchingStudents.filter(s => s.entryType !== 'LATERAL');
       const lateralStudents = matchingStudents.filter(s => s.entryType === 'LATERAL');
@@ -973,14 +974,12 @@ export const Reports: React.FC = () => {
             uTarget += targets.university;
           }
         });
-        if (subset.length > 0 || label === 'Regular') {
-          rows.push({
-            deptName: dept.name, deptCode: dept.code, courseType: dept.courseType,
-            studyYear, batch: batchLabel, entryLabel: label,
-            count: subset.length, tTarget, uTarget, tPaid, uPaid,
-            totalReceived: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
-          });
-        }
+        rows.push({
+          deptName: dept.name, deptCode: dept.code, courseType: dept.courseType,
+          studyYear, batch: batchLabel, entryLabel: label,
+          count: subset.length, tTarget, uTarget, tPaid, uPaid,
+          totalReceived: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
+        });
       };
 
       if (dept.courseType === 'B.E') {
