@@ -19,10 +19,23 @@ export const StudentEnrollment: React.FC = () => {
   const [batchFilter, setBatchFilter] = useState<string>('all');
   const [expandedDept, setExpandedDept] = useState<string | null>(null);
   const [feeStatusBatchFilter, setFeeStatusBatchFilter] = useState<string>('all');
+  const [feeStatusAYFilter, setFeeStatusAYFilter] = useState<string>('all');
 
   const batches = useMemo(() => {
     const batchSet = new Set(students.map(s => s.batch).filter(Boolean));
     return Array.from(batchSet).sort().reverse();
+  }, [students]);
+
+  const academicYearOptions = useMemo(() => {
+    const startYears = students.map(s => parseInt((s.batch || '').split('-')[0])).filter(y => !isNaN(y));
+    if (startYears.length === 0) return [];
+    const minYear = Math.min(...startYears);
+    const maxYear = Math.max(...startYears);
+    const options: string[] = [];
+    for (let y = maxYear; y >= minYear; y--) {
+      options.push(`${y}-${String(y + 1).slice(2)}`);
+    }
+    return options;
   }, [students]);
 
   const filteredStudents = useMemo(() => {
@@ -70,13 +83,13 @@ export const StudentEnrollment: React.FC = () => {
   const meData = enrollmentData.filter(d => d.dept.courseType === 'M.E');
 
   const feeEntryStatusData = useMemo(() => {
-    const batchList = feeStatusBatchFilter === 'all' ? batches : [feeStatusBatchFilter];
     const rows: {
       deptName: string;
       deptCode: string;
       courseType: string;
       duration: number;
       batch: string;
+      studyYear: number | null;
       enrolled: Record<number, { regular: number; lateral: number; total: number }>;
       feeEntered: Record<number, number>;
       totalEnrolled: number;
@@ -84,20 +97,24 @@ export const StudentEnrollment: React.FC = () => {
       totalLateral: number;
     }[] = [];
 
-    batchList.forEach(batch => {
-      departments.forEach(dept => {
-        const deptStudents = students.filter(s =>
-          s.batch === batch &&
-          s.department && (s.department === dept.name || s.department === dept.code || s.department.toUpperCase() === dept.code.toUpperCase())
-        );
+    if (feeStatusAYFilter !== 'all') {
+      const ayStartYear = parseInt(feeStatusAYFilter.split('-')[0]);
+
+      const processAYGroup = (dept: typeof departments[0], studyYear: number, batchStartYear: number, maxYears: number) => {
+        const deptStudents = students.filter(s => {
+          if (!(s.department === dept.name || s.department === dept.code || (s.department || '').toUpperCase() === dept.code.toUpperCase())) return false;
+          const bStart = parseInt((s.batch || '').split('-')[0]);
+          return bStart === batchStartYear;
+        });
         if (deptStudents.length === 0) return;
 
-        const enrolled: Record<number, { regular: number; lateral: number; total: number }> = {};
-        const feeEntered: Record<number, number> = {};
+        const batchLabel = deptStudents[0]?.batch || `${batchStartYear}-${batchStartYear + maxYears}`;
         const totalEnrolled = deptStudents.length;
         const totalRegular = deptStudents.filter(s => s.entryType !== 'LATERAL').length;
         const totalLateral = deptStudents.filter(s => s.entryType === 'LATERAL').length;
-        const maxYears = dept.duration || (dept.courseType === 'M.E' ? 2 : 4);
+
+        const enrolled: Record<number, { regular: number; lateral: number; total: number }> = {};
+        const feeEntered: Record<number, number> = {};
         for (let y = 1; y <= maxYears; y++) {
           const yearStudents = deptStudents.filter(s => s.feeLockers.some(l => l.year === y));
           const regular = yearStudents.filter(s => s.entryType !== 'LATERAL').length;
@@ -112,12 +129,56 @@ export const StudentEnrollment: React.FC = () => {
           feeEntered[y] = 0;
         }
 
-        rows.push({ deptName: dept.name, deptCode: dept.code, courseType: dept.courseType, duration: maxYears, batch, enrolled, feeEntered, totalEnrolled, totalRegular, totalLateral });
+        rows.push({ deptName: dept.name, deptCode: dept.code, courseType: dept.courseType, duration: maxYears, batch: batchLabel, studyYear, enrolled, feeEntered, totalEnrolled, totalRegular, totalLateral });
+      };
+
+      departments.filter(d => d.courseType === 'B.E').forEach(dept => {
+        for (let sy = 1; sy <= 4; sy++) {
+          processAYGroup(dept, sy, ayStartYear - (sy - 1), 4);
+        }
       });
-    });
+      departments.filter(d => d.courseType === 'M.E').forEach(dept => {
+        for (let sy = 1; sy <= 2; sy++) {
+          processAYGroup(dept, sy, ayStartYear - (sy - 1), 2);
+        }
+      });
+    } else {
+      const batchList = feeStatusBatchFilter === 'all' ? batches : [feeStatusBatchFilter];
+      batchList.forEach(batch => {
+        departments.forEach(dept => {
+          const deptStudents = students.filter(s =>
+            s.batch === batch &&
+            s.department && (s.department === dept.name || s.department === dept.code || s.department.toUpperCase() === dept.code.toUpperCase())
+          );
+          if (deptStudents.length === 0) return;
+
+          const enrolled: Record<number, { regular: number; lateral: number; total: number }> = {};
+          const feeEntered: Record<number, number> = {};
+          const totalEnrolled = deptStudents.length;
+          const totalRegular = deptStudents.filter(s => s.entryType !== 'LATERAL').length;
+          const totalLateral = deptStudents.filter(s => s.entryType === 'LATERAL').length;
+          const maxYears = dept.duration || (dept.courseType === 'M.E' ? 2 : 4);
+          for (let y = 1; y <= maxYears; y++) {
+            const yearStudents = deptStudents.filter(s => s.feeLockers.some(l => l.year === y));
+            const regular = yearStudents.filter(s => s.entryType !== 'LATERAL').length;
+            const lateral = yearStudents.filter(s => s.entryType === 'LATERAL').length;
+            enrolled[y] = { regular, lateral, total: regular + lateral };
+            feeEntered[y] = deptStudents.filter(s =>
+              s.feeLockers.some(l => l.year === y && l.transactions.length > 0)
+            ).length;
+          }
+          for (let y = maxYears + 1; y <= 4; y++) {
+            enrolled[y] = { regular: 0, lateral: 0, total: 0 };
+            feeEntered[y] = 0;
+          }
+
+          rows.push({ deptName: dept.name, deptCode: dept.code, courseType: dept.courseType, duration: maxYears, batch, studyYear: null, enrolled, feeEntered, totalEnrolled, totalRegular, totalLateral });
+        });
+      });
+    }
 
     return rows;
-  }, [students, departments, batches, feeStatusBatchFilter]);
+  }, [students, departments, batches, feeStatusBatchFilter, feeStatusAYFilter]);
 
   const beTotals = beData.reduce((acc, d) => ({ total: acc.total + d.total, regular: acc.regular + d.regular, lateral: acc.lateral + d.lateral }), { total: 0, regular: 0, lateral: 0 });
   const meTotals = meData.reduce((acc, d) => ({ total: acc.total + d.total, regular: acc.regular + d.regular, lateral: acc.lateral + d.lateral }), { total: 0, regular: 0, lateral: 0 });
@@ -376,6 +437,8 @@ export const StudentEnrollment: React.FC = () => {
         const beRows = feeEntryStatusData.filter(r => r.courseType === 'B.E');
         const meRows = feeEntryStatusData.filter(r => r.courseType === 'M.E');
 
+        const isAYMode = feeStatusAYFilter !== 'all';
+
         const renderFeeTable = (rows: typeof feeEntryStatusData, type: 'B.E' | 'M.E') => {
           const maxYears = type === 'M.E' ? 2 : 4;
           const yearLabels = type === 'M.E' ? ['1st Year', '2nd Year'] : ['1st Year', '2nd Year', '3rd Year', '4th Year'];
@@ -385,6 +448,7 @@ export const StudentEnrollment: React.FC = () => {
                 <thead>
                   <tr className="bg-slate-50">
                     <th rowSpan={2} className="px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-left border-r border-slate-200 whitespace-nowrap">Department</th>
+                    {isAYMode && <th rowSpan={2} className="px-3 py-2 text-[10px] font-semibold text-orange-600 uppercase tracking-wider text-center border-r border-slate-200 whitespace-nowrap bg-orange-50">Study Year</th>}
                     <th rowSpan={2} className="px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center border-r border-slate-200 whitespace-nowrap">Batch</th>
                     <th colSpan={maxYears + 1} className="px-2 py-2 text-[10px] font-semibold text-blue-600 uppercase tracking-wider text-center border-r border-slate-200 bg-blue-50">Enrolled (R+L)</th>
                     <th colSpan={maxYears} className="px-2 py-2 text-[10px] font-semibold text-teal-600 uppercase tracking-wider text-center bg-teal-50">Fee Entry Status</th>
@@ -401,11 +465,16 @@ export const StudentEnrollment: React.FC = () => {
                 </thead>
                 <tbody>
                   {rows.map((row, i) => (
-                    <tr key={`${row.deptCode}-${row.batch}`} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                    <tr key={`${row.deptCode}-${row.batch}-${row.studyYear}`} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
                       <td className="px-3 py-2.5 text-xs font-medium text-slate-700 border-r border-slate-100 whitespace-nowrap">
                         <span>{row.deptName}</span>
                         <span className="text-slate-400 ml-1">({row.deptCode})</span>
                       </td>
+                      {isAYMode && (
+                        <td className="px-3 py-2.5 text-xs font-semibold text-orange-700 text-center border-r border-slate-100 whitespace-nowrap bg-orange-50/30">
+                          {row.studyYear === 1 ? '1st' : row.studyYear === 2 ? '2nd' : row.studyYear === 3 ? '3rd' : '4th'} Year
+                        </td>
+                      )}
                       <td className="px-3 py-2.5 text-xs text-slate-600 text-center border-r border-slate-100 whitespace-nowrap">{row.batch}</td>
                       {Array.from({ length: maxYears }, (_, idx) => idx + 1).map(y => {
                         const e = row.enrolled[y];
@@ -471,13 +540,23 @@ export const StudentEnrollment: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Filter size={14} className="text-slate-400" />
                 <select
-                  value={feeStatusBatchFilter}
-                  onChange={(e) => setFeeStatusBatchFilter(e.target.value)}
+                  value={feeStatusAYFilter}
+                  onChange={(e) => { setFeeStatusAYFilter(e.target.value); if (e.target.value !== 'all') setFeeStatusBatchFilter('all'); }}
                   className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-400 transition-all min-w-[140px] shadow-sm"
                 >
-                  <option value="all">All Batches</option>
-                  {batches.map(b => <option key={b} value={b}>Batch {b}</option>)}
+                  <option value="all">All Academic Years</option>
+                  {academicYearOptions.map(ay => <option key={ay} value={ay}>AY {ay}</option>)}
                 </select>
+                {feeStatusAYFilter === 'all' && (
+                  <select
+                    value={feeStatusBatchFilter}
+                    onChange={(e) => setFeeStatusBatchFilter(e.target.value)}
+                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-400 transition-all min-w-[140px] shadow-sm"
+                  >
+                    <option value="all">All Batches</option>
+                    {batches.map(b => <option key={b} value={b}>Batch {b}</option>)}
+                  </select>
+                )}
               </div>
             </div>
 
