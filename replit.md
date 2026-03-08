@@ -54,6 +54,10 @@ The **project structure** is organized for clarity:
 - **Vercel**: Deployment platform for frontend static assets and serverless API functions.
 
 ## Recent Changes
+- 2026-03-07: Fee Entry Status overhaul: split into B.E (4-year) and M.E (2-year) sections; enrollment based on fee locker presence (not currentYear); Total column shows Regular/Lateral split; M.E table has only 2 year columns; legend includes R/L labels
+- 2026-03-07: Added drill-down student lists to Financial Year and Batch Wise reports - click any row to expand and see student details (Roll Number, Name, Department, Batch, fee breakdown)
+- 2026-03-07: Fixed 49 "Unknown" batch students in Supabase - were CSE 2025 students with null department/batch, now correctly assigned to B.E(CSE) batch 2025-2029
+- 2026-03-07: Uploaded CSE 2024-2028 Year 1 fee data (394 transactions) directly to Supabase
 - 2026-03-05: Added Fee Entry Status table to Student Enrollment page - shows Department, Batch, Enrolled count (1st-4th Year), and Fee Entry Status (1st-4th Year) with color coding: green (all done), amber (partial), red (not entered); X/Y format; respects batch filter; enrolled counts show Regular/Lateral split (e.g. 45R+5L); Total column after 4th Year
 - 2026-03-03: Added Full Backup Excel export to Student Directory - uses Combined (Student+Fee) 24-column template format for direct re-import; includes all transactions with challan no/date/payment mode
 - 2026-03-03: Added persistent auto-incrementing certificate serial numbers (Bonafide MJCET/BC/N, TC MJCET/TC/N) stored in certificate_counters DB table; atomic increment via INSERT ON CONFLICT
