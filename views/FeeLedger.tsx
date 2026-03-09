@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../store';
-import { Search, ChevronDown, ChevronRight, CheckCircle2, XCircle, Clock, FileText, IndianRupee, Printer, Download, Share2, Calendar, User, StickyNote } from 'lucide-react';
-import { Student, YearLocker, StudentRemark } from '../types';
+import { Search, ChevronDown, ChevronRight, CheckCircle2, XCircle, Clock, FileText, IndianRupee, Printer, Download, Share2, Calendar, User, StickyNote, Pencil, X, Save } from 'lucide-react';
+import { Student, YearLocker, StudentRemark, FeeTransaction } from '../types';
 
 const YearSummaryCard: React.FC<{ locker: YearLocker; currentYear: number; isCurrent: boolean }> = ({ locker, currentYear, isCurrent }) => {
   const isFuture = locker.year > currentYear;
@@ -100,9 +100,13 @@ const YearSummaryCard: React.FC<{ locker: YearLocker; currentYear: number; isCur
   );
 };
 
-export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
+export const FeeLedger: React.FC<{ student: Student; canEdit?: boolean; onDataChanged?: () => void }> = ({ student, canEdit = false, onDataChanged }) => {
   const { getFeeTargets } = useApp();
   const [remarks, setRemarks] = useState<StudentRemark[]>([]);
+  const [editingTx, setEditingTx] = useState<(FeeTransaction & { year: number }) | null>(null);
+  const [editForm, setEditForm] = useState({ amount: '', feeType: 'Tuition', challanNumber: '', paymentMode: 'Cash', paymentDate: '', targetYear: 1 });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
 
   useEffect(() => {
     const loadRemarks = async () => {
@@ -121,6 +125,50 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleEditClick = (tx: FeeTransaction & { year: number }) => {
+    setEditingTx(tx);
+    setEditForm({
+      amount: tx.amount.toString(),
+      feeType: tx.feeType,
+      challanNumber: tx.challanNumber || '',
+      paymentMode: tx.paymentMode || 'Cash',
+      paymentDate: tx.paymentDate || '',
+      targetYear: tx.year,
+    });
+    setEditError('');
+  };
+
+  const handleEditSave = async () => {
+    if (!editingTx) return;
+    const amount = parseFloat(editForm.amount);
+    if (isNaN(amount) || amount < 0) { setEditError('Please enter a valid amount'); return; }
+    if (!editForm.feeType) { setEditError('Fee type is required'); return; }
+
+    setEditSaving(true);
+    setEditError('');
+    try {
+      const res = await fetch(`/api/transactions/${encodeURIComponent(editingTx.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          feeType: editForm.feeType,
+          challanNumber: editForm.challanNumber,
+          paymentMode: editForm.paymentMode,
+          paymentDate: editForm.paymentDate,
+          targetYear: editForm.targetYear,
+        }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed to update'); }
+      setEditingTx(null);
+      if (onDataChanged) onDataChanged();
+    } catch (err: any) {
+      setEditError(err.message || 'Failed to save changes');
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const totalPaidAllYears = student.feeLockers.reduce((sum, locker) => {
@@ -273,8 +321,11 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
                     <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Year</th>
                     <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Type</th>
                     <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Challan / Ref</th>
+                    <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Mode</th>
                     <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                    <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                     <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                    {canEdit && <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center no-print">Action</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -289,15 +340,36 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
                       <td className="px-6 py-2.5">
                         <span className="text-[10px] font-mono font-bold text-slate-500">{tx.challanNumber}</span>
                       </td>
+                      <td className="px-6 py-2.5">
+                        <span className="text-[10px] font-medium text-slate-500">{tx.paymentMode}</span>
+                      </td>
                       <td className="px-6 py-2.5 text-xs text-slate-500">{tx.paymentDate}</td>
+                      <td className="px-6 py-2.5">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${
+                          tx.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' :
+                          tx.status === 'REJECTED' ? 'bg-red-50 text-red-600' :
+                          'bg-amber-50 text-amber-600'
+                        }`}>{tx.status}</span>
+                      </td>
                       <td className="px-6 py-2.5 text-right font-black text-slate-900 text-sm">
                         {formatCurrency(tx.amount)}
                       </td>
+                      {canEdit && (
+                        <td className="px-4 py-2.5 text-center no-print">
+                          <button
+                            onClick={() => handleEditClick(tx)}
+                            className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors"
+                            title="Edit transaction"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {student.feeLockers.every(l => l.transactions.length === 0) && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-300 text-xs italic">No transactions found.</td>
+                      <td colSpan={canEdit ? 8 : 7} className="px-6 py-12 text-center text-slate-300 text-xs italic">No transactions found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -305,6 +377,123 @@ export const FeeLedger: React.FC<{ student: Student }> = ({ student }) => {
            </div>
         </div>
       </div>
+
+      {editingTx && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 no-print" onClick={() => setEditingTx(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Edit Transaction</h3>
+                <p className="text-xs text-slate-400 mt-1">ID: {editingTx.id}</p>
+              </div>
+              <button onClick={() => setEditingTx(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                <X size={18} className="text-slate-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {editError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium">{editError}</div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Amount</label>
+                  <input
+                    type="number"
+                    value={editForm.amount}
+                    onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fee Type</label>
+                  <select
+                    value={editForm.feeType}
+                    onChange={e => setEditForm(f => ({ ...f, feeType: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none bg-white"
+                  >
+                    <option value="Tuition">Tuition</option>
+                    <option value="University">University</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Challan / Ref No</label>
+                  <input
+                    type="text"
+                    value={editForm.challanNumber}
+                    onChange={e => setEditForm(f => ({ ...f, challanNumber: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment Mode</label>
+                  <select
+                    value={editForm.paymentMode}
+                    onChange={e => setEditForm(f => ({ ...f, paymentMode: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none bg-white"
+                  >
+                    <option value="Online">Online</option>
+                    <option value="Challan">Challan</option>
+                    <option value="DD">DD</option>
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment Date</label>
+                  <input
+                    type="text"
+                    value={editForm.paymentDate}
+                    onChange={e => setEditForm(f => ({ ...f, paymentDate: e.target.value }))}
+                    placeholder="DD.MM.YYYY or YYYY-MM-DD"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Target Year</label>
+                  <select
+                    value={editForm.targetYear}
+                    onChange={e => setEditForm(f => ({ ...f, targetYear: parseInt(e.target.value) }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none bg-white"
+                  >
+                    <option value={1}>Year 1</option>
+                    <option value={2}>Year 2</option>
+                    <option value={3}>Year 3</option>
+                    <option value={4}>Year 4</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-100">
+              <button
+                onClick={() => setEditingTx(null)}
+                className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={editSaving}
+                className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                <Save size={16} />
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
