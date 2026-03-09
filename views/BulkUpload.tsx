@@ -862,20 +862,25 @@ export const BulkUpload: React.FC = () => {
     if (!previewData || previewData.students.length === 0) return;
     setIsConfirming(true);
     try {
-      await bulkAddStudents(previewData.students);
+      const result = await bulkAddStudents(previewData.students);
+      const savedCount = result?.count || previewData.students.length;
+      const uploadErrors = [...(previewData.errors || [])];
+      if (result?.errors) {
+        uploadErrors.push(...result.errors);
+      }
       setUploadResult({
         type: previewData.type,
         total: previewData.totalRows,
-        success: previewData.students.length,
-        errors: previewData.errors
+        success: savedCount,
+        errors: uploadErrors
       });
       setPreviewData(null);
-    } catch (err) {
+    } catch (err: any) {
       setUploadResult({
         type: previewData.type,
         total: previewData.totalRows,
         success: 0,
-        errors: ['Failed to save data. Please try again.']
+        errors: [`Failed to save data: ${err.message || 'Unknown error'}. Please try again.`]
       });
     }
     setIsConfirming(false);
