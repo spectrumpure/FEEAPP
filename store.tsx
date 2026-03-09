@@ -31,6 +31,7 @@ interface AppState {
   getFeeTargets: (department: string, year: number, entryType?: 'REGULAR' | 'LATERAL', admissionYear?: string) => { tuition: number; university: number };
   addCustomDepartment: (dept: { name: string; code: string; courseType: string; duration: number }) => Promise<{ success: boolean; error?: string }>;
   deleteCustomDepartment: (id: string) => Promise<void>;
+  refreshData: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -150,37 +151,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [batchFeeLockerConfig, setBatchFeeLockerConfig] = useState<BatchFeeLockerConfig>(DEFAULT_BATCH_CONFIG);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const res = await fetch('/api/bootstrap');
-        if (res.ok) {
-          const data = await res.json();
-          setStudents(data.students || []);
-          setTransactions(data.transactions || []);
-          if (data.customDepartments && Array.isArray(data.customDepartments)) {
-            setCustomDepartments(data.customDepartments);
-          }
-          if (data.batchFeeLockerConfig) {
-            const bc = data.batchFeeLockerConfig as BatchFeeLockerConfig;
-            if (bc.batches) {
-              for (const bk of Object.keys(bc.batches)) {
-                bc.batches[bk] = ensureDeptYearTargets(bc.batches[bk]);
-              }
-            }
-            setBatchFeeLockerConfig(bc);
-          }
-          if (data.feeLockerConfig) {
-            setFeeLockerConfig(ensureDeptYearTargets(data.feeLockerConfig));
-          }
+  const refreshData = async () => {
+    try {
+      const res = await fetch('/api/bootstrap');
+      if (res.ok) {
+        const data = await res.json();
+        setStudents(data.students || []);
+        setTransactions(data.transactions || []);
+        if (data.customDepartments && Array.isArray(data.customDepartments)) {
+          setCustomDepartments(data.customDepartments);
         }
-      } catch (err) {
-        console.error('Failed to load data from database:', err);
-      } finally {
-        setIsLoading(false);
+        if (data.batchFeeLockerConfig) {
+          const bc = data.batchFeeLockerConfig as BatchFeeLockerConfig;
+          if (bc.batches) {
+            for (const bk of Object.keys(bc.batches)) {
+              bc.batches[bk] = ensureDeptYearTargets(bc.batches[bk]);
+            }
+          }
+          setBatchFeeLockerConfig(bc);
+        }
+        if (data.feeLockerConfig) {
+          setFeeLockerConfig(ensureDeptYearTargets(data.feeLockerConfig));
+        }
       }
-    };
-    loadData();
+    } catch (err) {
+      console.error('Failed to load data from database:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshData();
   }, []);
 
   useEffect(() => {
@@ -545,7 +547,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       login, logout, addStudent, updateStudent, deleteStudent, bulkAddStudents, addTransaction, bulkAddTransactions,
       approveTransaction, rejectTransaction, bulkApproveTransactions, bulkRejectTransactions,
       addTemplate, deleteTemplate, updateFeeLockerConfig, updateBatchFeeLockerConfig, getFeeTargets,
-      addCustomDepartment, deleteCustomDepartment
+      addCustomDepartment, deleteCustomDepartment, refreshData
     }}>
       {children}
     </AppContext.Provider>
