@@ -613,6 +613,33 @@ router.put('/api/transactions/reject', async (req: Request, res: Response) => {
   }
 });
 
+router.put('/api/transactions/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { amount, feeType, challanNumber, paymentMode, paymentDate, targetYear } = req.body;
+  if (amount == null || !feeType) return res.status(400).json({ error: 'amount and feeType are required' });
+
+  try {
+    let financialYear = '';
+    if (paymentDate) {
+      const pd = new Date(paymentDate.includes('.') ? paymentDate.split('.').reverse().join('-') : paymentDate.includes('-') && paymentDate.split('-')[0].length === 2 ? paymentDate.split('-').reverse().join('-') : paymentDate);
+      if (!isNaN(pd.getTime())) {
+        const m = pd.getMonth() + 1;
+        const y = pd.getFullYear();
+        const fyStart = m >= 4 ? y : y - 1;
+        financialYear = `${fyStart}-${(fyStart + 1).toString().slice(-2)}`;
+      }
+    }
+
+    await pool.query(
+      `UPDATE fee_transactions SET amount=$1, fee_type=$2, challan_number=$3, payment_mode=$4, payment_date=$5, target_year=$6, financial_year=$7 WHERE id=$8`,
+      [amount, feeType, challanNumber || '', paymentMode || 'Cash', paymentDate || '', targetYear || null, financialYear, id]
+    );
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/api/fee-config', async (_req: Request, res: Response) => {
   try {
     const result = await pool.query('SELECT config FROM fee_locker_config WHERE id = 1');
