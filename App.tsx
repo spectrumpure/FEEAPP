@@ -202,7 +202,7 @@ const LoginPage: React.FC = () => {
 };
 
 const MainApp: React.FC = () => {
-  const { currentUser, students } = useApp();
+  const { currentUser, students, refreshData } = useApp();
   const getDefaultView = () => {
     if (currentUser?.role === UserRole.EXAM_CELL) return 'defaulters';
     if (currentUser?.role === UserRole.ACCOUNTANT) return 'students';
@@ -227,7 +227,7 @@ const MainApp: React.FC = () => {
           >
             &larr; Back to Directory
           </button>
-          <FeeLedger student={student} />
+          <FeeLedger student={student} canEdit={currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.ACCOUNTANT} onDataChanged={refreshData} />
         </div>
       );
     }
