@@ -382,32 +382,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const bulkAddStudents = async (newStudents: Student[]) => {
-    setStudents(prev => {
-      const existingHTNs = new Set(prev.map(s => s.hallTicketNumber));
-      const filtered = newStudents.filter(ns => !existingHTNs.has(ns.hallTicketNumber));
-      const updated = prev.map(s => {
-        const replacement = newStudents.find(ns => ns.hallTicketNumber === s.hallTicketNumber);
-        return replacement || s;
-      });
-      return [...updated, ...filtered];
-    });
+    const CHUNK_SIZE = 15;
+    let totalSaved = 0;
+    const errors: string[] = [];
 
-    const allNewTxs = newStudents.flatMap(s => s.feeLockers.flatMap(l => l.transactions));
-    setTransactions(prev => {
-      const existingIds = new Set(prev.map(t => t.id));
-      const filteredNewTxs = allNewTxs.filter(t => !existingIds.has(t.id));
-      return [...prev, ...filteredNewTxs];
-    });
-
-    try {
-      await fetch('/api/students/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ students: newStudents }),
-      });
-    } catch (err) {
-      console.error('Failed to bulk add students:', err);
+    for (let i = 0; i < newStudents.length; i += CHUNK_SIZE) {
+      const chunk = newStudents.slice(i, i + CHUNK_SIZE);
+      try {
+        const res = await fetch('/api/students/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ students: chunk }),
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Upload failed');
+        totalSaved += result.count || chunk.length;
+      } catch (err: any) {
+        console.error(`Chunk ${i}-${i + chunk.length} failed:`, err);
+        errors.push(`Students ${i + 1}-${i + chunk.length}: ${err.message}`);
+      }
     }
+
+    await refreshData();
+
+    if (errors.length > 0 && totalSaved === 0) {
+      throw new Error(errors.join('; '));
+    }
+    return { success: true, count: totalSaved, totalRequested: newStudents.length, errors: errors.length > 0 ? errors : undefined };
   };
 
   const addTransaction = async (tx: FeeTransaction) => {
@@ -449,48 +450,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const bulkAddTransactions = async (txs: FeeTransaction[]) => {
-    setTransactions(prev => {
-      const existingIds = new Set(prev.map(t => t.id));
-      const filtered = txs.filter(t => !existingIds.has(t.id));
-      return [...prev, ...filtered];
-    });
+    const CHUNK_SIZE = 40;
+    let totalSaved = 0;
+    const errors: string[] = [];
 
-    setStudents(prev => prev.map(s => {
-      const studentTxs = txs.filter(t => t.studentHTN === s.hallTicketNumber);
-      if (studentTxs.length === 0) return s;
-
-      const updatedLockers = [...s.feeLockers];
-      studentTxs.forEach(tx => {
-        const year = tx.targetYear || s.currentYear;
-        let lockerIndex = updatedLockers.findIndex(l => l.year === year);
-        if (lockerIndex === -1) {
-          const targets = getFeeTargets(s.department, year, s.entryType, s.admissionYear);
-          updatedLockers.push({
-            year,
-            tuitionTarget: targets.tuition,
-            universityTarget: targets.university,
-            otherTarget: 0,
-            transactions: []
-          });
-          lockerIndex = updatedLockers.length - 1;
-        }
-        const txExists = updatedLockers[lockerIndex].transactions.some(t => t.id === tx.id);
-        if (!txExists) {
-          updatedLockers[lockerIndex].transactions = [...updatedLockers[lockerIndex].transactions, tx];
-        }
-      });
-      return { ...s, feeLockers: updatedLockers };
-    }));
-
-    try {
-      await fetch('/api/transactions/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactions: txs }),
-      });
-    } catch (err) {
-      console.error('Failed to bulk add transactions:', err);
+    for (let i = 0; i < txs.length; i += CHUNK_SIZE) {
+      const chunk = txs.slice(i, i + CHUNK_SIZE);
+      try {
+        const res = await fetch('/api/transactions/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transactions: chunk }),
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Upload failed');
+        totalSaved += result.count || chunk.length;
+      } catch (err: any) {
+        console.error(`Tx chunk ${i}-${i + chunk.length} failed:`, err);
+        errors.push(`Transactions ${i + 1}-${i + chunk.length}: ${err.message}`);
+      }
     }
+
+    await refreshData();
+
+    if (errors.length > 0 && totalSaved === 0) {
+      throw new Error(errors.join('; '));
+    }
+    return { success: true, count: totalSaved, totalRequested: txs.length, errors: errors.length > 0 ? errors : undefined };
   };
 
   const updateTransactionStatus = async (txIds: string[], status: PaymentStatus, approverName?: string) => {
