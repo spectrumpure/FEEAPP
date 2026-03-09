@@ -614,9 +614,26 @@ router.put('/api/transactions/reject', async (req: Request, res: Response) => {
 });
 
 router.put('/api/transactions/:id', async (req: Request, res: Response) => {
+  const role = (req.headers['x-user-role'] as string || '').toUpperCase();
+  if (role !== 'ADMIN' && role !== 'ACCOUNTANT') {
+    return res.status(403).json({ error: 'Only Admin or Accountant can edit transactions' });
+  }
+
   const { id } = req.params;
   const { amount, feeType, challanNumber, paymentMode, paymentDate, targetYear } = req.body;
-  if (amount == null || !feeType) return res.status(400).json({ error: 'amount and feeType are required' });
+
+  const parsedAmount = parseFloat(amount);
+  if (isNaN(parsedAmount) || parsedAmount < 0) return res.status(400).json({ error: 'Amount must be a non-negative number' });
+
+  const allowedFeeTypes = ['Tuition', 'University', 'Other'];
+  if (!allowedFeeTypes.includes(feeType)) return res.status(400).json({ error: 'Fee type must be Tuition, University, or Other' });
+
+  const allowedModes = ['Online', 'Challan', 'DD', 'Cash', 'UPI'];
+  const mode = paymentMode || 'Cash';
+  if (!allowedModes.includes(mode)) return res.status(400).json({ error: 'Invalid payment mode' });
+
+  const ty = targetYear ? parseInt(targetYear) : null;
+  if (ty !== null && (ty < 1 || ty > 4)) return res.status(400).json({ error: 'Target year must be between 1 and 4' });
 
   try {
     let financialYear = '';
@@ -630,10 +647,11 @@ router.put('/api/transactions/:id', async (req: Request, res: Response) => {
       }
     }
 
-    await pool.query(
+    const result = await pool.query(
       `UPDATE fee_transactions SET amount=$1, fee_type=$2, challan_number=$3, payment_mode=$4, payment_date=$5, target_year=$6, financial_year=$7 WHERE id=$8`,
-      [amount, feeType, challanNumber || '', paymentMode || 'Cash', paymentDate || '', targetYear || null, financialYear, id]
+      [parsedAmount, feeType, challanNumber || '', mode, paymentDate || '', ty, financialYear, id]
     );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Transaction not found' });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
