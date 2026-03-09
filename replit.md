@@ -54,6 +54,9 @@ The **project structure** is organized for clarity:
 - **Vercel**: Deployment platform for frontend static assets and serverless API functions.
 
 ## Recent Changes
+- 2026-03-09: Added Edit Transaction feature - Admin/Accountant can edit fee transaction details (amount, fee type, challan no, payment mode, payment date, target year) via pencil icon in Fee Ledger; modal form with validation; auto-recalculates financial year; data refreshes after save
+- 2026-03-08: Added Academic Year Collection Report tab in Reports - select academic year (e.g. 2025-26), shows fee collection from all active batches: B.E 1st-4th Year + M.E 1st-2nd Year, with Regular/Lateral breakdown, per-department totals and grand totals; includes PDF export
+- 2026-03-08: Added Academic Year filter to Fee Entry Status in Student Enrollment - when AY is selected, shows only batches active in that year with Study Year column indicating which year of study each batch is in
 - 2026-03-07: Fee Entry Status overhaul: split into B.E (4-year) and M.E (2-year) sections; enrollment based on fee locker presence (not currentYear); Total column shows Regular/Lateral split; M.E table has only 2 year columns; legend includes R/L labels
 - 2026-03-07: Added drill-down student lists to Financial Year and Batch Wise reports - click any row to expand and see student details (Roll Number, Name, Department, Batch, fee breakdown)
 - 2026-03-07: Fixed 49 "Unknown" batch students in Supabase - were CSE 2025 students with null department/batch, now correctly assigned to B.E(CSE) batch 2025-2029
