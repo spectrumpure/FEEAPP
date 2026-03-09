@@ -1092,8 +1092,7 @@ export const Reports: React.FC = () => {
                         <tr key={`${row.deptCode}-${row.studyYear}-${row.entryLabel}`} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
                           {ri === 0 && (
                             <td rowSpan={deptRows.length + 1} className="px-3 py-2 text-xs font-medium text-slate-700 border-r border-slate-200 align-top whitespace-nowrap">
-                              <div>{dept.name}</div>
-                              <div className="text-[10px] text-slate-400">({dept.code})</div>
+                              <div>{dept.courseType}-{dept.code}</div>
                             </td>
                           )}
                           <td className="px-2 py-2 text-xs text-center border-r border-slate-100 font-medium text-slate-600">Y{row.studyYear}</td>
@@ -1189,7 +1188,7 @@ export const Reports: React.FC = () => {
         if (deptRows.length === 0) return;
         deptRows.forEach((r, ri) => {
           html += `<tr style="background:${ri % 2 === 0 ? '#fff' : '#f8fafc'}">`;
-          if (ri === 0) html += `<td rowspan="${deptRows.length}" style="font-weight:600">${dept.name} (${dept.code})</td>`;
+          if (ri === 0) html += `<td rowspan="${deptRows.length}" style="font-weight:600">${dept.courseType}-${dept.code}</td>`;
           html += `<td align="center">Y${r.studyYear}</td><td align="center">${r.batch}</td><td align="center">${r.entryLabel || '-'}</td>`;
           html += `<td align="center" style="font-weight:600">${r.count}</td>`;
           html += `<td align="right">${formatCurrency(r.tTarget)}</td><td align="right">${formatCurrency(r.tPaid)}</td>`;
