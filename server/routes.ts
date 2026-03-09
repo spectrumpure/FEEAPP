@@ -383,63 +383,83 @@ router.post('/api/students/bulk', async (req: Request, res: Response) => {
   const students = req.body.students;
   if (!Array.isArray(students)) return res.status(400).json({ error: 'students array required' });
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    for (const s of students) {
-      await client.query(
-        `INSERT INTO students (hall_ticket_number, name, father_name, mother_name, sex, dob, mobile, father_mobile, address, course, department, specialization, section, admission_category, admission_year, batch, current_year, aadhaar_number, entry_type)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
-         ON CONFLICT (hall_ticket_number) DO UPDATE SET
-           name=EXCLUDED.name, father_name=EXCLUDED.father_name, mother_name=EXCLUDED.mother_name,
-           sex=EXCLUDED.sex, dob=EXCLUDED.dob, mobile=EXCLUDED.mobile, father_mobile=EXCLUDED.father_mobile,
-           address=EXCLUDED.address, course=EXCLUDED.course, department=EXCLUDED.department,
-           specialization=EXCLUDED.specialization, section=EXCLUDED.section,
-           admission_category=EXCLUDED.admission_category, admission_year=EXCLUDED.admission_year,
-           batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, aadhaar_number=EXCLUDED.aadhaar_number, entry_type=EXCLUDED.entry_type, updated_at=NOW()`,
-        [s.hallTicketNumber, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
-         s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', normalizeDepartment(s.department||''),
-         s.specialization||'', s.section||'', normalizeCategory(s.admissionCategory||''), s.admissionYear||'',
-         s.batch||'', s.currentYear||1, s.aadhaarNumber||'', s.entryType||'REGULAR']
-      );
+  const CHUNK_SIZE = 20;
+  let totalInserted = 0;
+  const errors: string[] = [];
 
-      if (s.feeLockers && Array.isArray(s.feeLockers)) {
-        for (const locker of s.feeLockers) {
-          await client.query(
-            `INSERT INTO year_lockers (student_htn, year, tuition_target, university_target, other_target)
-             VALUES ($1,$2,$3,$4,$5)
-             ON CONFLICT (student_htn, year) DO UPDATE SET
-               tuition_target=EXCLUDED.tuition_target, university_target=EXCLUDED.university_target, other_target=EXCLUDED.other_target`,
-            [s.hallTicketNumber, locker.year, locker.tuitionTarget||0, locker.universityTarget||0, locker.otherTarget||0]
-          );
-          if (locker.transactions && Array.isArray(locker.transactions)) {
-            for (const tx of locker.transactions) {
+  for (let ci = 0; ci < students.length; ci += CHUNK_SIZE) {
+    const chunk = students.slice(ci, ci + CHUNK_SIZE);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT setval('year_lockers_id_seq', COALESCE((SELECT MAX(id) FROM year_lockers), 0) + 1, false)");
+
+      for (const s of chunk) {
+        await client.query(
+          `INSERT INTO students (hall_ticket_number, name, father_name, mother_name, sex, dob, mobile, father_mobile, address, course, department, specialization, section, admission_category, admission_year, batch, current_year, aadhaar_number, entry_type)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+           ON CONFLICT (hall_ticket_number) DO UPDATE SET
+             name=EXCLUDED.name, father_name=EXCLUDED.father_name, mother_name=EXCLUDED.mother_name,
+             sex=EXCLUDED.sex, dob=EXCLUDED.dob, mobile=EXCLUDED.mobile, father_mobile=EXCLUDED.father_mobile,
+             address=EXCLUDED.address, course=EXCLUDED.course, department=EXCLUDED.department,
+             specialization=EXCLUDED.specialization, section=EXCLUDED.section,
+             admission_category=EXCLUDED.admission_category, admission_year=EXCLUDED.admission_year,
+             batch=EXCLUDED.batch, current_year=EXCLUDED.current_year, aadhaar_number=EXCLUDED.aadhaar_number, entry_type=EXCLUDED.entry_type, updated_at=NOW()`,
+          [s.hallTicketNumber, s.name, s.fatherName||'', s.motherName||'', s.sex||'', s.dob||'',
+           s.mobile||'', s.fatherMobile||'', s.address||'', s.course||'B.E', normalizeDepartment(s.department||''),
+           s.specialization||'', s.section||'', normalizeCategory(s.admissionCategory||''), s.admissionYear||'',
+           s.batch||'', s.currentYear||1, s.aadhaarNumber||'', s.entryType||'REGULAR']
+        );
+
+        if (s.feeLockers && Array.isArray(s.feeLockers)) {
+          for (const locker of s.feeLockers) {
+            const lockerCheck = await client.query('SELECT id FROM year_lockers WHERE student_htn=$1 AND year=$2', [s.hallTicketNumber, locker.year]);
+            if (lockerCheck.rows.length > 0) {
               await client.query(
-                `INSERT INTO fee_transactions (id, student_htn, fee_type, amount, challan_number, payment_mode, payment_date, academic_year, financial_year, status, approved_by, approval_date, target_year)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-                 ON CONFLICT (id) DO UPDATE SET
-                   fee_type=EXCLUDED.fee_type, amount=EXCLUDED.amount, challan_number=EXCLUDED.challan_number,
-                   payment_mode=EXCLUDED.payment_mode, payment_date=EXCLUDED.payment_date,
-                   academic_year=EXCLUDED.academic_year, financial_year=EXCLUDED.financial_year,
-                   status=EXCLUDED.status, approved_by=EXCLUDED.approved_by, approval_date=EXCLUDED.approval_date,
-                   target_year=EXCLUDED.target_year`,
-                [tx.id, s.hallTicketNumber, tx.feeType||'Tuition', tx.amount||0, tx.challanNumber||'',
-                 tx.paymentMode||'Cash', tx.paymentDate||'', tx.academicYear||'', tx.financialYear||'',
-                 tx.status||'PENDING', tx.approvedBy||null, tx.approvalDate||null, tx.targetYear||locker.year]
+                `UPDATE year_lockers SET tuition_target=$1, university_target=$2, other_target=$3 WHERE student_htn=$4 AND year=$5`,
+                [locker.tuitionTarget||0, locker.universityTarget||0, locker.otherTarget||0, s.hallTicketNumber, locker.year]
               );
+            } else {
+              await client.query(
+                `INSERT INTO year_lockers (student_htn, year, tuition_target, university_target, other_target) VALUES ($1,$2,$3,$4,$5)`,
+                [s.hallTicketNumber, locker.year, locker.tuitionTarget||0, locker.universityTarget||0, locker.otherTarget||0]
+              );
+            }
+            if (locker.transactions && Array.isArray(locker.transactions)) {
+              for (const tx of locker.transactions) {
+                await client.query(
+                  `INSERT INTO fee_transactions (id, student_htn, fee_type, amount, challan_number, payment_mode, payment_date, academic_year, financial_year, status, approved_by, approval_date, target_year)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+                   ON CONFLICT (id) DO UPDATE SET
+                     fee_type=EXCLUDED.fee_type, amount=EXCLUDED.amount, challan_number=EXCLUDED.challan_number,
+                     payment_mode=EXCLUDED.payment_mode, payment_date=EXCLUDED.payment_date,
+                     academic_year=EXCLUDED.academic_year, financial_year=EXCLUDED.financial_year,
+                     status=EXCLUDED.status, approved_by=EXCLUDED.approved_by, approval_date=EXCLUDED.approval_date,
+                     target_year=EXCLUDED.target_year`,
+                  [tx.id, s.hallTicketNumber, tx.feeType||'Tuition', tx.amount||0, tx.challanNumber||'',
+                   tx.paymentMode||'Cash', tx.paymentDate||'', tx.academicYear||'', tx.financialYear||'',
+                   tx.status||'PENDING', tx.approvedBy||null, tx.approvalDate||null, tx.targetYear||locker.year]
+                );
+              }
             }
           }
         }
       }
+      await client.query('COMMIT');
+      totalInserted += chunk.length;
+    } catch (err: any) {
+      await client.query('ROLLBACK');
+      console.error('Bulk add chunk error:', err);
+      errors.push(`Chunk ${ci}-${ci + chunk.length}: ${err.message}`);
+    } finally {
+      client.release();
     }
-    await client.query('COMMIT');
-    res.json({ success: true, count: students.length });
-  } catch (err: any) {
-    await client.query('ROLLBACK');
-    console.error('Bulk add error:', err);
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
+  }
+
+  if (errors.length > 0 && totalInserted === 0) {
+    res.status(500).json({ error: errors.join('; ') });
+  } else {
+    res.json({ success: true, count: totalInserted, totalRequested: students.length, errors: errors.length > 0 ? errors : undefined });
   }
 });
 
@@ -559,26 +579,40 @@ router.post('/api/transactions/bulk', async (req: Request, res: Response) => {
   const txs = req.body.transactions;
   if (!Array.isArray(txs)) return res.status(400).json({ error: 'transactions array required' });
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    for (const tx of txs) {
-      await client.query(
-        `INSERT INTO fee_transactions (id, student_htn, fee_type, amount, challan_number, payment_mode, payment_date, academic_year, financial_year, status, approved_by, approval_date, target_year)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-         ON CONFLICT (id) DO NOTHING`,
-        [tx.id, tx.studentHTN, tx.feeType||'Tuition', tx.amount||0, tx.challanNumber||'',
-         tx.paymentMode||'Cash', tx.paymentDate||'', tx.academicYear||'', tx.financialYear||'',
-         tx.status||'PENDING', tx.approvedBy||null, tx.approvalDate||null, tx.targetYear||null]
-      );
+  const CHUNK_SIZE = 50;
+  let totalInserted = 0;
+  const errors: string[] = [];
+
+  for (let ci = 0; ci < txs.length; ci += CHUNK_SIZE) {
+    const chunk = txs.slice(ci, ci + CHUNK_SIZE);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const tx of chunk) {
+        await client.query(
+          `INSERT INTO fee_transactions (id, student_htn, fee_type, amount, challan_number, payment_mode, payment_date, academic_year, financial_year, status, approved_by, approval_date, target_year)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+           ON CONFLICT (id) DO NOTHING`,
+          [tx.id, tx.studentHTN, tx.feeType||'Tuition', tx.amount||0, tx.challanNumber||'',
+           tx.paymentMode||'Cash', tx.paymentDate||'', tx.academicYear||'', tx.financialYear||'',
+           tx.status||'PENDING', tx.approvedBy||null, tx.approvalDate||null, tx.targetYear||null]
+        );
+      }
+      await client.query('COMMIT');
+      totalInserted += chunk.length;
+    } catch (err: any) {
+      await client.query('ROLLBACK');
+      console.error('Bulk tx chunk error:', err);
+      errors.push(`Chunk ${ci}-${ci + chunk.length}: ${err.message}`);
+    } finally {
+      client.release();
     }
-    await client.query('COMMIT');
-    res.json({ success: true, count: txs.length });
-  } catch (err: any) {
-    await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
+  }
+
+  if (errors.length > 0 && totalInserted === 0) {
+    res.status(500).json({ error: errors.join('; ') });
+  } else {
+    res.json({ success: true, count: totalInserted, totalRequested: txs.length, errors: errors.length > 0 ? errors : undefined });
   }
 });
 
