@@ -179,6 +179,7 @@ export async function initDB() {
         WHERE entry_type = 'LATERAL' AND current_year = 1;
       DELETE FROM year_lockers
         WHERE year = 1 AND student_htn IN (SELECT hall_ticket_number FROM students WHERE entry_type = 'LATERAL');
+      SELECT setval('year_lockers_id_seq', COALESCE((SELECT MAX(id) FROM year_lockers), 0) + 1, false);
     `);
 
     console.log('Database tables initialized successfully');
