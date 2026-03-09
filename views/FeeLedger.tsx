@@ -101,7 +101,7 @@ const YearSummaryCard: React.FC<{ locker: YearLocker; currentYear: number; isCur
 };
 
 export const FeeLedger: React.FC<{ student: Student; canEdit?: boolean; onDataChanged?: () => void }> = ({ student, canEdit = false, onDataChanged }) => {
-  const { getFeeTargets } = useApp();
+  const { getFeeTargets, currentUser } = useApp();
   const [remarks, setRemarks] = useState<StudentRemark[]>([]);
   const [editingTx, setEditingTx] = useState<(FeeTransaction & { year: number }) | null>(null);
   const [editForm, setEditForm] = useState({ amount: '', feeType: 'Tuition', challanNumber: '', paymentMode: 'Cash', paymentDate: '', targetYear: 1 });
@@ -151,7 +151,7 @@ export const FeeLedger: React.FC<{ student: Student; canEdit?: boolean; onDataCh
     try {
       const res = await fetch(`/api/transactions/${encodeURIComponent(editingTx.id)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || '' },
         body: JSON.stringify({
           amount,
           feeType: editForm.feeType,
