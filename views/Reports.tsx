@@ -952,15 +952,14 @@ export const Reports: React.FC = () => {
         return bStart === batchStartYear;
       });
 
-      const batchLabel = matchingStudents.length > 0
-        ? matchingStudents[0].batch
-        : `${batchStartYear}-${batchStartYear + maxYears}`;
-
       const regularStudents = matchingStudents.filter(s => s.entryType !== 'LATERAL');
       const lateralStudents = matchingStudents.filter(s => s.entryType === 'LATERAL');
 
       const calcRow = (subset: typeof matchingStudents, label: string) => {
         let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
+        const batchLabel = subset.length > 0
+          ? subset[0].batch
+          : `${batchStartYear}-${batchStartYear + maxYears}`;
         subset.forEach(s => {
           const locker = s.feeLockers.find(l => l.year === studyYear);
           if (locker) {
