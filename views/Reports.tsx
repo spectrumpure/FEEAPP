@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Student } from '../types';
 
-type ReportTab = 'dept_summary' | 'financial_year' | 'batch_wise' | 'academic_year' | 'student_master' | 'student_info' | 'defaulters' | 'category_analysis' | 'date_range';
+type ReportTab = 'dept_summary' | 'financial_year' | 'batch_wise' | 'academic_year' | 'academic_year_count' | 'student_master' | 'student_info' | 'defaulters' | 'category_analysis' | 'date_range';
 
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -123,6 +123,7 @@ export const Reports: React.FC = () => {
     { id: 'financial_year', label: 'Financial Year', icon: <Calendar size={16} />, desc: 'Year-on-year breakdown' },
     { id: 'batch_wise', label: 'Batch Wise', icon: <Layers size={16} />, desc: 'Batch fee analysis' },
     { id: 'academic_year', label: 'Academic Year', icon: <GraduationCap size={16} />, desc: 'Year-wise collection' },
+    { id: 'academic_year_count', label: 'AY Count', icon: <Users size={16} />, desc: 'Student count by AY' },
     { id: 'student_master', label: 'Fee List', icon: <IndianRupee size={16} />, desc: 'Student fee details' },
     { id: 'student_info', label: 'Student List', icon: <ContactRound size={16} />, desc: 'Personal details' },
     { id: 'defaulters', label: 'Defaulters', icon: <AlertTriangle size={16} />, desc: 'Outstanding dues' },
@@ -1007,6 +1008,17 @@ export const Reports: React.FC = () => {
     return rows;
   };
 
+  const getAcademicYearCountData = () =>
+    getAcademicYearData().map(row => ({
+      deptName: row.deptName,
+      deptCode: row.deptCode,
+      courseType: row.courseType,
+      studyYear: row.studyYear,
+      batch: row.batch,
+      entryLabel: row.entryLabel,
+      count: row.count,
+    }));
+
   const renderAcademicYear = () => {
     const ayData = getAcademicYearData();
     const ayOptions = getAcademicYearOptions();
@@ -1216,11 +1228,44 @@ export const Reports: React.FC = () => {
     );
   };
 
+  const handleExportAcademicYearCount = () => {
+    const ayData = getAcademicYearCountData();
+    const beDepts = departments.filter(d => d.courseType === 'B.E');
+    const meDepts = departments.filter(d => d.courseType === 'M.E');
+
+    const renderSectionHTML = (sectionDepts: typeof departments, sectionLabel: string) => {
+      const sectionRows = ayData.filter(r => r.courseType === (sectionLabel.includes('B.E') ? 'B.E' : 'M.E'));
+      if (sectionRows.length === 0) return '';
+      let html = `<h3 style="margin:15px 0 5px;font-size:13px;color:#312e81;font-weight:bold">${sectionLabel}</h3>`;
+      html += '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:11px">';
+      html += '<tr style="background:#1a365d;color:white"><th>Department</th><th>Year</th><th>Batch</th><th>Entry</th><th>Students</th></tr>';
+      sectionDepts.forEach(dept => {
+        const deptRows = sectionRows.filter(r => r.deptCode === dept.code);
+        if (deptRows.length === 0) return;
+        deptRows.forEach((r, ri) => {
+          html += `<tr style="background:${ri % 2 === 0 ? '#fff' : '#f8fafc'}">`;
+          if (ri === 0) html += `<td rowspan="${deptRows.length + 1}" style="font-weight:600">${dept.courseType}-${dept.code}</td>`;
+          html += `<td align="center">Y${r.studyYear}</td><td align="center">${r.batch}</td><td align="center">${r.entryLabel || '-'}</td><td align="center" style="font-weight:600">${r.count}</td></tr>`;
+        });
+        html += `<tr style="background:#eef2ff;font-weight:bold"><td colspan="3" align="right">Dept Total</td><td align="center">${deptRows.reduce((sum, row) => sum + row.count, 0)}</td></tr>`;
+      });
+      html += `<tr style="background:#1a365d;color:white;font-weight:bold"><td colspan="4">Grand Total</td><td align="center">${sectionRows.reduce((sum, row) => sum + row.count, 0)}</td></tr>`;
+      html += '</table>';
+      return html;
+    };
+
+    exportPDF(
+      `Academic Year Student Count Report - AY ${ayFilter}`,
+      renderSectionHTML(beDepts, 'B.E Programs (4-Year)') + renderSectionHTML(meDepts, 'M.E Programs (2-Year)')
+    );
+  };
+
   const exportHandlers: Record<ReportTab, () => void> = {
     dept_summary: handleExportDeptSummary,
     financial_year: handleExportFinYear,
     batch_wise: handleExportBatchWise,
     academic_year: handleExportAcademicYear,
+    academic_year_count: handleExportAcademicYearCount,
     student_master: handleExportStudentMaster,
     student_info: handleExportStudentInfo,
     defaulters: handleExportDefaulters,
@@ -1590,6 +1635,108 @@ export const Reports: React.FC = () => {
     );
   };
 
+  const renderAcademicYearCount = () => {
+    const ayData = getAcademicYearCountData();
+    const ayOptions = getAcademicYearOptions();
+    const beDepts = departments.filter(d => d.courseType === 'B.E');
+    const meDepts = departments.filter(d => d.courseType === 'M.E');
+
+    const countThClass = 'px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center whitespace-nowrap';
+    const countTdClass = 'px-2 py-2 text-xs border-r border-slate-100';
+
+    const renderSection = (sectionDepts: typeof departments, courseType: 'B.E' | 'M.E', sectionLabel: string) => {
+      const sectionRows = ayData.filter(r => r.courseType === courseType);
+      if (sectionRows.length === 0) return null;
+
+      return (
+        <div className="mb-6">
+          <div className="px-4 py-2 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100">
+            <span className="text-xs font-bold text-indigo-700">{sectionLabel}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className={countThClass + ' text-left text-slate-500 border-r border-slate-200 min-w-[160px]'}>Department</th>
+                  <th className={countThClass + ' text-slate-500 border-r border-slate-200 w-[50px]'}>Year</th>
+                  <th className={countThClass + ' text-slate-500 border-r border-slate-200'}>Batch</th>
+                  <th className={countThClass + ' text-slate-500 border-r border-slate-200'}>Entry</th>
+                  <th className={countThClass + ' text-blue-600 bg-blue-50'}>Students</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sectionDepts.map(dept => {
+                  const deptRows = sectionRows.filter(r => r.deptCode === dept.code);
+                  if (deptRows.length === 0) return null;
+                  const deptTotal = deptRows.reduce((sum, row) => sum + row.count, 0);
+                  return (
+                    <React.Fragment key={`${courseType}-${dept.code}`}>
+                      {deptRows.map((row, ri) => (
+                        <tr key={`${row.deptCode}-${row.studyYear}-${row.entryLabel || 'all'}-count`} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                          {ri === 0 && (
+                            <td rowSpan={deptRows.length + 1} className="px-3 py-2 text-xs font-medium text-slate-700 border-r border-slate-200 align-top whitespace-nowrap">
+                              <div>{dept.courseType}-{dept.code}</div>
+                            </td>
+                          )}
+                          <td className={countTdClass + ' text-center font-medium text-slate-600'}>Y{row.studyYear}</td>
+                          <td className={countTdClass + ' text-center text-slate-500'}>{row.batch}</td>
+                          <td className={countTdClass + ' text-center'}>
+                            {row.entryLabel ? (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${row.entryLabel === 'Lateral' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                                {row.entryLabel}
+                              </span>
+                            ) : <span className="text-slate-400">-</span>}
+                          </td>
+                          <td className="px-2 py-2 text-xs text-center font-semibold text-blue-700 bg-blue-50/30">{row.count}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-indigo-50/50 border-t border-indigo-100">
+                        <td colSpan={3} className="px-2 py-1.5 text-[10px] font-bold text-indigo-600 text-right border-r border-slate-200">Dept Total</td>
+                        <td className="px-2 py-1.5 text-xs text-center font-bold text-indigo-700">{deptTotal}</td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
+                <tr className="bg-[#1a365d] text-white border-t-2 border-[#1a365d]">
+                  <td colSpan={4} className="px-3 py-3 text-xs font-bold">{sectionLabel} Grand Total</td>
+                  <td className="px-2 py-3 text-xs text-center font-bold">{sectionRows.reduce((sum, row) => sum + row.count, 0)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div>
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Filter size={14} className="text-slate-400" />
+            <select value={ayFilter} onChange={e => setAyFilter(e.target.value)}
+              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all min-w-[140px] shadow-sm font-medium"
+            >
+              {ayOptions.map(ay => <option key={ay} value={ay}>Academic Year {ay}</option>)}
+            </select>
+          </div>
+          <div className="text-xs text-slate-400">
+            Showing student counts from all batches active in AY {ayFilter}
+          </div>
+        </div>
+
+        {renderSection(beDepts, 'B.E', 'B.E Programs (4-Year)')}
+        {renderSection(meDepts, 'M.E', 'M.E Programs (2-Year)')}
+
+        {ayData.length === 0 && (
+          <div className="text-center py-12 text-slate-400">
+            <GraduationCap size={40} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm">No data available for Academic Year {ayFilter}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderStudentMaster = () => {
     const data = getStudentMasterData();
     const totals = data.reduce((acc, s) => ({
@@ -1938,6 +2085,7 @@ export const Reports: React.FC = () => {
     financial_year: renderFinancialYear,
     batch_wise: renderBatchWise,
     academic_year: renderAcademicYear,
+    academic_year_count: renderAcademicYearCount,
     student_master: renderStudentMaster,
     student_info: renderStudentInfo,
     defaulters: renderDefaulters,
@@ -1950,6 +2098,7 @@ export const Reports: React.FC = () => {
     financial_year: { title: 'Financial Year Wise', subtitle: 'Year-on-year fee collection breakdown' },
     batch_wise: { title: 'Batch Wise Report', subtitle: 'Admission batch fee analysis & collection rate' },
     academic_year: { title: 'Academic Year Collection', subtitle: 'Fee collection by academic year showing all active batches (B.E + M.E + Lateral)' },
+    academic_year_count: { title: 'Academic Year Student Count', subtitle: 'Student count by department and academic year for B.E regular, B.E lateral and M.E' },
     student_master: { title: 'Student Master Fee List', subtitle: 'Year wise fee details per student' },
     student_info: { title: 'Student Master List', subtitle: 'Complete student personal information directory' },
     defaulters: { title: 'Fee Defaulters', subtitle: 'Department & year wise outstanding balance' },
@@ -1979,7 +2128,7 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-9 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-5 xl:grid-cols-10 gap-2">
         {tabs.map(tab => (
           <button
             key={tab.id}
