@@ -18,6 +18,7 @@ import {
   GraduationCap
 } from 'lucide-react';
 import { Student } from '../types';
+import { normalizeDepartment } from '../constants';
 
 type ReportTab = 'dept_summary' | 'financial_year' | 'batch_wise' | 'academic_year' | 'academic_year_count' | 'student_master' | 'student_info' | 'defaulters' | 'category_analysis' | 'date_range';
 
@@ -97,7 +98,7 @@ const parsePaymentDate = (dateStr: string | null | undefined): Date | null => {
 };
 
 const matchesDept = (studentDept: string, dept: { name: string; code: string }) =>
-  studentDept && (studentDept === dept.name || studentDept === dept.code || studentDept.toUpperCase() === dept.code.toUpperCase());
+  !!studentDept && normalizeDepartment(studentDept) === normalizeDepartment(dept.code);
 
 const findDeptForStudent = (studentDept: string, deptList: { name: string; code: string; duration?: number; courseType?: string }[]) =>
   deptList.find(d => matchesDept(studentDept, d));
@@ -1008,16 +1009,58 @@ export const Reports: React.FC = () => {
     return rows;
   };
 
-  const getAcademicYearCountData = () =>
-    getAcademicYearData().map(row => ({
-      deptName: row.deptName,
-      deptCode: row.deptCode,
-      courseType: row.courseType,
-      studyYear: row.studyYear,
-      batch: row.batch,
-      entryLabel: row.entryLabel,
-      count: row.count,
-    }));
+  const getAcademicYearCountData = () => {
+    const ayStartYear = parseInt(ayFilter.split('-')[0]);
+    const rows: {
+      deptName: string;
+      deptCode: string;
+      courseType: string;
+      studyYear: number;
+      batch: string;
+      entryLabel: string;
+      count: number;
+    }[] = [];
+
+    const processRow = (dept: typeof departments[0], studyYear: number, batchStartYear: number, maxYears: number, studentsSubset: Student[], entryLabel: string) => {
+      if (studentsSubset.length === 0) return;
+      rows.push({
+        deptName: dept.name,
+        deptCode: dept.code,
+        courseType: dept.courseType,
+        studyYear,
+        batch: studentsSubset[0].batch || `${batchStartYear}-${batchStartYear + maxYears}`,
+        entryLabel,
+        count: studentsSubset.length,
+      });
+    };
+
+    departments.filter(d => d.courseType === 'B.E').forEach(dept => {
+      for (let sy = 1; sy <= 4; sy++) {
+        const batchStartYear = ayStartYear - (sy - 1);
+        const matchingStudents = students.filter(s => {
+          if (!matchesDept(s.department, dept)) return false;
+          const bStart = parseInt((s.batch || '').split('-')[0]);
+          return bStart === batchStartYear;
+        });
+        processRow(dept, sy, batchStartYear, 4, matchingStudents.filter(s => s.entryType !== 'LATERAL'), 'Regular');
+        processRow(dept, sy, batchStartYear, 4, matchingStudents.filter(s => s.entryType === 'LATERAL'), 'Lateral');
+      }
+    });
+
+    departments.filter(d => d.courseType === 'M.E').forEach(dept => {
+      for (let sy = 1; sy <= 2; sy++) {
+        const batchStartYear = ayStartYear - (sy - 1);
+        const matchingStudents = students.filter(s => {
+          if (!matchesDept(s.department, dept)) return false;
+          const bStart = parseInt((s.batch || '').split('-')[0]);
+          return bStart === batchStartYear;
+        });
+        processRow(dept, sy, batchStartYear, 2, matchingStudents, '');
+      }
+    });
+
+    return rows;
+  };
 
   const renderAcademicYear = () => {
     const ayData = getAcademicYearData();
