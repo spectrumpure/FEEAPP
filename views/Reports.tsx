@@ -960,6 +960,7 @@ export const Reports: React.FC = () => {
       const lateralStudents = matchingStudents.filter(s => s.entryType === 'LATERAL');
 
       const calcRow = (subset: typeof matchingStudents, label: string) => {
+        if (subset.length === 0) return;
         let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
         subset.forEach(s => {
           const locker = s.feeLockers.find(l => l.year === studyYear);
