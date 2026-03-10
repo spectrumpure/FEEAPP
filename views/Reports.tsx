@@ -987,7 +987,9 @@ export const Reports: React.FC = () => {
 
       if (dept.courseType === 'B.E') {
         calcRow(regularStudents, 'Regular');
-        calcRow(lateralStudents, 'Lateral');
+        if (studyYear > 1) {
+          calcRow(lateralStudents, 'Lateral');
+        }
       } else {
         calcRow(matchingStudents, '');
       }
@@ -1044,7 +1046,9 @@ export const Reports: React.FC = () => {
           return bStart === batchStartYear;
         });
         processRow(dept, sy, batchStartYear, 4, matchingStudents.filter(s => s.entryType !== 'LATERAL'), 'Regular');
-        processRow(dept, sy, batchStartYear, 4, matchingStudents.filter(s => s.entryType === 'LATERAL'), 'Lateral');
+        if (sy > 1) {
+          processRow(dept, sy, batchStartYear, 4, matchingStudents.filter(s => s.entryType === 'LATERAL'), 'Lateral');
+        }
       }
     });
 
