@@ -167,12 +167,12 @@ export const FeeLockers: React.FC = () => {
                   <th className="border-b border-slate-100"></th>
                   {beYears.map(y => (
                     <React.Fragment key={y}>
-                      <th className="text-center px-2 py-1.5 font-semibold text-slate-400 text-[9px] border-b border-slate-100 border-l border-indigo-100/30">Tuition</th>
-                      <th className="text-center px-2 py-1.5 font-semibold text-slate-400 text-[9px] border-b border-slate-100">University</th>
+                      <th className="text-center px-2 py-1.5 font-semibold text-slate-400 text-[9px] border-b border-slate-100 border-l border-indigo-100/30">Tuition Fee</th>
+                      <th className="text-center px-2 py-1.5 font-semibold text-slate-400 text-[9px] border-b border-slate-100">O.U Fee</th>
                     </React.Fragment>
                   ))}
-                  <th className="text-center px-2 py-1.5 font-semibold text-emerald-500 text-[9px] border-b border-slate-100 border-l border-indigo-200/50">Tuition</th>
-                  <th className="text-center px-2 py-1.5 font-semibold text-emerald-500 text-[9px] border-b border-slate-100">University</th>
+                  <th className="text-center px-2 py-1.5 font-semibold text-emerald-500 text-[9px] border-b border-slate-100 border-l border-indigo-200/50">Tuition Fee</th>
+                  <th className="text-center px-2 py-1.5 font-semibold text-emerald-500 text-[9px] border-b border-slate-100">O.U Fee</th>
                 </tr>
               </thead>
               <tbody>
@@ -229,12 +229,12 @@ export const FeeLockers: React.FC = () => {
                     <th className="border-b border-slate-100"></th>
                     {meYears.map(y => (
                       <React.Fragment key={y}>
-                        <th className="text-center px-2 py-1.5 font-semibold text-slate-400 text-[9px] border-b border-slate-100 border-l border-teal-100/30">Tuition</th>
-                        <th className="text-center px-2 py-1.5 font-semibold text-slate-400 text-[9px] border-b border-slate-100">University</th>
+                        <th className="text-center px-2 py-1.5 font-semibold text-slate-400 text-[9px] border-b border-slate-100 border-l border-teal-100/30">Tuition Fee</th>
+                        <th className="text-center px-2 py-1.5 font-semibold text-slate-400 text-[9px] border-b border-slate-100">O.U Fee</th>
                       </React.Fragment>
                     ))}
-                    <th className="text-center px-2 py-1.5 font-semibold text-emerald-500 text-[9px] border-b border-slate-100 border-l border-teal-200/50">Tuition</th>
-                    <th className="text-center px-2 py-1.5 font-semibold text-emerald-500 text-[9px] border-b border-slate-100">University</th>
+                    <th className="text-center px-2 py-1.5 font-semibold text-emerald-500 text-[9px] border-b border-slate-100 border-l border-teal-200/50">Tuition Fee</th>
+                    <th className="text-center px-2 py-1.5 font-semibold text-emerald-500 text-[9px] border-b border-slate-100">O.U Fee</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -337,8 +337,8 @@ export const FeeLockers: React.FC = () => {
                         <th></th>
                         {beYears.map(y => (
                           <React.Fragment key={y}>
-                            <th className={`text-center px-1 py-1 font-semibold text-slate-400 text-[9px] border-l ${isLateral ? 'border-orange-100' : 'border-indigo-100'}`}>Tuition</th>
-                            <th className="text-center px-1 py-1 font-semibold text-slate-400 text-[9px]">Univ</th>
+                            <th className={`text-center px-1 py-1 font-semibold text-slate-400 text-[9px] border-l ${isLateral ? 'border-orange-100' : 'border-indigo-100'}`}>Tuition Fee</th>
+                            <th className="text-center px-1 py-1 font-semibold text-slate-400 text-[9px]">O.U Fee</th>
                           </React.Fragment>
                         ))}
                       </tr>
@@ -389,8 +389,8 @@ export const FeeLockers: React.FC = () => {
                           <th></th>
                           {meYears.map(y => (
                             <React.Fragment key={y}>
-                              <th className="text-center px-1 py-1 font-semibold text-slate-400 text-[9px] border-l border-teal-100">Tuition</th>
-                              <th className="text-center px-1 py-1 font-semibold text-slate-400 text-[9px]">Univ</th>
+                              <th className="text-center px-1 py-1 font-semibold text-slate-400 text-[9px] border-l border-teal-100">Tuition Fee</th>
+                              <th className="text-center px-1 py-1 font-semibold text-slate-400 text-[9px]">O.U Fee</th>
                             </React.Fragment>
                           ))}
                         </tr>

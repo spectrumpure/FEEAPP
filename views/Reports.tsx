@@ -35,6 +35,28 @@ const COLLEGE_HEADER = {
   accreditation2: "Affiliated to Osmania University & Approved by AICTE",
 };
 
+const FEE_LABELS = {
+  tTarget: 'Tuition Fee (Actual)',
+  tPaid: 'Tuition Fee (Paid)',
+  tBalance: 'Tuition Fee Balance',
+  uTarget: 'O.U Fee (Actual)',
+  uPaid: 'O.U Fee (Paid)',
+  uBalance: 'O.U Fee Balance',
+  convT: 'Conv (Tuition)',
+  convU: 'Conv (OU)',
+  mgmtT: 'M.Q (Tuition)',
+  mgmtU: 'M.Q(OU)',
+  tsmfcT: 'TSMFC (Tuition Fee)',
+  tsmfcU: 'TSMFC(OU Fee)',
+  otherT: 'Other (Tuition Fee)',
+  otherU: 'Other(OU Fee)',
+  receivedSplit: 'Received Fee Category Wise',
+  tuitionCollected: 'Tuition Fee Collected',
+  ouCollected: 'O.U Fee Collected',
+  tuition: 'Tuition Fee',
+  ou: 'O.U Fee',
+};
+
 const exportPDF = (title: string, tableHtml: string) => {
   const win = window.open('', '_blank');
   if (!win) return;
@@ -432,7 +454,7 @@ export const Reports: React.FC = () => {
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Name</th><th>Father</th>
       <th class="text-center">Dept</th><th class="text-center">Batch</th><th class="text-center">Entry</th><th class="text-center">Category</th>
-      <th class="text-right">T.Target</th><th class="text-right">T.Paid</th><th class="text-right">U.Target</th><th class="text-right">U.Paid</th>
+      <th class="text-right">${FEE_LABELS.tTarget}</th><th class="text-right">${FEE_LABELS.tPaid}</th><th class="text-right">${FEE_LABELS.uTarget}</th><th class="text-right">${FEE_LABELS.uPaid}</th>
       <th class="text-right">Total Paid</th><th class="text-right">Balance</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row">
@@ -695,12 +717,12 @@ export const Reports: React.FC = () => {
     const html = `<table><thead><tr>
       <th>Department</th><th class="text-center">Students</th>
       <th class="text-center">Conv</th><th class="text-center">Mgmt</th><th class="text-center">TSMFC</th><th class="text-center">Other</th>
-      <th class="text-right">T.Target</th><th class="text-right">T.Paid</th>
-      <th class="text-right">U.Target</th><th class="text-right">U.Paid</th>
-      <th class="text-right">Conv T</th><th class="text-right">Conv U</th>
-      <th class="text-right">Mgmt T</th><th class="text-right">Mgmt U</th>
-      <th class="text-right">TSMFC T</th><th class="text-right">TSMFC U</th>
-      <th class="text-right">Other T</th><th class="text-right">Other U</th>
+      <th class="text-right">${FEE_LABELS.tTarget}</th><th class="text-right">${FEE_LABELS.tPaid}</th>
+      <th class="text-right">${FEE_LABELS.uTarget}</th><th class="text-right">${FEE_LABELS.uPaid}</th>
+      <th class="text-right">${FEE_LABELS.convT}</th><th class="text-right">${FEE_LABELS.convU}</th>
+      <th class="text-right">${FEE_LABELS.mgmtT}</th><th class="text-right">${FEE_LABELS.mgmtU}</th>
+      <th class="text-right">${FEE_LABELS.tsmfcT}</th><th class="text-right">${FEE_LABELS.tsmfcU}</th>
+      <th class="text-right">${FEE_LABELS.otherT}</th><th class="text-right">${FEE_LABELS.otherU}</th>
       <th class="text-right">Total Received</th><th class="text-right">Total Balance</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row">
@@ -750,7 +772,7 @@ export const Reports: React.FC = () => {
     const html = `<table><thead><tr>
       <th>Financial Year</th><th class="text-center">Transactions</th>
       <th class="text-center">Conv</th><th class="text-center">Mgmt</th><th class="text-center">TSMFC</th><th class="text-center">Other</th>
-      <th class="text-right">Tuition</th><th class="text-right">University</th>
+      <th class="text-right">${FEE_LABELS.tuition}</th><th class="text-right">${FEE_LABELS.ou}</th>
       <th class="text-right">Other</th>
       <th class="text-right">Conv Amt</th><th class="text-right">Mgmt Amt</th><th class="text-right">TSMFC Amt</th><th class="text-right">Other Amt</th>
       <th class="text-right">Total</th>
@@ -804,10 +826,10 @@ export const Reports: React.FC = () => {
       <th>Batch</th><th class="text-center">Students</th>
       <th class="text-center">Conv</th><th class="text-center">Mgmt</th><th class="text-center">TSMFC</th><th class="text-center">Other</th>
       <th class="text-right">Total Target</th><th class="text-right">Total Paid</th>
-      <th class="text-right">Conv T</th><th class="text-right">Conv U</th>
-      <th class="text-right">Mgmt T</th><th class="text-right">Mgmt U</th>
-      <th class="text-right">TSMFC T</th><th class="text-right">TSMFC U</th>
-      <th class="text-right">Other T</th><th class="text-right">Other U</th>
+      <th class="text-right">${FEE_LABELS.convT}</th><th class="text-right">${FEE_LABELS.convU}</th>
+      <th class="text-right">${FEE_LABELS.mgmtT}</th><th class="text-right">${FEE_LABELS.mgmtU}</th>
+      <th class="text-right">${FEE_LABELS.tsmfcT}</th><th class="text-right">${FEE_LABELS.tsmfcU}</th>
+      <th class="text-right">${FEE_LABELS.otherT}</th><th class="text-right">${FEE_LABELS.otherU}</th>
       <th class="text-right">Balance</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row"><td>GRAND TOTAL</td><td class="text-center">${total.count}</td>
@@ -847,8 +869,8 @@ export const Reports: React.FC = () => {
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Student Name</th>
       <th class="text-center">Dept</th><th class="text-center">Category</th>
-      <th class="text-right">T.Target</th><th class="text-right">T.Paid</th><th class="text-right">T.Balance</th>
-      <th class="text-right">U.Target</th><th class="text-right">U.Paid</th><th class="text-right">U.Balance</th>
+      <th class="text-right">${FEE_LABELS.tTarget}</th><th class="text-right">${FEE_LABELS.tPaid}</th><th class="text-right">${FEE_LABELS.tBalance}</th>
+      <th class="text-right">${FEE_LABELS.uTarget}</th><th class="text-right">${FEE_LABELS.uPaid}</th><th class="text-right">${FEE_LABELS.uBalance}</th>
       <th class="text-right">Total Paid</th><th class="text-right">Total Balance</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row">
@@ -1121,7 +1143,7 @@ export const Reports: React.FC = () => {
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Name</th><th>Father</th>
       <th class="text-center">Dept</th><th class="text-center">Batch</th><th class="text-center">Entry</th><th class="text-center">Category</th>
-      <th class="text-right">T.Target</th><th class="text-right">T.Paid</th><th class="text-right">U.Target</th><th class="text-right">U.Paid</th>
+      <th class="text-right">${FEE_LABELS.tTarget}</th><th class="text-right">${FEE_LABELS.tPaid}</th><th class="text-right">${FEE_LABELS.uTarget}</th><th class="text-right">${FEE_LABELS.uPaid}</th>
       <th class="text-right">Total Paid</th><th class="text-right">Balance</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row">
@@ -1811,8 +1833,8 @@ export const Reports: React.FC = () => {
     const html = `<table><thead><tr>
       <th class="text-center">S.No</th><th>Hall Ticket</th><th>Name</th><th>Father</th>
       <th class="text-center">Entry</th><th class="text-center">Batch</th><th class="text-center">Category</th>
-      <th class="text-right">T.Target</th><th class="text-right">T.Paid</th>
-      <th class="text-right">U.Target</th><th class="text-right">U.Paid</th>
+      <th class="text-right">${FEE_LABELS.tTarget}</th><th class="text-right">${FEE_LABELS.tPaid}</th>
+      <th class="text-right">${FEE_LABELS.uTarget}</th><th class="text-right">${FEE_LABELS.uPaid}</th>
       <th class="text-right">Total Paid</th><th class="text-right">Balance</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row">
@@ -1940,11 +1962,11 @@ export const Reports: React.FC = () => {
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Batch</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Entry</th>
                   <th colSpan={5} className={thClass + ' text-blue-700 border-r border-slate-200 bg-blue-50'}>Students</th>
-                  <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>T-Target</th>
-                  <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>T-Paid</th>
-                  <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>U-Target</th>
-                  <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>U-Paid</th>
-                  <th colSpan={9} className={thClass + ' text-emerald-700 border-r border-slate-100 bg-emerald-50'}>Received Split</th>
+                  <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>{FEE_LABELS.tTarget}</th>
+                  <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>{FEE_LABELS.tPaid}</th>
+                  <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>{FEE_LABELS.uTarget}</th>
+                  <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>{FEE_LABELS.uPaid}</th>
+                  <th colSpan={9} className={thClass + ' text-emerald-700 border-r border-slate-100 bg-emerald-50'}>{FEE_LABELS.receivedSplit}</th>
                   <th className={thClass + ' text-red-600 bg-red-50'}>Balance</th>
                 </tr>
                 <tr className="bg-slate-50 border-b border-slate-200">
@@ -1959,14 +1981,14 @@ export const Reports: React.FC = () => {
                   <th className="px-2 py-1 text-[9px] border-r border-slate-100 bg-purple-50"></th>
                   <th className="px-2 py-1 text-[9px] border-r border-slate-100 bg-purple-50"></th>
                   <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Total</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Conv T</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Conv U</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Mgmt T</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Mgmt U</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">TSMFC T</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">TSMFC U</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Other T</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Other U</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.convT}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.convU}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.mgmtT}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.mgmtU}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.tsmfcT}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.tsmfcU}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.otherT}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.otherU}</th>
                   <th className="px-2 py-1 text-[9px] bg-red-50"></th>
                 </tr>
               </thead>
@@ -2149,11 +2171,11 @@ export const Reports: React.FC = () => {
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Batch</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Entry</th>
                   <th colSpan={5} className={thClass + ' text-blue-700 border-r border-slate-200 bg-blue-50'}>Students</th>
-                  <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>T-Target</th>
-                  <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>T-Paid</th>
-                  <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>U-Target</th>
-                  <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>U-Paid</th>
-                  <th colSpan={9} className={thClass + ' text-emerald-700 border-r border-slate-100 bg-emerald-50'}>Received Split</th>
+                  <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>{FEE_LABELS.tTarget}</th>
+                  <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>{FEE_LABELS.tPaid}</th>
+                  <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>{FEE_LABELS.uTarget}</th>
+                  <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>{FEE_LABELS.uPaid}</th>
+                  <th colSpan={9} className={thClass + ' text-emerald-700 border-r border-slate-100 bg-emerald-50'}>{FEE_LABELS.receivedSplit}</th>
                   <th className={thClass + ' text-red-600 bg-red-50'}>Balance</th>
                 </tr>
                 <tr className="bg-slate-50 border-b border-slate-200">
@@ -2168,14 +2190,14 @@ export const Reports: React.FC = () => {
                   <th className="px-2 py-1 text-[9px] border-r border-slate-100 bg-purple-50"></th>
                   <th className="px-2 py-1 text-[9px] border-r border-slate-100 bg-purple-50"></th>
                   <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Total</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Conv T</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Conv U</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Mgmt T</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Mgmt U</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">TSMFC T</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">TSMFC U</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Other T</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Other U</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.convT}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.convU}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.mgmtT}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.mgmtU}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.tsmfcT}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.tsmfcU}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.otherT}</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">{FEE_LABELS.otherU}</th>
                   <th className="px-2 py-1 text-[9px] bg-red-50"></th>
                 </tr>
               </thead>
@@ -2329,10 +2351,10 @@ export const Reports: React.FC = () => {
                       <th className={thClass + ' text-center'}>Entry</th>
                       <th className={thClass + ' text-center'}>Batch</th>
                       <th className={thClass + ' text-center'}>Category</th>
-                      <th className={thClass + ' text-right'}>T-Target</th>
-                      <th className={thClass + ' text-right'}>T-Paid</th>
-                      <th className={thClass + ' text-right'}>U-Target</th>
-                      <th className={thClass + ' text-right'}>U-Paid</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.tTarget}</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.tPaid}</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.uTarget}</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.uPaid}</th>
                       <th className={thClass + ' text-right'}>Total Paid</th>
                       <th className={thClass + ' text-right'}>Balance</th>
                     </tr>
@@ -2399,7 +2421,7 @@ export const Reports: React.FC = () => {
       if (sectionRows.length === 0) return '';
       let html = `<h3 style="margin:15px 0 5px;font-size:13px;color:#312e81;font-weight:bold">${sectionLabel}</h3>`;
       html += '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:11px">';
-      html += '<tr style="background:#1a365d;color:white"><th>Department</th><th>Year</th><th>Batch</th><th>Entry</th><th>Students</th><th>Conv</th><th>Mgmt</th><th>TSMFC</th><th>Others</th><th>T-Target</th><th>T-Paid</th><th>U-Target</th><th>U-Paid</th><th>Total Received</th><th>Conv T</th><th>Conv U</th><th>Mgmt T</th><th>Mgmt U</th><th>TSMFC T</th><th>TSMFC U</th><th>Other T</th><th>Other U</th><th>Balance</th></tr>';
+      html += `<tr style="background:#1a365d;color:white"><th>Department</th><th>Year</th><th>Batch</th><th>Entry</th><th>Students</th><th>Conv</th><th>Mgmt</th><th>TSMFC</th><th>Others</th><th>${FEE_LABELS.tTarget}</th><th>${FEE_LABELS.tPaid}</th><th>${FEE_LABELS.uTarget}</th><th>${FEE_LABELS.uPaid}</th><th>Total Received</th><th>${FEE_LABELS.convT}</th><th>${FEE_LABELS.convU}</th><th>${FEE_LABELS.mgmtT}</th><th>${FEE_LABELS.mgmtU}</th><th>${FEE_LABELS.tsmfcT}</th><th>${FEE_LABELS.tsmfcU}</th><th>${FEE_LABELS.otherT}</th><th>${FEE_LABELS.otherU}</th><th>Balance</th></tr>`;
       sectionDepts.forEach(dept => {
         const deptRows = sectionRows.filter(r => r.deptCode === dept.code);
         if (deptRows.length === 0) return;
@@ -2615,18 +2637,18 @@ export const Reports: React.FC = () => {
                 <th className={`${thClass} text-center bg-amber-50/50`}>Mgmt</th>
                 <th className={`${thClass} text-center bg-blue-50/50`}>TSMFC</th>
                 <th className={`${thClass} text-center bg-slate-100`}>Other</th>
-                <th className={`${thClass} text-right`}>T.Target</th>
-                <th className={`${thClass} text-right`}>T.Paid</th>
-                <th className={`${thClass} text-right`}>U.Target</th>
-                <th className={`${thClass} text-right`}>U.Paid</th>
-                <th className={`${thClass} text-right bg-purple-50/50`}>Conv T</th>
-                <th className={`${thClass} text-right bg-purple-50/50`}>Conv U</th>
-                <th className={`${thClass} text-right bg-amber-50/50`}>Mgmt T</th>
-                <th className={`${thClass} text-right bg-amber-50/50`}>Mgmt U</th>
-                <th className={`${thClass} text-right bg-blue-50/50`}>TSMFC T</th>
-                <th className={`${thClass} text-right bg-blue-50/50`}>TSMFC U</th>
-                <th className={`${thClass} text-right bg-slate-100`}>Other T</th>
-                <th className={`${thClass} text-right bg-slate-100`}>Other U</th>
+                <th className={`${thClass} text-right`}>{FEE_LABELS.tTarget}</th>
+                <th className={`${thClass} text-right`}>{FEE_LABELS.tPaid}</th>
+                <th className={`${thClass} text-right`}>{FEE_LABELS.uTarget}</th>
+                <th className={`${thClass} text-right`}>{FEE_LABELS.uPaid}</th>
+                <th className={`${thClass} text-right bg-purple-50/50`}>{FEE_LABELS.convT}</th>
+                <th className={`${thClass} text-right bg-purple-50/50`}>{FEE_LABELS.convU}</th>
+                <th className={`${thClass} text-right bg-amber-50/50`}>{FEE_LABELS.mgmtT}</th>
+                <th className={`${thClass} text-right bg-amber-50/50`}>{FEE_LABELS.mgmtU}</th>
+                <th className={`${thClass} text-right bg-blue-50/50`}>{FEE_LABELS.tsmfcT}</th>
+                <th className={`${thClass} text-right bg-blue-50/50`}>{FEE_LABELS.tsmfcU}</th>
+                <th className={`${thClass} text-right bg-slate-100`}>{FEE_LABELS.otherT}</th>
+                <th className={`${thClass} text-right bg-slate-100`}>{FEE_LABELS.otherU}</th>
                 <th className={`${thClass} text-right`}>Total Received</th>
                 <th className={`${thClass} text-right`}>Total Balance</th>
               </tr>
@@ -2739,10 +2761,10 @@ export const Reports: React.FC = () => {
                       <th className={thClass + ' text-center'}>Batch</th>
                       <th className={thClass + ' text-center'}>Entry</th>
                       <th className={thClass + ' text-center'}>Category</th>
-                      <th className={thClass + ' text-right'}>T-Target</th>
-                      <th className={thClass + ' text-right'}>T-Paid</th>
-                      <th className={thClass + ' text-right'}>U-Target</th>
-                      <th className={thClass + ' text-right'}>U-Paid</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.tTarget}</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.tPaid}</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.uTarget}</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.uPaid}</th>
                       <th className={thClass + ' text-right'}>Total Paid</th>
                       <th className={thClass + ' text-right'}>Balance</th>
                     </tr>
@@ -2817,8 +2839,8 @@ export const Reports: React.FC = () => {
               <th className={`${thClass} text-center bg-amber-50/50`}>Mgmt</th>
               <th className={`${thClass} text-center bg-blue-50/50`}>TSMFC</th>
               <th className={`${thClass} text-center bg-slate-100`}>Other</th>
-              <th className={`${thClass} text-right`}>Tuition Collected</th>
-              <th className={`${thClass} text-right`}>University Collected</th>
+              <th className={`${thClass} text-right`}>{FEE_LABELS.tuitionCollected}</th>
+              <th className={`${thClass} text-right`}>{FEE_LABELS.ouCollected}</th>
               <th className={`${thClass} text-right`}>Other</th>
               <th className={`${thClass} text-right bg-purple-50/50`}>Conv Amt</th>
               <th className={`${thClass} text-right bg-amber-50/50`}>Mgmt Amt</th>
@@ -2875,8 +2897,8 @@ export const Reports: React.FC = () => {
                                   <th className="px-2 py-1.5 font-semibold text-slate-600">Name</th>
                                   <th className="px-2 py-1.5 font-semibold text-slate-600 text-center">Dept</th>
                                   <th className="px-2 py-1.5 font-semibold text-slate-600 text-center">Batch</th>
-                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">Tuition</th>
-                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">University</th>
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">{FEE_LABELS.tuition}</th>
+                                  <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">{FEE_LABELS.ou}</th>
                                   <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">Other</th>
                                   <th className="px-2 py-1.5 font-semibold text-slate-600 text-right">Total</th>
                                 </tr>
@@ -2964,14 +2986,14 @@ export const Reports: React.FC = () => {
               <th className={`${thClass} text-center bg-slate-100`}>Other</th>
               <th className={`${thClass} text-right`}>Total Target</th>
               <th className={`${thClass} text-right`}>Total Paid</th>
-              <th className={`${thClass} text-right bg-purple-50/50`}>Conv T</th>
-              <th className={`${thClass} text-right bg-purple-50/50`}>Conv U</th>
-              <th className={`${thClass} text-right bg-amber-50/50`}>Mgmt T</th>
-              <th className={`${thClass} text-right bg-amber-50/50`}>Mgmt U</th>
-              <th className={`${thClass} text-right bg-blue-50/50`}>TSMFC T</th>
-              <th className={`${thClass} text-right bg-blue-50/50`}>TSMFC U</th>
-              <th className={`${thClass} text-right bg-slate-100`}>Other T</th>
-              <th className={`${thClass} text-right bg-slate-100`}>Other U</th>
+              <th className={`${thClass} text-right bg-purple-50/50`}>{FEE_LABELS.convT}</th>
+              <th className={`${thClass} text-right bg-purple-50/50`}>{FEE_LABELS.convU}</th>
+              <th className={`${thClass} text-right bg-amber-50/50`}>{FEE_LABELS.mgmtT}</th>
+              <th className={`${thClass} text-right bg-amber-50/50`}>{FEE_LABELS.mgmtU}</th>
+              <th className={`${thClass} text-right bg-blue-50/50`}>{FEE_LABELS.tsmfcT}</th>
+              <th className={`${thClass} text-right bg-blue-50/50`}>{FEE_LABELS.tsmfcU}</th>
+              <th className={`${thClass} text-right bg-slate-100`}>{FEE_LABELS.otherT}</th>
+              <th className={`${thClass} text-right bg-slate-100`}>{FEE_LABELS.otherU}</th>
               <th className={`${thClass} text-right`}>Balance</th>
               <th className={`${thClass} text-right`}>Collection %</th>
             </tr>
@@ -3254,12 +3276,12 @@ export const Reports: React.FC = () => {
                 <th className={thClass}>Name</th>
                 <th className={`${thClass} text-center`}>Dept</th>
                 <th className={`${thClass} text-center`}>Category</th>
-                <th className={`${thClass} text-right`}>T.Target</th>
-                <th className={`${thClass} text-right`}>T.Paid</th>
-                <th className={`${thClass} text-right`}>T.Bal</th>
-                <th className={`${thClass} text-right`}>U.Target</th>
-                <th className={`${thClass} text-right`}>U.Paid</th>
-                <th className={`${thClass} text-right`}>U.Bal</th>
+                <th className={`${thClass} text-right`}>{FEE_LABELS.tTarget}</th>
+                <th className={`${thClass} text-right`}>{FEE_LABELS.tPaid}</th>
+                <th className={`${thClass} text-right`}>{FEE_LABELS.tBalance}</th>
+                <th className={`${thClass} text-right`}>{FEE_LABELS.uTarget}</th>
+                <th className={`${thClass} text-right`}>{FEE_LABELS.uPaid}</th>
+                <th className={`${thClass} text-right`}>{FEE_LABELS.uBalance}</th>
                 <th className={`${thClass} text-right`}>Total Paid</th>
                 <th className={`${thClass} text-right`}>Total Bal</th>
               </tr>
@@ -3631,10 +3653,10 @@ export const Reports: React.FC = () => {
                       <th className={thClass + ' text-center'}>Batch</th>
                       <th className={thClass + ' text-center'}>Entry</th>
                       <th className={thClass + ' text-center'}>Category</th>
-                      <th className={thClass + ' text-right'}>T-Target</th>
-                      <th className={thClass + ' text-right'}>T-Paid</th>
-                      <th className={thClass + ' text-right'}>U-Target</th>
-                      <th className={thClass + ' text-right'}>U-Paid</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.tTarget}</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.tPaid}</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.uTarget}</th>
+                      <th className={thClass + ' text-right'}>{FEE_LABELS.uPaid}</th>
                       <th className={thClass + ' text-right'}>Total Paid</th>
                       <th className={thClass + ' text-right'}>Balance</th>
                     </tr>

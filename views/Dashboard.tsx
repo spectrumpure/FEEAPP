@@ -520,11 +520,11 @@ export const Dashboard: React.FC = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-3 mb-3">
                         <div>
-                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Tuition</p>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Tuition Fee</p>
                           <p className="text-sm font-bold text-slate-800">{formatCurrency(tuitionPaid)}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">University</p>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">O.U Fee</p>
                           <p className="text-sm font-bold text-slate-800">{formatCurrency(universityPaid)}</p>
                         </div>
                       </div>
@@ -772,7 +772,7 @@ export const Dashboard: React.FC = () => {
               <IndianRupee size={20} className="text-[#1a365d]" />
               <div>
                 <h3 className="text-lg font-bold text-slate-800">Financial Year-Wise Collection</h3>
-                <p className="text-sm text-slate-400">{fyFilter === 'all' ? 'All financial years' : `FY ${fyFilter}`}{yearFilter === 0 ? '' : ` · Year ${yearFilter} students`} - Tuition & University fee breakdown</p>
+                <p className="text-sm text-slate-400">{fyFilter === 'all' ? 'All financial years' : `FY ${fyFilter}`}{yearFilter === 0 ? '' : ` · Year ${yearFilter} students`} - Tuition Fee & O.U Fee breakdown</p>
               </div>
             </div>
             <select
@@ -797,11 +797,11 @@ export const Dashboard: React.FC = () => {
                   <p className={`text-xl font-bold ${textColors[idx % 5]}`}>{formatCompact(card.collected)}</p>
                   <div className="mt-2 space-y-0.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-slate-500">Tuition</span>
+                      <span className="text-[9px] text-slate-500">Tuition Fee</span>
                       <span className="text-[10px] font-semibold text-slate-700">{formatCompact(card.tuition)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-slate-500">University</span>
+                      <span className="text-[9px] text-slate-500">O.U Fee</span>
                       <span className="text-[10px] font-semibold text-slate-700">{formatCompact(card.university)}</span>
                     </div>
                     <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
@@ -823,7 +823,7 @@ export const Dashboard: React.FC = () => {
                   <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px'}} formatter={(val: number) => formatCurrency(val)} />
                   <Legend wrapperStyle={{fontSize: '11px', fontWeight: 600}} />
                   <Bar dataKey="tuition" name="Tuition Fee" fill="#2c5282" radius={[4, 4, 0, 0]} barSize={24} />
-                  <Bar dataKey="university" name="University Fee" fill="#63b3ed" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Bar dataKey="university" name="O.U Fee" fill="#63b3ed" radius={[4, 4, 0, 0]} barSize={24} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

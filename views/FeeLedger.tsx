@@ -48,7 +48,7 @@ const YearSummaryCard: React.FC<{ locker: YearLocker; currentYear: number; isCur
       <div className="p-4 space-y-3 flex-1">
         <div className="grid grid-cols-2 gap-3">
            <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Tuition</p>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Tuition Fee</p>
               <p className="text-xs font-bold text-slate-800">{formatCurrency(tuitionPaid)}</p>
               <div className="w-full bg-slate-100 h-1 rounded-full mt-1 overflow-hidden">
                 <div 
@@ -58,7 +58,7 @@ const YearSummaryCard: React.FC<{ locker: YearLocker; currentYear: number; isCur
               </div>
            </div>
            <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">University</p>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">O.U Fee</p>
               <p className="text-xs font-bold text-slate-800">{formatCurrency(univPaid)}</p>
               <div className="w-full bg-slate-100 h-1 rounded-full mt-1 overflow-hidden">
                 <div 
