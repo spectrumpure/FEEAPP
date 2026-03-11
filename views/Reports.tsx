@@ -1482,7 +1482,7 @@ export const Reports: React.FC = () => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className={thClass + ' text-left text-slate-500 border-r border-slate-200 min-w-[160px]'}>Department</th>
+                  <th className={thClass + ' sticky left-0 z-20 text-left text-slate-500 border-r border-slate-200 min-w-[190px] bg-slate-50'}>Department</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200 w-[50px]'}>Year</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Batch</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Entry</th>
@@ -1539,7 +1539,7 @@ export const Reports: React.FC = () => {
                       {deptRows.map((row, ri) => (
                         <tr key={`${row.deptCode}-${row.studyYear}-${row.entryLabel}`} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
                           {ri === 0 && (
-                            <td rowSpan={deptRows.length + 1} className="px-3 py-2 text-xs font-medium text-slate-700 border-r border-slate-200 align-top whitespace-nowrap">
+                            <td rowSpan={deptRows.length + 1} className="sticky left-0 z-10 px-3 py-2 text-xs font-medium text-slate-700 border-r border-slate-200 align-top whitespace-nowrap bg-white shadow-[1px_0_0_0_rgba(226,232,240,1)]">
                               <div>{dept.courseType}-{dept.code}</div>
                             </td>
                           )}
@@ -1668,7 +1668,7 @@ export const Reports: React.FC = () => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className={thClass + ' text-left text-slate-500 border-r border-slate-200 min-w-[160px]'}>Department</th>
+                  <th className={thClass + ' sticky left-0 z-20 text-left text-slate-500 border-r border-slate-200 min-w-[190px] bg-slate-50'}>Department</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Batch</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Entry</th>
                   <th colSpan={5} className={thClass + ' text-blue-700 border-r border-slate-200 bg-blue-50'}>Students</th>
@@ -1701,7 +1701,7 @@ export const Reports: React.FC = () => {
               <tbody>
                 {historicalData.map((row, idx) => (
                   <tr key={`${row.deptCode}-${row.batch}-${row.entryLabel || 'all'}-hist`} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                    <td className="px-3 py-2 text-xs font-medium text-slate-700 border-r border-slate-200 whitespace-nowrap">{row.courseType}-{row.deptCode}</td>
+                    <td className="sticky left-0 z-10 px-3 py-2 text-xs font-medium text-slate-700 border-r border-slate-200 whitespace-nowrap bg-white shadow-[1px_0_0_0_rgba(226,232,240,1)]">{row.courseType}-{row.deptCode}</td>
                     <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-slate-500">{row.batch}</td>
                     <td className="px-2 py-2 text-xs text-center border-r border-slate-100">
                       {row.entryLabel ? (
