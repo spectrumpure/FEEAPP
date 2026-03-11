@@ -961,19 +961,11 @@ export const Reports: React.FC = () => {
           ? subset[0].batch
           : `${batchStartYear}-${batchStartYear + maxYears}`;
         subset.forEach(s => {
-          const locker = s.feeLockers.find(l => l.year === studyYear);
-          if (locker) {
-            tTarget += locker.tuitionTarget;
-            uTarget += locker.universityTarget;
-            locker.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-              if (t.feeType === 'Tuition') tPaid += t.amount;
-              else if (t.feeType === 'University') uPaid += t.amount;
-            });
-          } else {
-            const targets = getFeeTargets(s.department, studyYear, s.entryType, s.admissionYear);
-            tTarget += targets.tuition;
-            uTarget += targets.university;
-          }
+          const totals = getStudentTargets(s, null);
+          tTarget += totals.tTarget;
+          uTarget += totals.uTarget;
+          tPaid += totals.tPaid;
+          uPaid += totals.uPaid;
         });
         rows.push({
           deptName: dept.name, deptCode: dept.code, courseType: dept.courseType,
@@ -1004,6 +996,74 @@ export const Reports: React.FC = () => {
       for (let sy = 1; sy <= 2; sy++) {
         const batchStart = ayStartYear - (sy - 1);
         processGroup(dept, sy, batchStart, 2);
+      }
+    });
+
+    return rows;
+  };
+
+  const getHistoricalAcademicYearData = () => {
+    const ayStartYear = parseInt(ayFilter.split('-')[0]);
+    const rows: {
+      deptName: string;
+      deptCode: string;
+      courseType: string;
+      batch: string;
+      entryLabel: string;
+      count: number;
+      tTarget: number;
+      uTarget: number;
+      tPaid: number;
+      uPaid: number;
+      totalReceived: number;
+      totalBalance: number;
+    }[] = [];
+
+    departments.forEach(dept => {
+      const maxYears = dept.courseType === 'B.E' ? 4 : 2;
+      const minActiveBatchStart = ayStartYear - (maxYears - 1);
+      const matchingStudents = students.filter(s => {
+        if (!matchesDept(s.department, dept)) return false;
+        const bStart = parseInt((s.batch || '').split('-')[0]);
+        return !isNaN(bStart) && bStart < minActiveBatchStart;
+      });
+
+      const pushRow = (subset: Student[], entryLabel: string) => {
+        if (subset.length === 0) return;
+        let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
+        subset.forEach(s => {
+          const totals = getStudentTargets(s, null);
+          tTarget += totals.tTarget;
+          uTarget += totals.uTarget;
+          tPaid += totals.tPaid;
+          uPaid += totals.uPaid;
+        });
+        rows.push({
+          deptName: dept.name,
+          deptCode: dept.code,
+          courseType: dept.courseType,
+          batch: subset[0].batch || '-',
+          entryLabel,
+          count: subset.length,
+          tTarget,
+          uTarget,
+          tPaid,
+          uPaid,
+          totalReceived: tPaid + uPaid,
+          totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
+        });
+      };
+
+      if (dept.courseType === 'B.E') {
+        const regularStudents = matchingStudents.filter(s => s.entryType !== 'LATERAL');
+        const lateralStudents = matchingStudents.filter(s => s.entryType === 'LATERAL');
+        const regularByBatch = Array.from(new Set(regularStudents.map(s => s.batch).filter(Boolean)));
+        const lateralByBatch = Array.from(new Set(lateralStudents.map(s => s.batch).filter(Boolean)));
+        regularByBatch.forEach(batch => pushRow(regularStudents.filter(s => s.batch === batch), 'Regular'));
+        lateralByBatch.forEach(batch => pushRow(lateralStudents.filter(s => s.batch === batch), 'Lateral'));
+      } else {
+        const byBatch = Array.from(new Set(matchingStudents.map(s => s.batch).filter(Boolean)));
+        byBatch.forEach(batch => pushRow(matchingStudents.filter(s => s.batch === batch), ''));
       }
     });
 
@@ -1067,6 +1127,7 @@ export const Reports: React.FC = () => {
 
   const renderAcademicYear = () => {
     const ayData = getAcademicYearData();
+    const historicalData = getHistoricalAcademicYearData();
     const ayOptions = getAcademicYearOptions();
     const beDepts = departments.filter(d => d.courseType === 'B.E');
     const meDepts = departments.filter(d => d.courseType === 'M.E');
@@ -1201,6 +1262,80 @@ export const Reports: React.FC = () => {
       );
     };
 
+    const renderHistoricalSection = () => {
+      if (historicalData.length === 0) return null;
+
+      const total = historicalData.reduce((acc, row) => ({
+        count: acc.count + row.count,
+        tTarget: acc.tTarget + row.tTarget,
+        uTarget: acc.uTarget + row.uTarget,
+        tPaid: acc.tPaid + row.tPaid,
+        uPaid: acc.uPaid + row.uPaid,
+        totalReceived: acc.totalReceived + row.totalReceived,
+        totalBalance: acc.totalBalance + row.totalBalance,
+      }), { count: 0, tTarget: 0, uTarget: 0, tPaid: 0, uPaid: 0, totalReceived: 0, totalBalance: 0 });
+
+      return (
+        <div className="mb-6">
+          <div className="px-4 py-2 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100">
+            <span className="text-xs font-bold text-amber-700">Historical / Completed Batches</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className={thClass + ' text-left text-slate-500 border-r border-slate-200 min-w-[160px]'}>Department</th>
+                  <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Batch</th>
+                  <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Entry</th>
+                  <th className={thClass + ' text-blue-600 border-r border-slate-200 bg-blue-50'}>Students</th>
+                  <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>T-Target</th>
+                  <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>T-Paid</th>
+                  <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>U-Target</th>
+                  <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>U-Paid</th>
+                  <th className={thClass + ' text-emerald-600 border-r border-slate-100 bg-emerald-50'}>Total Received</th>
+                  <th className={thClass + ' text-red-600 bg-red-50'}>Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historicalData.map((row, idx) => (
+                  <tr key={`${row.deptCode}-${row.batch}-${row.entryLabel || 'all'}-hist`} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                    <td className="px-3 py-2 text-xs font-medium text-slate-700 border-r border-slate-200 whitespace-nowrap">{row.courseType}-{row.deptCode}</td>
+                    <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-slate-500">{row.batch}</td>
+                    <td className="px-2 py-2 text-xs text-center border-r border-slate-100">
+                      {row.entryLabel ? (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${row.entryLabel === 'Lateral' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {row.entryLabel}
+                        </span>
+                      ) : <span className="text-slate-400">-</span>}
+                    </td>
+                    <td className={tdClass + ' text-center font-semibold text-blue-700 bg-blue-50/30'}>{row.count}</td>
+                    <td className={tdClass}>{formatCurrency(row.tTarget)}</td>
+                    <td className={tdClass + (row.tPaid > 0 ? ' text-teal-700 font-medium' : ' text-slate-400')}>{formatCurrency(row.tPaid)}</td>
+                    <td className={tdClass}>{formatCurrency(row.uTarget)}</td>
+                    <td className={tdClass + (row.uPaid > 0 ? ' text-purple-700 font-medium' : ' text-slate-400')}>{formatCurrency(row.uPaid)}</td>
+                    <td className={tdClass + ' font-semibold text-emerald-700'}>{formatCurrency(row.totalReceived)}</td>
+                    <td className={'px-2 py-2 text-xs text-right' + (row.totalBalance > 0 ? ' text-red-600 font-medium' : ' text-slate-400')}>{formatCurrency(row.totalBalance)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-[#7c2d12] text-white border-t-2 border-[#7c2d12]">
+                  <td colSpan={3} className="px-3 py-3 text-xs font-bold">Historical Grand Total</td>
+                  <td className="px-2 py-3 text-xs text-center font-bold">{total.count}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold">{formatCurrency(total.tTarget)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-amber-200">{formatCurrency(total.tPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold">{formatCurrency(total.uTarget)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-orange-200">{formatCurrency(total.uPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.totalReceived)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-red-200">{formatCurrency(total.totalBalance)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    };
+
+    const overallTotalReceived = [...ayData, ...historicalData].reduce((sum, row) => sum + row.totalReceived, 0);
+
     return (
       <div>
         <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -1213,12 +1348,16 @@ export const Reports: React.FC = () => {
             </select>
           </div>
           <div className="text-xs text-slate-400">
-            Showing fee collection from all batches active in AY {ayFilter}
+            Showing fee collection from all batches, with active AY {ayFilter} rows first and historical batches below
+          </div>
+          <div className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-3 py-2">
+            Overall Total Received: {formatCurrency(overallTotalReceived)}
           </div>
         </div>
 
         {renderSection(beDepts, 4, 'B.E Programs (4-Year)')}
         {renderSection(meDepts, 2, 'M.E Programs (2-Year)')}
+        {renderHistoricalSection()}
 
         {ayData.length === 0 && (
           <div className="text-center py-12 text-slate-400">
