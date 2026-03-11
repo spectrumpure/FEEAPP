@@ -109,6 +109,17 @@ const normalizeAdmissionCategory = (category: string | null | undefined): string
   return raw.toUpperCase();
 };
 
+const getDisplayBatch = (student: Pick<Student, 'batch' | 'entryType' | 'course'>): string => {
+  const rawBatch = (student.batch || '').trim();
+  if (!rawBatch) return '';
+  if (student.entryType !== 'LATERAL' || student.course !== 'B.E') return rawBatch;
+  const [startStr, endStr] = rawBatch.split('-');
+  const start = parseInt(startStr, 10);
+  const end = parseInt(endStr, 10);
+  if (Number.isNaN(start) || Number.isNaN(end)) return rawBatch;
+  return `${start + 1}-${end + 1}`;
+};
+
 const findDeptForStudent = (studentDept: string, deptList: { name: string; code: string; duration?: number; courseType?: string }[]) =>
   deptList.find(d => matchesDept(studentDept, d));
 
@@ -142,7 +153,7 @@ export const Reports: React.FC = () => {
     { id: 'date_range', label: 'Date Range', icon: <Calendar size={16} />, desc: 'Custom period report' },
   ];
 
-  const allBatches = Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort();
+  const allBatches = Array.from(new Set(students.map(s => getDisplayBatch(s)).filter(Boolean))).sort();
   const allFinYears = Array.from(new Set(transactions.map(t => t.financialYear))).filter(Boolean).sort();
   const allCategories = Array.from(new Set(
     students
@@ -201,7 +212,7 @@ export const Reports: React.FC = () => {
     const rows: { department: string; code: string; courseType: string; entryLabel: string; count: number; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalReceived: number; totalBalance: number }[] = [];
     departments.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
-      if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
+      if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => getDisplayBatch(s) === batchFilter);
       const regularStudents = deptStudents.filter(s => s.entryType !== 'LATERAL');
       const lateralStudents = (filterYear === 1) ? [] : deptStudents.filter(s => s.entryType === 'LATERAL');
       const calcRow = (subset: typeof deptStudents, label: string) => {
@@ -255,7 +266,7 @@ export const Reports: React.FC = () => {
               htn: s.hallTicketNumber,
               name: s.name,
               department: (s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', ''),
-              batch: s.batch || '-',
+              batch: getDisplayBatch(s) || '-',
               tuition: 0, university: 0, other: 0, total: 0, txCount: 0
             };
           }
@@ -273,12 +284,13 @@ export const Reports: React.FC = () => {
   const getStudentsForBatch = (batch: string) => {
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
-    return students.filter(s => (s.batch || 'Unknown') === batch).map(s => {
+    return students.filter(s => (getDisplayBatch(s) || 'Unknown') === batch).map(s => {
       const t = getStudentTargets(s, null, from, to);
       return {
         htn: s.hallTicketNumber,
         name: s.name,
         department: (s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', ''),
+        batch: getDisplayBatch(s) || '-',
         totalTarget: t.tTarget + t.uTarget,
         totalPaid: t.tPaid + t.uPaid,
         balance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid),
@@ -291,7 +303,7 @@ export const Reports: React.FC = () => {
     const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
     const grouped: Record<string, Student[]> = {};
     students.forEach(s => {
-      const b = s.batch || 'Unknown';
+      const b = getDisplayBatch(s) || 'Unknown';
       if (!grouped[b]) grouped[b] = [];
       grouped[b].push(s);
     });
@@ -313,7 +325,7 @@ export const Reports: React.FC = () => {
       if (filterDeptObj) filtered = filtered.filter(s => matchesDept(s.department, filterDeptObj));
       else filtered = filtered.filter(s => s.department === deptFilter);
     }
-    if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
+    if (batchFilter !== 'all') filtered = filtered.filter(s => getDisplayBatch(s) === batchFilter);
     if (categoryFilter !== 'all') filtered = filtered.filter(s => normalizeAdmissionCategory(s.admissionCategory) === categoryFilter);
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     return filtered.map(s => {
@@ -329,7 +341,7 @@ export const Reports: React.FC = () => {
       if (filterDeptObj) filtered = filtered.filter(s => matchesDept(s.department, filterDeptObj));
       else filtered = filtered.filter(s => s.department === deptFilter);
     }
-    if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
+    if (batchFilter !== 'all') filtered = filtered.filter(s => getDisplayBatch(s) === batchFilter);
     return filtered.sort((a, b) => (a.hallTicketNumber || '').localeCompare(b.hallTicketNumber || ''));
   };
 
@@ -339,7 +351,7 @@ export const Reports: React.FC = () => {
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
     return students.filter(s => {
-      if (batchFilter !== 'all' && s.batch !== batchFilter) return false;
+      if (batchFilter !== 'all' && getDisplayBatch(s) !== batchFilter) return false;
       if (filterDeptObj && !matchesDept(s.department, filterDeptObj)) return false;
       const t = getStudentTargets(s, filterYear, from, to);
       const totalTarget = t.tTarget + t.uTarget;
@@ -485,7 +497,7 @@ export const Reports: React.FC = () => {
       <td class="text-center">${s.sex || '-'}</td>
       <td class="text-center">${s.dob || '-'}</td>
       <td class="text-center">${(s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
-      <td class="text-center">${s.batch || '-'}</td>
+      <td class="text-center">${getDisplayBatch(s) || '-'}</td>
       <td class="text-center">${s.admissionCategory || '-'}</td>
       <td>${s.mobile || '-'}</td>
       <td>${s.fatherMobile || '-'}</td>
@@ -579,7 +591,7 @@ export const Reports: React.FC = () => {
 
     departments.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
-      if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === batchFilter);
+      if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => getDisplayBatch(s) === batchFilter);
       const regularStudents = deptStudents.filter(s => s.entryType !== 'LATERAL');
       const lateralStudents = (filterYear === 1) ? [] : deptStudents.filter(s => s.entryType === 'LATERAL');
       if (lateralStudents.length > 0) {
@@ -655,7 +667,7 @@ export const Reports: React.FC = () => {
       .filter(dept => drDeptFilter === 'all' || matchesDept(drDeptFilter, dept))
       .map(dept => {
         let deptStudents = students.filter(s => matchesDept(s.department, dept));
-        if (drBatchFilter !== 'all') deptStudents = deptStudents.filter(s => s.batch === drBatchFilter);
+        if (drBatchFilter !== 'all') deptStudents = deptStudents.filter(s => getDisplayBatch(s) === drBatchFilter);
 
         const results = deptStudents.map(s => {
           const d = departments.find(dd => matchesDept(s.department, dd));
@@ -928,7 +940,7 @@ export const Reports: React.FC = () => {
   };
 
   const getAcademicYearOptions = () => {
-    const startYears = students.map(s => parseInt((s.batch || '').split('-')[0])).filter(y => !isNaN(y));
+    const startYears = students.map(s => parseInt((getDisplayBatch(s) || '').split('-')[0])).filter(y => !isNaN(y));
     const minYear = Math.min(...startYears);
     const maxYear = Math.max(...startYears);
     const options: string[] = [];
@@ -964,7 +976,7 @@ export const Reports: React.FC = () => {
     const processGroup = (dept: typeof departments[0], studyYear: number, batchStartYear: number, maxYears: number) => {
       const matchingStudents = students.filter(s => {
         if (!matchesDept(s.department, dept)) return false;
-        const bStart = parseInt((s.batch || '').split('-')[0]);
+        const bStart = parseInt((getDisplayBatch(s) || '').split('-')[0]);
         return bStart === batchStartYear;
       });
 
@@ -974,7 +986,7 @@ export const Reports: React.FC = () => {
       const calcRow = (subset: typeof matchingStudents, label: string) => {
         let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
         const batchLabel = subset.length > 0
-          ? subset[0].batch
+          ? getDisplayBatch(subset[0])
           : `${batchStartYear}-${batchStartYear + maxYears}`;
         subset.forEach(s => {
           const totals = getStudentTargets(s, null);
@@ -1040,7 +1052,7 @@ export const Reports: React.FC = () => {
       const minActiveBatchStart = ayStartYear - (maxYears - 1);
       const matchingStudents = students.filter(s => {
         if (!matchesDept(s.department, dept)) return false;
-        const bStart = parseInt((s.batch || '').split('-')[0]);
+        const bStart = parseInt((getDisplayBatch(s) || '').split('-')[0]);
         return !isNaN(bStart) && bStart < minActiveBatchStart;
       });
 
@@ -1058,7 +1070,7 @@ export const Reports: React.FC = () => {
           deptName: dept.name,
           deptCode: dept.code,
           courseType: dept.courseType,
-          batch: subset[0].batch || '-',
+          batch: getDisplayBatch(subset[0]) || '-',
           entryLabel,
           count: subset.length,
           tTarget,
@@ -1073,13 +1085,13 @@ export const Reports: React.FC = () => {
       if (dept.courseType === 'B.E') {
         const regularStudents = matchingStudents.filter(s => s.entryType !== 'LATERAL');
         const lateralStudents = matchingStudents.filter(s => s.entryType === 'LATERAL');
-        const regularByBatch = Array.from(new Set(regularStudents.map(s => s.batch).filter(Boolean)));
-        const lateralByBatch = Array.from(new Set(lateralStudents.map(s => s.batch).filter(Boolean)));
-        regularByBatch.forEach(batch => pushRow(regularStudents.filter(s => s.batch === batch), 'Regular'));
-        lateralByBatch.forEach(batch => pushRow(lateralStudents.filter(s => s.batch === batch), 'Lateral'));
+        const regularByBatch = Array.from(new Set(regularStudents.map(s => getDisplayBatch(s)).filter(Boolean)));
+        const lateralByBatch = Array.from(new Set(lateralStudents.map(s => getDisplayBatch(s)).filter(Boolean)));
+        regularByBatch.forEach(batch => pushRow(regularStudents.filter(s => getDisplayBatch(s) === batch), 'Regular'));
+        lateralByBatch.forEach(batch => pushRow(lateralStudents.filter(s => getDisplayBatch(s) === batch), 'Lateral'));
       } else {
-        const byBatch = Array.from(new Set(matchingStudents.map(s => s.batch).filter(Boolean)));
-        byBatch.forEach(batch => pushRow(matchingStudents.filter(s => s.batch === batch), ''));
+        const byBatch = Array.from(new Set(matchingStudents.map(s => getDisplayBatch(s)).filter(Boolean)));
+        byBatch.forEach(batch => pushRow(matchingStudents.filter(s => getDisplayBatch(s) === batch), ''));
       }
     });
 
@@ -1105,7 +1117,7 @@ export const Reports: React.FC = () => {
         deptCode: dept.code,
         courseType: dept.courseType,
         studyYear,
-        batch: studentsSubset[0].batch || `${batchStartYear}-${batchStartYear + maxYears}`,
+        batch: getDisplayBatch(studentsSubset[0]) || `${batchStartYear}-${batchStartYear + maxYears}`,
         entryLabel,
         count: studentsSubset.length,
       });
@@ -1116,7 +1128,7 @@ export const Reports: React.FC = () => {
         const batchStartYear = ayStartYear - (sy - 1);
         const matchingStudents = students.filter(s => {
           if (!matchesDept(s.department, dept)) return false;
-          const bStart = parseInt((s.batch || '').split('-')[0]);
+          const bStart = parseInt((getDisplayBatch(s) || '').split('-')[0]);
           return bStart === batchStartYear;
         });
         processRow(dept, sy, batchStartYear, 4, matchingStudents.filter(s => s.entryType !== 'LATERAL'), 'Regular');
@@ -1131,7 +1143,7 @@ export const Reports: React.FC = () => {
         const batchStartYear = ayStartYear - (sy - 1);
         const matchingStudents = students.filter(s => {
           if (!matchesDept(s.department, dept)) return false;
-          const bStart = parseInt((s.batch || '').split('-')[0]);
+          const bStart = parseInt((getDisplayBatch(s) || '').split('-')[0]);
           return bStart === batchStartYear;
         });
         processRow(dept, sy, batchStartYear, 2, matchingStudents, '');
@@ -2081,7 +2093,7 @@ export const Reports: React.FC = () => {
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.sex}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.dob}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-600 text-center">{(s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
-                  <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{s.batch}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{getDisplayBatch(s) || '-'}</td>
                   <td className="px-3 py-2.5 text-center">
                     <span className={`text-[9px] font-semibold px-2 py-0.5 rounded ${(s.admissionCategory || '').includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
                       {s.admissionCategory || '-'}
