@@ -201,6 +201,7 @@ export const Reports: React.FC = () => {
   const [ayFilter, setAyFilter] = useState<string>('2025-26');
   const [selectedAyDetailKey, setSelectedAyDetailKey] = useState<string | null>(null);
   const [selectedAyDetailCategory, setSelectedAyDetailCategory] = useState<'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER'>('ALL');
+  const [selectedCategoryDetail, setSelectedCategoryDetail] = useState<{ rowKey: string; bucket: 'TSMFC' | 'MGMT' | 'CONV' } | null>(null);
 
   const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} />, desc: 'Revenue by department' },
@@ -722,6 +723,110 @@ export const Reports: React.FC = () => {
       <td class="text-center font-bold">${total.all}</td>
     </tr></tbody></table>`;
     exportPDF(`Admission Category Fee Analysis${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ''}`, html);
+  };
+
+  type CategoryAnalysisRow = {
+    department: string;
+    code: string;
+    courseType: string;
+    entryLabel: string;
+    tsmfcCount: number; tsmfcTarget: number; tsmfcTuiPaid: number; tsmfcUniPaid: number; tsmfcBalance: number;
+    mgmtCount: number; mgmtTarget: number; mgmtTuiPaid: number; mgmtUniPaid: number; mgmtBalance: number;
+    convCount: number; convTarget: number; convTuiPaid: number; convUniPaid: number; convBalance: number;
+    totalCount: number;
+  };
+
+  const getCategoryAnalysisRowKey = (row: CategoryAnalysisRow) =>
+    [row.courseType, row.code, row.entryLabel || 'ALL'].join('|');
+
+  const getCategoryAnalysisDetailStudents = (
+    row: CategoryAnalysisRow,
+    bucket: 'TSMFC' | 'MGMT' | 'CONV'
+  ) => {
+    const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
+    const dept = departments.find(d => d.code === row.code && d.courseType === row.courseType);
+    if (!dept) return [];
+
+    return students
+      .filter(s => {
+        if (!matchesDept(s.department, dept)) return false;
+        if (batchFilter !== 'all' && getDisplayBatch(s) !== batchFilter) return false;
+        if (row.entryLabel === 'Regular' && s.entryType === 'LATERAL') return false;
+        if (row.entryLabel === 'Lateral' && s.entryType !== 'LATERAL') return false;
+        const studentBucket = getAdmissionCategoryBucket(s.admissionCategory);
+        return studentBucket === bucket;
+      })
+      .map(s => {
+        const t = getStudentTargets(s, filterYear, from, to);
+        return {
+          hallTicketNumber: s.hallTicketNumber,
+          name: s.name,
+          fatherName: s.fatherName,
+          department: (s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', ''),
+          batch: getDisplayBatch(s) || '-',
+          entryType: s.entryType === 'LATERAL' ? 'L.E' : 'R',
+          admissionCategory: normalizeAdmissionCategory(s.admissionCategory) || '-',
+          tTarget: t.tTarget,
+          tPaid: t.tPaid,
+          uTarget: t.uTarget,
+          uPaid: t.uPaid,
+          totalPaid: t.tPaid + t.uPaid,
+          totalBalance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid),
+        };
+      })
+      .sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
+  };
+
+  const exportCategoryAnalysisDetailPDF = (
+    row: CategoryAnalysisRow,
+    bucket: 'TSMFC' | 'MGMT' | 'CONV'
+  ) => {
+    const detailStudents = getCategoryAnalysisDetailStudents(row, bucket);
+    const totals = detailStudents.reduce((acc, s) => ({
+      tTarget: acc.tTarget + s.tTarget,
+      tPaid: acc.tPaid + s.tPaid,
+      uTarget: acc.uTarget + s.uTarget,
+      uPaid: acc.uPaid + s.uPaid,
+      totalPaid: acc.totalPaid + s.totalPaid,
+      totalBalance: acc.totalBalance + s.totalBalance,
+    }), { tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalPaid: 0, totalBalance: 0 });
+
+    const rows = detailStudents.map((s, idx) => `<tr>
+      <td class="text-center">${idx + 1}</td>
+      <td>${s.hallTicketNumber}</td>
+      <td>${s.name}</td>
+      <td>${s.fatherName || '-'}</td>
+      <td class="text-center">${s.department}</td>
+      <td class="text-center">${s.batch}</td>
+      <td class="text-center">${s.entryType}</td>
+      <td class="text-center">${s.admissionCategory}</td>
+      <td class="text-right">${formatCurrency(s.tTarget)}</td>
+      <td class="text-right">${formatCurrency(s.tPaid)}</td>
+      <td class="text-right">${formatCurrency(s.uTarget)}</td>
+      <td class="text-right">${formatCurrency(s.uPaid)}</td>
+      <td class="text-right">${formatCurrency(s.totalPaid)}</td>
+      <td class="text-right">${formatCurrency(s.totalBalance)}</td>
+    </tr>`).join('');
+
+    const html = `<table><thead><tr>
+      <th class="text-center">S.No</th><th>Hall Ticket</th><th>Name</th><th>Father</th>
+      <th class="text-center">Dept</th><th class="text-center">Batch</th><th class="text-center">Entry</th><th class="text-center">Category</th>
+      <th class="text-right">T.Target</th><th class="text-right">T.Paid</th><th class="text-right">U.Target</th><th class="text-right">U.Paid</th>
+      <th class="text-right">Total Paid</th><th class="text-right">Balance</th>
+    </tr></thead><tbody>${rows}
+    <tr class="summary-row">
+      <td colspan="8" class="text-right font-bold">GRAND TOTAL</td>
+      <td class="text-right">${formatCurrency(totals.tTarget)}</td>
+      <td class="text-right">${formatCurrency(totals.tPaid)}</td>
+      <td class="text-right">${formatCurrency(totals.uTarget)}</td>
+      <td class="text-right">${formatCurrency(totals.uPaid)}</td>
+      <td class="text-right">${formatCurrency(totals.totalPaid)}</td>
+      <td class="text-right">${formatCurrency(totals.totalBalance)}</td>
+    </tr></tbody></table>`;
+
+    exportPDF(`Category Analysis Students - ${row.courseType}(${row.code}) ${row.entryLabel || 'All'} ${bucket}`, html);
   };
 
   const getDateRangeData = () => {
@@ -2775,6 +2880,20 @@ export const Reports: React.FC = () => {
 
   const renderCategoryAnalysis = () => {
     const data = getCategoryAnalysisData();
+    const selectedCategoryRow = selectedCategoryDetail
+      ? data.find(row => getCategoryAnalysisRowKey(row as CategoryAnalysisRow) === selectedCategoryDetail.rowKey) as CategoryAnalysisRow | undefined
+      : undefined;
+    const selectedCategoryStudents = selectedCategoryRow && selectedCategoryDetail
+      ? getCategoryAnalysisDetailStudents(selectedCategoryRow, selectedCategoryDetail.bucket)
+      : [];
+    const selectedCategoryTotals = selectedCategoryStudents.reduce((acc, s) => ({
+      tTarget: acc.tTarget + s.tTarget,
+      tPaid: acc.tPaid + s.tPaid,
+      uTarget: acc.uTarget + s.uTarget,
+      uPaid: acc.uPaid + s.uPaid,
+      totalPaid: acc.totalPaid + s.totalPaid,
+      totalBalance: acc.totalBalance + s.totalBalance,
+    }), { tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalPaid: 0, totalBalance: 0 });
     const total = data.reduce((acc, d) => ({
       tsmfcCount: acc.tsmfcCount + d.tsmfcCount, tsmfcTarget: acc.tsmfcTarget + d.tsmfcTarget,
       tsmfcTuiPaid: acc.tsmfcTuiPaid + d.tsmfcTuiPaid, tsmfcUniPaid: acc.tsmfcUniPaid + d.tsmfcUniPaid, tsmfcBalance: acc.tsmfcBalance + d.tsmfcBalance,
@@ -2835,17 +2954,23 @@ export const Reports: React.FC = () => {
               {data.map((d, i) => (
                 <tr key={`${d.code}-${d.entryLabel}`} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className="px-3 py-2.5 text-xs font-bold text-slate-800">{d.courseType}({d.code}){d.entryLabel ? <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${d.entryLabel === 'Lateral' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{d.entryLabel}</span> : ''}</td>
-                  <td className="px-1.5 py-2.5 text-xs text-blue-700 font-semibold text-center bg-blue-50/20">{d.tsmfcCount}</td>
+                  <td className="px-1.5 py-2.5 text-xs text-blue-700 font-semibold text-center bg-blue-50/20">
+                    <button type="button" onClick={() => setSelectedCategoryDetail({ rowKey: getCategoryAnalysisRowKey(d as CategoryAnalysisRow), bucket: 'TSMFC' })} className="hover:underline">{d.tsmfcCount}</button>
+                  </td>
                   <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-blue-50/20">{formatCurrency(d.tsmfcTarget)}</td>
                   <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-blue-50/20">{formatCurrency(d.tsmfcTuiPaid)}</td>
                   <td className="px-1.5 py-2.5 text-xs font-semibold text-teal-600 text-right bg-blue-50/20">{formatCurrency(d.tsmfcUniPaid)}</td>
                   <td className="px-1.5 py-2.5 text-xs font-bold text-right bg-blue-50/20" style={{ color: d.tsmfcBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.tsmfcBalance)}</td>
-                  <td className="px-1.5 py-2.5 text-xs text-amber-700 font-semibold text-center bg-amber-50/20">{d.mgmtCount}</td>
+                  <td className="px-1.5 py-2.5 text-xs text-amber-700 font-semibold text-center bg-amber-50/20">
+                    <button type="button" onClick={() => setSelectedCategoryDetail({ rowKey: getCategoryAnalysisRowKey(d as CategoryAnalysisRow), bucket: 'MGMT' })} className="hover:underline">{d.mgmtCount}</button>
+                  </td>
                   <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-amber-50/20">{formatCurrency(d.mgmtTarget)}</td>
                   <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-amber-50/20">{formatCurrency(d.mgmtTuiPaid)}</td>
                   <td className="px-1.5 py-2.5 text-xs font-semibold text-teal-600 text-right bg-amber-50/20">{formatCurrency(d.mgmtUniPaid)}</td>
                   <td className="px-1.5 py-2.5 text-xs font-bold text-right bg-amber-50/20" style={{ color: d.mgmtBalance > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(d.mgmtBalance)}</td>
-                  <td className="px-1.5 py-2.5 text-xs text-purple-700 font-semibold text-center bg-purple-50/20">{d.convCount}</td>
+                  <td className="px-1.5 py-2.5 text-xs text-purple-700 font-semibold text-center bg-purple-50/20">
+                    <button type="button" onClick={() => setSelectedCategoryDetail({ rowKey: getCategoryAnalysisRowKey(d as CategoryAnalysisRow), bucket: 'CONV' })} className="hover:underline">{d.convCount}</button>
+                  </td>
                   <td className="px-1.5 py-2.5 text-xs text-slate-600 text-right bg-purple-50/20">{formatCurrency(d.convTarget)}</td>
                   <td className="px-1.5 py-2.5 text-xs font-semibold text-emerald-600 text-right bg-purple-50/20">{formatCurrency(d.convTuiPaid)}</td>
                   <td className="px-1.5 py-2.5 text-xs font-semibold text-teal-600 text-right bg-purple-50/20">{formatCurrency(d.convUniPaid)}</td>
@@ -2877,6 +3002,103 @@ export const Reports: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {selectedCategoryRow && selectedCategoryDetail && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setSelectedCategoryDetail(null)}
+              className="absolute inset-0 bg-slate-900/45 backdrop-blur-[1px]"
+            />
+            <div className="relative w-full max-w-7xl max-h-[90vh] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+              <div className="flex items-start justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {selectedCategoryRow.courseType}({selectedCategoryRow.code}) {selectedCategoryRow.entryLabel || 'All'} {selectedCategoryDetail.bucket}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Student list for the selected category count ({selectedCategoryStudents.length})
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => exportCategoryAnalysisDetailPDF(selectedCategoryRow, selectedCategoryDetail.bucket)}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+                  >
+                    <Printer size={14} />
+                    Export PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategoryDetail(null)}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-auto max-h-[calc(90vh-72px)]">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className={thClass + ' text-center w-10'}>S.No</th>
+                      <th className={thClass + ' text-left'}>Hall Ticket</th>
+                      <th className={thClass + ' text-left'}>Name</th>
+                      <th className={thClass + ' text-left'}>Father</th>
+                      <th className={thClass + ' text-center'}>Dept</th>
+                      <th className={thClass + ' text-center'}>Batch</th>
+                      <th className={thClass + ' text-center'}>Entry</th>
+                      <th className={thClass + ' text-center'}>Category</th>
+                      <th className={thClass + ' text-right'}>T-Target</th>
+                      <th className={thClass + ' text-right'}>T-Paid</th>
+                      <th className={thClass + ' text-right'}>U-Target</th>
+                      <th className={thClass + ' text-right'}>U-Paid</th>
+                      <th className={thClass + ' text-right'}>Total Paid</th>
+                      <th className={thClass + ' text-right'}>Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedCategoryStudents.length === 0 ? (
+                      <EmptyState message="No students found for this category row." />
+                    ) : (
+                      <>
+                        {selectedCategoryStudents.map((s, idx) => (
+                          <tr key={s.hallTicketNumber} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                            <td className="px-3 py-2 text-center text-slate-400">{idx + 1}</td>
+                            <td className="px-3 py-2 font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
+                            <td className="px-3 py-2 font-medium text-slate-800">{s.name}</td>
+                            <td className="px-3 py-2 text-slate-500">{s.fatherName || '-'}</td>
+                            <td className="px-3 py-2 text-center text-slate-500">{s.department}</td>
+                            <td className="px-3 py-2 text-center text-slate-500">{s.batch}</td>
+                            <td className="px-3 py-2 text-center text-slate-500">{s.entryType}</td>
+                            <td className="px-3 py-2 text-center text-slate-500">{s.admissionCategory}</td>
+                            <td className="px-3 py-2 text-right">{formatCurrency(s.tTarget)}</td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-medium">{formatCurrency(s.tPaid)}</td>
+                            <td className="px-3 py-2 text-right">{formatCurrency(s.uTarget)}</td>
+                            <td className="px-3 py-2 text-right text-purple-700 font-medium">{formatCurrency(s.uPaid)}</td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-semibold">{formatCurrency(s.totalPaid)}</td>
+                            <td className="px-3 py-2 text-right text-red-600 font-medium">{formatCurrency(s.totalBalance)}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-[#1a365d] text-white sticky bottom-0">
+                          <td colSpan={8} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedCategoryTotals.tTarget)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-emerald-300">{formatCurrency(selectedCategoryTotals.tPaid)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedCategoryTotals.uTarget)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-purple-300">{formatCurrency(selectedCategoryTotals.uPaid)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-emerald-300">{formatCurrency(selectedCategoryTotals.totalPaid)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-red-300">{formatCurrency(selectedCategoryTotals.totalBalance)}</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
