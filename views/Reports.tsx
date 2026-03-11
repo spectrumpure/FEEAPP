@@ -1024,10 +1024,14 @@ export const Reports: React.FC = () => {
       mgmtCount: number;
       tsmfcCount: number;
       otherCount: number;
-      convReceived: number;
-      mgmtReceived: number;
-      tsmfcReceived: number;
-      otherReceived: number;
+      convTPaid: number;
+      convUPaid: number;
+      mgmtTPaid: number;
+      mgmtUPaid: number;
+      tsmfcTPaid: number;
+      tsmfcUPaid: number;
+      otherTPaid: number;
+      otherUPaid: number;
     };
 
     type AYRow = {
@@ -1049,23 +1053,27 @@ export const Reports: React.FC = () => {
     const getCategorySplit = (subset: Student[]): CategorySplit => {
       const split: CategorySplit = {
         convCount: 0, mgmtCount: 0, tsmfcCount: 0, otherCount: 0,
-        convReceived: 0, mgmtReceived: 0, tsmfcReceived: 0, otherReceived: 0,
+        convTPaid: 0, convUPaid: 0, mgmtTPaid: 0, mgmtUPaid: 0,
+        tsmfcTPaid: 0, tsmfcUPaid: 0, otherTPaid: 0, otherUPaid: 0,
       };
       subset.forEach(s => {
         const totals = getStudentTargets(s, null);
-        const received = totals.tPaid + totals.uPaid;
         if (isConvenorCategory(s.admissionCategory)) {
           split.convCount += 1;
-          split.convReceived += received;
+          split.convTPaid += totals.tPaid;
+          split.convUPaid += totals.uPaid;
         } else if (isManagementCategory(s.admissionCategory)) {
           split.mgmtCount += 1;
-          split.mgmtReceived += received;
+          split.mgmtTPaid += totals.tPaid;
+          split.mgmtUPaid += totals.uPaid;
         } else if (isTSMFCCategory(s.admissionCategory)) {
           split.tsmfcCount += 1;
-          split.tsmfcReceived += received;
+          split.tsmfcTPaid += totals.tPaid;
+          split.tsmfcUPaid += totals.uPaid;
         } else {
           split.otherCount += 1;
-          split.otherReceived += received;
+          split.otherTPaid += totals.tPaid;
+          split.otherUPaid += totals.uPaid;
         }
       });
       return split;
@@ -1153,10 +1161,14 @@ export const Reports: React.FC = () => {
       mgmtCount: number;
       tsmfcCount: number;
       otherCount: number;
-      convReceived: number;
-      mgmtReceived: number;
-      tsmfcReceived: number;
-      otherReceived: number;
+      convTPaid: number;
+      convUPaid: number;
+      mgmtTPaid: number;
+      mgmtUPaid: number;
+      tsmfcTPaid: number;
+      tsmfcUPaid: number;
+      otherTPaid: number;
+      otherUPaid: number;
     }[] = [];
 
     departments.forEach(dept => {
@@ -1170,26 +1182,30 @@ export const Reports: React.FC = () => {
         if (subset.length === 0) return;
         let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
         let convCount = 0, mgmtCount = 0, tsmfcCount = 0, otherCount = 0;
-        let convReceived = 0, mgmtReceived = 0, tsmfcReceived = 0, otherReceived = 0;
+        let convTPaid = 0, convUPaid = 0, mgmtTPaid = 0, mgmtUPaid = 0;
+        let tsmfcTPaid = 0, tsmfcUPaid = 0, otherTPaid = 0, otherUPaid = 0;
         subset.forEach(s => {
           const totals = getStudentTargets(s, null);
           tTarget += totals.tTarget;
           uTarget += totals.uTarget;
           tPaid += totals.tPaid;
           uPaid += totals.uPaid;
-          const received = totals.tPaid + totals.uPaid;
           if (isConvenorCategory(s.admissionCategory)) {
             convCount += 1;
-            convReceived += received;
+            convTPaid += totals.tPaid;
+            convUPaid += totals.uPaid;
           } else if (isManagementCategory(s.admissionCategory)) {
             mgmtCount += 1;
-            mgmtReceived += received;
+            mgmtTPaid += totals.tPaid;
+            mgmtUPaid += totals.uPaid;
           } else if (isTSMFCCategory(s.admissionCategory)) {
             tsmfcCount += 1;
-            tsmfcReceived += received;
+            tsmfcTPaid += totals.tPaid;
+            tsmfcUPaid += totals.uPaid;
           } else {
             otherCount += 1;
-            otherReceived += received;
+            otherTPaid += totals.tPaid;
+            otherUPaid += totals.uPaid;
           }
         });
         rows.push({
@@ -1209,10 +1225,14 @@ export const Reports: React.FC = () => {
           mgmtCount,
           tsmfcCount,
           otherCount,
-          convReceived,
-          mgmtReceived,
-          tsmfcReceived,
-          otherReceived,
+          convTPaid,
+          convUPaid,
+          mgmtTPaid,
+          mgmtUPaid,
+          tsmfcTPaid,
+          tsmfcUPaid,
+          otherTPaid,
+          otherUPaid,
         });
       };
 
@@ -1445,10 +1465,14 @@ export const Reports: React.FC = () => {
           tPaid: yRows.reduce((s, r) => s + r.tPaid, 0),
           uPaid: yRows.reduce((s, r) => s + r.uPaid, 0),
           totalReceived: yRows.reduce((s, r) => s + r.totalReceived, 0),
-          convReceived: yRows.reduce((s, r) => s + r.convReceived, 0),
-          mgmtReceived: yRows.reduce((s, r) => s + r.mgmtReceived, 0),
-          tsmfcReceived: yRows.reduce((s, r) => s + r.tsmfcReceived, 0),
-          otherReceived: yRows.reduce((s, r) => s + r.otherReceived, 0),
+          convTPaid: yRows.reduce((s, r) => s + r.convTPaid, 0),
+          convUPaid: yRows.reduce((s, r) => s + r.convUPaid, 0),
+          mgmtTPaid: yRows.reduce((s, r) => s + r.mgmtTPaid, 0),
+          mgmtUPaid: yRows.reduce((s, r) => s + r.mgmtUPaid, 0),
+          tsmfcTPaid: yRows.reduce((s, r) => s + r.tsmfcTPaid, 0),
+          tsmfcUPaid: yRows.reduce((s, r) => s + r.tsmfcUPaid, 0),
+          otherTPaid: yRows.reduce((s, r) => s + r.otherTPaid, 0),
+          otherUPaid: yRows.reduce((s, r) => s + r.otherUPaid, 0),
           tTarget: yRows.reduce((s, r) => s + r.tTarget, 0),
           uTarget: yRows.reduce((s, r) => s + r.uTarget, 0),
           totalBalance: yRows.reduce((s, r) => s + r.totalBalance, 0),
@@ -1466,10 +1490,14 @@ export const Reports: React.FC = () => {
         tPaid: yearTotals.reduce((s, y) => s + y.tPaid, 0),
         uPaid: yearTotals.reduce((s, y) => s + y.uPaid, 0),
         totalReceived: yearTotals.reduce((s, y) => s + y.totalReceived, 0),
-        convReceived: yearTotals.reduce((s, y) => s + y.convReceived, 0),
-        mgmtReceived: yearTotals.reduce((s, y) => s + y.mgmtReceived, 0),
-        tsmfcReceived: yearTotals.reduce((s, y) => s + y.tsmfcReceived, 0),
-        otherReceived: yearTotals.reduce((s, y) => s + y.otherReceived, 0),
+        convTPaid: yearTotals.reduce((s, y) => s + y.convTPaid, 0),
+        convUPaid: yearTotals.reduce((s, y) => s + y.convUPaid, 0),
+        mgmtTPaid: yearTotals.reduce((s, y) => s + y.mgmtTPaid, 0),
+        mgmtUPaid: yearTotals.reduce((s, y) => s + y.mgmtUPaid, 0),
+        tsmfcTPaid: yearTotals.reduce((s, y) => s + y.tsmfcTPaid, 0),
+        tsmfcUPaid: yearTotals.reduce((s, y) => s + y.tsmfcUPaid, 0),
+        otherTPaid: yearTotals.reduce((s, y) => s + y.otherTPaid, 0),
+        otherUPaid: yearTotals.reduce((s, y) => s + y.otherUPaid, 0),
         totalBalance: yearTotals.reduce((s, y) => s + y.totalBalance, 0),
       };
 
@@ -1482,7 +1510,7 @@ export const Reports: React.FC = () => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className={thClass + ' sticky left-0 z-20 text-left text-slate-500 border-r border-slate-200 min-w-[190px] bg-slate-50'}>Department</th>
+                  <th className={thClass + ' sticky left-0 z-20 text-left text-slate-500 border-r border-slate-200 min-w-[110px] bg-slate-50'}>Department</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200 w-[50px]'}>Year</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Batch</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Entry</th>
@@ -1491,7 +1519,7 @@ export const Reports: React.FC = () => {
                   <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>T-Paid</th>
                   <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>U-Target</th>
                   <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>U-Paid</th>
-                  <th colSpan={5} className={thClass + ' text-emerald-700 border-r border-slate-100 bg-emerald-50'}>Received Split</th>
+                  <th colSpan={9} className={thClass + ' text-emerald-700 border-r border-slate-100 bg-emerald-50'}>Received Split</th>
                   <th className={thClass + ' text-red-600 bg-red-50'}>Balance</th>
                 </tr>
                 <tr className="bg-slate-50 border-b border-slate-200">
@@ -1506,10 +1534,14 @@ export const Reports: React.FC = () => {
                   <th className="px-2 py-1 text-[9px] border-r border-slate-100 bg-purple-50"></th>
                   <th className="px-2 py-1 text-[9px] border-r border-slate-100 bg-purple-50"></th>
                   <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Total</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Conv</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Mgmt</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">TSMFC</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Others</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Conv T</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Conv U</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Mgmt T</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Mgmt U</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">TSMFC T</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">TSMFC U</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Other T</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Other U</th>
                   <th className="px-2 py-1 text-[9px] bg-red-50"></th>
                 </tr>
               </thead>
@@ -1528,10 +1560,14 @@ export const Reports: React.FC = () => {
                     tPaid: deptRows.reduce((s, r) => s + r.tPaid, 0),
                     uPaid: deptRows.reduce((s, r) => s + r.uPaid, 0),
                     totalReceived: deptRows.reduce((s, r) => s + r.totalReceived, 0),
-                    convReceived: deptRows.reduce((s, r) => s + r.convReceived, 0),
-                    mgmtReceived: deptRows.reduce((s, r) => s + r.mgmtReceived, 0),
-                    tsmfcReceived: deptRows.reduce((s, r) => s + r.tsmfcReceived, 0),
-                    otherReceived: deptRows.reduce((s, r) => s + r.otherReceived, 0),
+                    convTPaid: deptRows.reduce((s, r) => s + r.convTPaid, 0),
+                    convUPaid: deptRows.reduce((s, r) => s + r.convUPaid, 0),
+                    mgmtTPaid: deptRows.reduce((s, r) => s + r.mgmtTPaid, 0),
+                    mgmtUPaid: deptRows.reduce((s, r) => s + r.mgmtUPaid, 0),
+                    tsmfcTPaid: deptRows.reduce((s, r) => s + r.tsmfcTPaid, 0),
+                    tsmfcUPaid: deptRows.reduce((s, r) => s + r.tsmfcUPaid, 0),
+                    otherTPaid: deptRows.reduce((s, r) => s + r.otherTPaid, 0),
+                    otherUPaid: deptRows.reduce((s, r) => s + r.otherUPaid, 0),
                     totalBalance: deptRows.reduce((s, r) => s + r.totalBalance, 0),
                   };
                   return (
@@ -1585,10 +1621,14 @@ export const Reports: React.FC = () => {
                           <td className={tdClass}>{formatCurrency(row.uTarget)}</td>
                           <td className={tdClass + (row.uPaid > 0 ? ' text-purple-700 font-medium' : ' text-slate-400')}>{formatCurrency(row.uPaid)}</td>
                           <td className={tdClass + ' font-semibold text-emerald-700'}>{formatCurrency(row.totalReceived)}</td>
-                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.convReceived)}</td>
-                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.mgmtReceived)}</td>
-                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.tsmfcReceived)}</td>
-                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.otherReceived)}</td>
+                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.convTPaid)}</td>
+                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.convUPaid)}</td>
+                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.mgmtTPaid)}</td>
+                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.mgmtUPaid)}</td>
+                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.tsmfcTPaid)}</td>
+                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.tsmfcUPaid)}</td>
+                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.otherTPaid)}</td>
+                          <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.otherUPaid)}</td>
                           <td className={'px-2 py-2 text-xs text-right' + (row.totalBalance > 0 ? ' text-red-600 font-medium' : ' text-slate-400')}>{formatCurrency(row.totalBalance)}</td>
                         </tr>
                       ))}
@@ -1604,10 +1644,14 @@ export const Reports: React.FC = () => {
                         <td className={tdClass + ' font-bold'}>{formatCurrency(deptTotal.uTarget)}</td>
                         <td className={tdClass + ' font-bold text-purple-700'}>{formatCurrency(deptTotal.uPaid)}</td>
                         <td className={tdClass + ' font-bold text-emerald-700'}>{formatCurrency(deptTotal.totalReceived)}</td>
-                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.convReceived)}</td>
-                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.mgmtReceived)}</td>
-                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.tsmfcReceived)}</td>
-                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.otherReceived)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.convTPaid)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.convUPaid)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.mgmtTPaid)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.mgmtUPaid)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.tsmfcTPaid)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.tsmfcUPaid)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.otherTPaid)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right font-bold text-emerald-700">{formatCurrency(deptTotal.otherUPaid)}</td>
                         <td className="px-2 py-1.5 text-xs text-right font-bold text-red-600">{formatCurrency(deptTotal.totalBalance)}</td>
                       </tr>
                     </React.Fragment>
@@ -1625,10 +1669,14 @@ export const Reports: React.FC = () => {
                   <td className="px-2 py-3 text-xs text-right font-bold">{formatCurrency(grandTotal.uTarget)}</td>
                   <td className="px-2 py-3 text-xs text-right font-bold text-purple-300">{formatCurrency(grandTotal.uPaid)}</td>
                   <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.totalReceived)}</td>
-                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.convReceived)}</td>
-                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.mgmtReceived)}</td>
-                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.tsmfcReceived)}</td>
-                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.otherReceived)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.convTPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.convUPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.mgmtTPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.mgmtUPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.tsmfcTPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.tsmfcUPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.otherTPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-300">{formatCurrency(grandTotal.otherUPaid)}</td>
                   <td className="px-2 py-3 text-xs text-right font-bold text-red-300">{formatCurrency(grandTotal.totalBalance)}</td>
                 </tr>
               </tbody>
@@ -1652,12 +1700,16 @@ export const Reports: React.FC = () => {
         tPaid: acc.tPaid + row.tPaid,
         uPaid: acc.uPaid + row.uPaid,
         totalReceived: acc.totalReceived + row.totalReceived,
-        convReceived: acc.convReceived + row.convReceived,
-        mgmtReceived: acc.mgmtReceived + row.mgmtReceived,
-        tsmfcReceived: acc.tsmfcReceived + row.tsmfcReceived,
-        otherReceived: acc.otherReceived + row.otherReceived,
+        convTPaid: acc.convTPaid + row.convTPaid,
+        convUPaid: acc.convUPaid + row.convUPaid,
+        mgmtTPaid: acc.mgmtTPaid + row.mgmtTPaid,
+        mgmtUPaid: acc.mgmtUPaid + row.mgmtUPaid,
+        tsmfcTPaid: acc.tsmfcTPaid + row.tsmfcTPaid,
+        tsmfcUPaid: acc.tsmfcUPaid + row.tsmfcUPaid,
+        otherTPaid: acc.otherTPaid + row.otherTPaid,
+        otherUPaid: acc.otherUPaid + row.otherUPaid,
         totalBalance: acc.totalBalance + row.totalBalance,
-      }), { count: 0, convCount: 0, mgmtCount: 0, tsmfcCount: 0, otherCount: 0, tTarget: 0, uTarget: 0, tPaid: 0, uPaid: 0, totalReceived: 0, convReceived: 0, mgmtReceived: 0, tsmfcReceived: 0, otherReceived: 0, totalBalance: 0 });
+      }), { count: 0, convCount: 0, mgmtCount: 0, tsmfcCount: 0, otherCount: 0, tTarget: 0, uTarget: 0, tPaid: 0, uPaid: 0, totalReceived: 0, convTPaid: 0, convUPaid: 0, mgmtTPaid: 0, mgmtUPaid: 0, tsmfcTPaid: 0, tsmfcUPaid: 0, otherTPaid: 0, otherUPaid: 0, totalBalance: 0 });
 
       return (
         <div className="mb-6">
@@ -1668,7 +1720,7 @@ export const Reports: React.FC = () => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className={thClass + ' sticky left-0 z-20 text-left text-slate-500 border-r border-slate-200 min-w-[190px] bg-slate-50'}>Department</th>
+                  <th className={thClass + ' sticky left-0 z-20 text-left text-slate-500 border-r border-slate-200 min-w-[110px] bg-slate-50'}>Department</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Batch</th>
                   <th className={thClass + ' text-slate-500 border-r border-slate-200'}>Entry</th>
                   <th colSpan={5} className={thClass + ' text-blue-700 border-r border-slate-200 bg-blue-50'}>Students</th>
@@ -1676,7 +1728,7 @@ export const Reports: React.FC = () => {
                   <th className={thClass + ' text-teal-600 border-r border-slate-100 bg-teal-50'}>T-Paid</th>
                   <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>U-Target</th>
                   <th className={thClass + ' text-purple-600 border-r border-slate-100 bg-purple-50'}>U-Paid</th>
-                  <th colSpan={5} className={thClass + ' text-emerald-700 border-r border-slate-100 bg-emerald-50'}>Received Split</th>
+                  <th colSpan={9} className={thClass + ' text-emerald-700 border-r border-slate-100 bg-emerald-50'}>Received Split</th>
                   <th className={thClass + ' text-red-600 bg-red-50'}>Balance</th>
                 </tr>
                 <tr className="bg-slate-50 border-b border-slate-200">
@@ -1691,10 +1743,14 @@ export const Reports: React.FC = () => {
                   <th className="px-2 py-1 text-[9px] border-r border-slate-100 bg-purple-50"></th>
                   <th className="px-2 py-1 text-[9px] border-r border-slate-100 bg-purple-50"></th>
                   <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Total</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Conv</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Mgmt</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">TSMFC</th>
-                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Others</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Conv T</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Conv U</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Mgmt T</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Mgmt U</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">TSMFC T</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">TSMFC U</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Other T</th>
+                  <th className="px-2 py-1 text-[9px] font-semibold text-emerald-700 border-r border-slate-100 bg-emerald-50">Other U</th>
                   <th className="px-2 py-1 text-[9px] bg-red-50"></th>
                 </tr>
               </thead>
@@ -1736,10 +1792,14 @@ export const Reports: React.FC = () => {
                     <td className={tdClass}>{formatCurrency(row.uTarget)}</td>
                     <td className={tdClass + (row.uPaid > 0 ? ' text-purple-700 font-medium' : ' text-slate-400')}>{formatCurrency(row.uPaid)}</td>
                     <td className={tdClass + ' font-semibold text-emerald-700'}>{formatCurrency(row.totalReceived)}</td>
-                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.convReceived)}</td>
-                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.mgmtReceived)}</td>
-                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.tsmfcReceived)}</td>
-                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.otherReceived)}</td>
+                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.convTPaid)}</td>
+                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.convUPaid)}</td>
+                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.mgmtTPaid)}</td>
+                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.mgmtUPaid)}</td>
+                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.tsmfcTPaid)}</td>
+                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.tsmfcUPaid)}</td>
+                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.otherTPaid)}</td>
+                    <td className="px-2 py-2 text-xs text-right border-r border-slate-100 text-emerald-700 bg-emerald-50/20">{formatCurrency(row.otherUPaid)}</td>
                     <td className={'px-2 py-2 text-xs text-right' + (row.totalBalance > 0 ? ' text-red-600 font-medium' : ' text-slate-400')}>{formatCurrency(row.totalBalance)}</td>
                   </tr>
                 ))}
@@ -1755,10 +1815,14 @@ export const Reports: React.FC = () => {
                   <td className="px-2 py-3 text-xs text-right font-bold">{formatCurrency(total.uTarget)}</td>
                   <td className="px-2 py-3 text-xs text-right font-bold text-orange-200">{formatCurrency(total.uPaid)}</td>
                   <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.totalReceived)}</td>
-                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.convReceived)}</td>
-                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.mgmtReceived)}</td>
-                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.tsmfcReceived)}</td>
-                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.otherReceived)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.convTPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.convUPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.mgmtTPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.mgmtUPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.tsmfcTPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.tsmfcUPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.otherTPaid)}</td>
+                  <td className="px-2 py-3 text-xs text-right font-bold text-emerald-200">{formatCurrency(total.otherUPaid)}</td>
                   <td className="px-2 py-3 text-xs text-right font-bold text-red-200">{formatCurrency(total.totalBalance)}</td>
                 </tr>
               </tbody>
@@ -1910,7 +1974,7 @@ export const Reports: React.FC = () => {
       if (sectionRows.length === 0) return '';
       let html = `<h3 style="margin:15px 0 5px;font-size:13px;color:#312e81;font-weight:bold">${sectionLabel}</h3>`;
       html += '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:11px">';
-      html += '<tr style="background:#1a365d;color:white"><th>Department</th><th>Year</th><th>Batch</th><th>Entry</th><th>Students</th><th>Conv</th><th>Mgmt</th><th>TSMFC</th><th>Others</th><th>T-Target</th><th>T-Paid</th><th>U-Target</th><th>U-Paid</th><th>Total Received</th><th>Conv Rec</th><th>Mgmt Rec</th><th>TSMFC Rec</th><th>Others Rec</th><th>Balance</th></tr>';
+      html += '<tr style="background:#1a365d;color:white"><th>Department</th><th>Year</th><th>Batch</th><th>Entry</th><th>Students</th><th>Conv</th><th>Mgmt</th><th>TSMFC</th><th>Others</th><th>T-Target</th><th>T-Paid</th><th>U-Target</th><th>U-Paid</th><th>Total Received</th><th>Conv T</th><th>Conv U</th><th>Mgmt T</th><th>Mgmt U</th><th>TSMFC T</th><th>TSMFC U</th><th>Other T</th><th>Other U</th><th>Balance</th></tr>';
       sectionDepts.forEach(dept => {
         const deptRows = sectionRows.filter(r => r.deptCode === dept.code);
         if (deptRows.length === 0) return;
@@ -1921,7 +1985,7 @@ export const Reports: React.FC = () => {
           html += `<td align="center" style="font-weight:600">${r.count}</td><td align="center">${r.convCount}</td><td align="center">${r.mgmtCount}</td><td align="center">${r.tsmfcCount}</td><td align="center">${r.otherCount}</td>`;
           html += `<td align="right">${formatCurrency(r.tTarget)}</td><td align="right">${formatCurrency(r.tPaid)}</td>`;
           html += `<td align="right">${formatCurrency(r.uTarget)}</td><td align="right">${formatCurrency(r.uPaid)}</td>`;
-          html += `<td align="right" style="font-weight:600;color:#047857">${formatCurrency(r.totalReceived)}</td><td align="right">${formatCurrency(r.convReceived)}</td><td align="right">${formatCurrency(r.mgmtReceived)}</td><td align="right">${formatCurrency(r.tsmfcReceived)}</td><td align="right">${formatCurrency(r.otherReceived)}</td>`;
+          html += `<td align="right" style="font-weight:600;color:#047857">${formatCurrency(r.totalReceived)}</td><td align="right">${formatCurrency(r.convTPaid)}</td><td align="right">${formatCurrency(r.convUPaid)}</td><td align="right">${formatCurrency(r.mgmtTPaid)}</td><td align="right">${formatCurrency(r.mgmtUPaid)}</td><td align="right">${formatCurrency(r.tsmfcTPaid)}</td><td align="right">${formatCurrency(r.tsmfcUPaid)}</td><td align="right">${formatCurrency(r.otherTPaid)}</td><td align="right">${formatCurrency(r.otherUPaid)}</td>`;
           html += `<td align="right" style="color:${r.totalBalance > 0 ? '#dc2626' : '#64748b'}">${formatCurrency(r.totalBalance)}</td></tr>`;
         });
       });
@@ -1936,13 +2000,17 @@ export const Reports: React.FC = () => {
         uTarget: sectionRows.reduce((s, r) => s + r.uTarget, 0),
         uPaid: sectionRows.reduce((s, r) => s + r.uPaid, 0),
         totalReceived: sectionRows.reduce((s, r) => s + r.totalReceived, 0),
-        convReceived: sectionRows.reduce((s, r) => s + r.convReceived, 0),
-        mgmtReceived: sectionRows.reduce((s, r) => s + r.mgmtReceived, 0),
-        tsmfcReceived: sectionRows.reduce((s, r) => s + r.tsmfcReceived, 0),
-        otherReceived: sectionRows.reduce((s, r) => s + r.otherReceived, 0),
+        convTPaid: sectionRows.reduce((s, r) => s + r.convTPaid, 0),
+        convUPaid: sectionRows.reduce((s, r) => s + r.convUPaid, 0),
+        mgmtTPaid: sectionRows.reduce((s, r) => s + r.mgmtTPaid, 0),
+        mgmtUPaid: sectionRows.reduce((s, r) => s + r.mgmtUPaid, 0),
+        tsmfcTPaid: sectionRows.reduce((s, r) => s + r.tsmfcTPaid, 0),
+        tsmfcUPaid: sectionRows.reduce((s, r) => s + r.tsmfcUPaid, 0),
+        otherTPaid: sectionRows.reduce((s, r) => s + r.otherTPaid, 0),
+        otherUPaid: sectionRows.reduce((s, r) => s + r.otherUPaid, 0),
         totalBalance: sectionRows.reduce((s, r) => s + r.totalBalance, 0),
       };
-      html += `<tr style="background:#1a365d;color:white;font-weight:bold"><td colspan="4">Grand Total</td><td align="center">${gt.count}</td><td align="center">${gt.convCount}</td><td align="center">${gt.mgmtCount}</td><td align="center">${gt.tsmfcCount}</td><td align="center">${gt.otherCount}</td><td align="right">${formatCurrency(gt.tTarget)}</td><td align="right">${formatCurrency(gt.tPaid)}</td><td align="right">${formatCurrency(gt.uTarget)}</td><td align="right">${formatCurrency(gt.uPaid)}</td><td align="right">${formatCurrency(gt.totalReceived)}</td><td align="right">${formatCurrency(gt.convReceived)}</td><td align="right">${formatCurrency(gt.mgmtReceived)}</td><td align="right">${formatCurrency(gt.tsmfcReceived)}</td><td align="right">${formatCurrency(gt.otherReceived)}</td><td align="right">${formatCurrency(gt.totalBalance)}</td></tr>`;
+      html += `<tr style="background:#1a365d;color:white;font-weight:bold"><td colspan="4">Grand Total</td><td align="center">${gt.count}</td><td align="center">${gt.convCount}</td><td align="center">${gt.mgmtCount}</td><td align="center">${gt.tsmfcCount}</td><td align="center">${gt.otherCount}</td><td align="right">${formatCurrency(gt.tTarget)}</td><td align="right">${formatCurrency(gt.tPaid)}</td><td align="right">${formatCurrency(gt.uTarget)}</td><td align="right">${formatCurrency(gt.uPaid)}</td><td align="right">${formatCurrency(gt.totalReceived)}</td><td align="right">${formatCurrency(gt.convTPaid)}</td><td align="right">${formatCurrency(gt.convUPaid)}</td><td align="right">${formatCurrency(gt.mgmtTPaid)}</td><td align="right">${formatCurrency(gt.mgmtUPaid)}</td><td align="right">${formatCurrency(gt.tsmfcTPaid)}</td><td align="right">${formatCurrency(gt.tsmfcUPaid)}</td><td align="right">${formatCurrency(gt.otherTPaid)}</td><td align="right">${formatCurrency(gt.otherUPaid)}</td><td align="right">${formatCurrency(gt.totalBalance)}</td></tr>`;
       html += '</table>';
       return html;
     };
