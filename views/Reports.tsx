@@ -165,6 +165,7 @@ export const Reports: React.FC = () => {
   const [expandedFY, setExpandedFY] = useState<string | null>(null);
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
   const [ayFilter, setAyFilter] = useState<string>('2025-26');
+  const [selectedAyDetailKey, setSelectedAyDetailKey] = useState<string | null>(null);
 
   const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} />, desc: 'Revenue by department' },
@@ -1183,6 +1184,100 @@ export const Reports: React.FC = () => {
     return rows;
   };
 
+  type AcademicYearDetailRow = {
+    deptName: string;
+    deptCode: string;
+    courseType: string;
+    studyYear?: number;
+    batch: string;
+    entryLabel: string;
+  };
+
+  const getAcademicYearDetailStudents = (row: AcademicYearDetailRow) => {
+    const ayStartYear = parseInt(ayFilter.split('-')[0]);
+    const dept = departments.find(d => d.code === row.deptCode && d.courseType === row.courseType);
+    if (!dept) return [];
+
+    const filteredStudents = students.filter(s => {
+      if (!matchesDept(s.department, dept)) return false;
+      if ((getDisplayBatch(s) || '-') !== row.batch) return false;
+      if (row.entryLabel === 'Regular' && s.entryType === 'LATERAL') return false;
+      if (row.entryLabel === 'Lateral' && s.entryType !== 'LATERAL') return false;
+      if (typeof row.studyYear === 'number') {
+        return getAcademicStudyYear(s, ayStartYear, dept.courseType === 'B.E' ? 4 : 2) === row.studyYear;
+      }
+      return isHistoricalForAcademicYear(s, ayStartYear, dept.courseType === 'B.E' ? 4 : 2);
+    });
+
+    return filteredStudents
+      .map(s => {
+        const totals = getStudentTargets(s, null);
+        return {
+          hallTicketNumber: s.hallTicketNumber,
+          name: s.name,
+          fatherName: s.fatherName,
+          admissionCategory: normalizeAdmissionCategory(s.admissionCategory) || '-',
+          batch: getDisplayBatch(s) || '-',
+          entryType: s.entryType === 'LATERAL' ? 'L.E' : 'R',
+          tTarget: totals.tTarget,
+          tPaid: totals.tPaid,
+          uTarget: totals.uTarget,
+          uPaid: totals.uPaid,
+          totalPaid: totals.tPaid + totals.uPaid,
+          totalBalance: (totals.tTarget + totals.uTarget) - (totals.tPaid + totals.uPaid),
+        };
+      })
+      .sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
+  };
+
+  const exportAcademicYearDetailPDF = (row: AcademicYearDetailRow) => {
+    const detailStudents = getAcademicYearDetailStudents(row);
+    const totals = detailStudents.reduce((acc, s) => ({
+      tTarget: acc.tTarget + s.tTarget,
+      tPaid: acc.tPaid + s.tPaid,
+      uTarget: acc.uTarget + s.uTarget,
+      uPaid: acc.uPaid + s.uPaid,
+      totalPaid: acc.totalPaid + s.totalPaid,
+      totalBalance: acc.totalBalance + s.totalBalance,
+    }), { tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalPaid: 0, totalBalance: 0 });
+
+    const rows = detailStudents.map((s, idx) => `<tr>
+      <td class="text-center">${idx + 1}</td>
+      <td>${s.hallTicketNumber}</td>
+      <td>${s.name}</td>
+      <td>${s.fatherName || '-'}</td>
+      <td class="text-center">${s.entryType}</td>
+      <td class="text-center">${s.batch}</td>
+      <td class="text-center">${s.admissionCategory}</td>
+      <td class="text-right">${formatCurrency(s.tTarget)}</td>
+      <td class="text-right">${formatCurrency(s.tPaid)}</td>
+      <td class="text-right">${formatCurrency(s.uTarget)}</td>
+      <td class="text-right">${formatCurrency(s.uPaid)}</td>
+      <td class="text-right">${formatCurrency(s.totalPaid)}</td>
+      <td class="text-right">${formatCurrency(s.totalBalance)}</td>
+    </tr>`).join('');
+
+    const html = `<table><thead><tr>
+      <th class="text-center">S.No</th><th>Hall Ticket</th><th>Name</th><th>Father</th>
+      <th class="text-center">Entry</th><th class="text-center">Batch</th><th class="text-center">Category</th>
+      <th class="text-right">T.Target</th><th class="text-right">T.Paid</th>
+      <th class="text-right">U.Target</th><th class="text-right">U.Paid</th>
+      <th class="text-right">Total Paid</th><th class="text-right">Balance</th>
+    </tr></thead><tbody>${rows}
+    <tr class="summary-row">
+      <td colspan="7" class="text-right font-bold">GRAND TOTAL</td>
+      <td class="text-right">${formatCurrency(totals.tTarget)}</td>
+      <td class="text-right">${formatCurrency(totals.tPaid)}</td>
+      <td class="text-right">${formatCurrency(totals.uTarget)}</td>
+      <td class="text-right">${formatCurrency(totals.uPaid)}</td>
+      <td class="text-right">${formatCurrency(totals.totalPaid)}</td>
+      <td class="text-right">${formatCurrency(totals.totalBalance)}</td>
+    </tr></tbody></table>`;
+
+    const studyYearLabel = typeof row.studyYear === 'number' ? `Y${row.studyYear}` : 'Historical';
+    exportPDF(`Academic Year Students - ${row.courseType}-${row.deptCode} ${studyYearLabel} ${row.batch} ${row.entryLabel || ''}`.trim(), html);
+  };
+
   const renderAcademicYear = () => {
     const ayData = getAcademicYearData();
     const historicalData = getHistoricalAcademicYearData();
@@ -1193,6 +1288,20 @@ export const Reports: React.FC = () => {
 
     const thClass = 'px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center whitespace-nowrap';
     const tdClass = 'px-2 py-2 text-xs text-right border-r border-slate-100';
+    const getAyRowKey = (row: { deptCode: string; courseType: string; batch: string; entryLabel: string; studyYear?: number }) =>
+      [row.courseType, row.deptCode, typeof row.studyYear === 'number' ? `Y${row.studyYear}` : 'HIST', row.batch, row.entryLabel || 'ALL'].join('|');
+    const selectedActiveRow = ayData.find(row => getAyRowKey(row) === selectedAyDetailKey);
+    const selectedHistoricalRow = historicalData.find(row => getAyRowKey(row) === selectedAyDetailKey);
+    const selectedAyDetailRow = selectedActiveRow || selectedHistoricalRow || null;
+    const selectedAyStudents = selectedAyDetailRow ? getAcademicYearDetailStudents(selectedAyDetailRow) : [];
+    const selectedAyTotals = selectedAyStudents.reduce((acc, s) => ({
+      tTarget: acc.tTarget + s.tTarget,
+      tPaid: acc.tPaid + s.tPaid,
+      uTarget: acc.uTarget + s.uTarget,
+      uPaid: acc.uPaid + s.uPaid,
+      totalPaid: acc.totalPaid + s.totalPaid,
+      totalBalance: acc.totalBalance + s.totalBalance,
+    }), { tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalPaid: 0, totalBalance: 0 });
 
     const renderSection = (sectionDepts: typeof departments, maxYears: number, sectionLabel: string) => {
       const yearLabels = Array.from({ length: maxYears }, (_, i) => {
@@ -1281,7 +1390,16 @@ export const Reports: React.FC = () => {
                               </span>
                             ) : <span className="text-slate-400">-</span>}
                           </td>
-                          <td className={tdClass + ' text-center font-semibold text-blue-700 bg-blue-50/30'}>{row.count}</td>
+                          <td className={tdClass + ' text-center font-semibold text-blue-700 bg-blue-50/30'}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedAyDetailKey(current => current === getAyRowKey(row) ? null : getAyRowKey(row))}
+                              className="inline-flex items-center gap-1 rounded px-2 py-0.5 hover:bg-blue-100 transition-colors"
+                            >
+                              <span>{row.count}</span>
+                              <span className="text-[9px] text-blue-500">{selectedAyDetailKey === getAyRowKey(row) ? 'Hide' : 'View'}</span>
+                            </button>
+                          </td>
                           <td className={tdClass}>{formatCurrency(row.tTarget)}</td>
                           <td className={tdClass + (row.tPaid > 0 ? ' text-teal-700 font-medium' : ' text-slate-400')}>{formatCurrency(row.tPaid)}</td>
                           <td className={tdClass}>{formatCurrency(row.uTarget)}</td>
@@ -1366,7 +1484,16 @@ export const Reports: React.FC = () => {
                         </span>
                       ) : <span className="text-slate-400">-</span>}
                     </td>
-                    <td className={tdClass + ' text-center font-semibold text-blue-700 bg-blue-50/30'}>{row.count}</td>
+                    <td className={tdClass + ' text-center font-semibold text-blue-700 bg-blue-50/30'}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAyDetailKey(current => current === getAyRowKey(row) ? null : getAyRowKey(row))}
+                        className="inline-flex items-center gap-1 rounded px-2 py-0.5 hover:bg-blue-100 transition-colors"
+                      >
+                        <span>{row.count}</span>
+                        <span className="text-[9px] text-blue-500">{selectedAyDetailKey === getAyRowKey(row) ? 'Hide' : 'View'}</span>
+                      </button>
+                    </td>
                     <td className={tdClass}>{formatCurrency(row.tTarget)}</td>
                     <td className={tdClass + (row.tPaid > 0 ? ' text-teal-700 font-medium' : ' text-slate-400')}>{formatCurrency(row.tPaid)}</td>
                     <td className={tdClass}>{formatCurrency(row.uTarget)}</td>
@@ -1416,6 +1543,86 @@ export const Reports: React.FC = () => {
         {renderSection(beDepts, 4, 'B.E Programs (4-Year)')}
         {renderSection(meDepts, 2, 'M.E Programs (2-Year)')}
         {renderHistoricalSection()}
+
+        {selectedAyDetailRow && (
+          <div className="mt-6 rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  {selectedAyDetailRow.courseType}-{selectedAyDetailRow.deptCode} {typeof selectedAyDetailRow.studyYear === 'number' ? `Y${selectedAyDetailRow.studyYear}` : 'Historical'} {selectedAyDetailRow.batch}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {selectedAyDetailRow.entryLabel || 'All'} students with fee details ({selectedAyStudents.length})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => exportAcademicYearDetailPDF(selectedAyDetailRow)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+              >
+                <Printer size={14} />
+                Export PDF
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className={thClass + ' text-center w-10'}>S.No</th>
+                    <th className={thClass + ' text-left'}>Hall Ticket</th>
+                    <th className={thClass + ' text-left'}>Name</th>
+                    <th className={thClass + ' text-left'}>Father</th>
+                    <th className={thClass + ' text-center'}>Entry</th>
+                    <th className={thClass + ' text-center'}>Batch</th>
+                    <th className={thClass + ' text-center'}>Category</th>
+                    <th className={thClass + ' text-right'}>T-Target</th>
+                    <th className={thClass + ' text-right'}>T-Paid</th>
+                    <th className={thClass + ' text-right'}>U-Target</th>
+                    <th className={thClass + ' text-right'}>U-Paid</th>
+                    <th className={thClass + ' text-right'}>Total Paid</th>
+                    <th className={thClass + ' text-right'}>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedAyStudents.length === 0 ? (
+                    <EmptyState message="No students found for this academic year row." />
+                  ) : (
+                    <>
+                      {selectedAyStudents.map((s, idx) => (
+                        <tr key={s.hallTicketNumber} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                          <td className="px-3 py-2 text-center text-slate-400">{idx + 1}</td>
+                          <td className="px-3 py-2 font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
+                          <td className="px-3 py-2 font-medium text-slate-800">{s.name}</td>
+                          <td className="px-3 py-2 text-slate-500">{s.fatherName || '-'}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${s.entryType === 'L.E' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{s.entryType}</span>
+                          </td>
+                          <td className="px-3 py-2 text-center text-slate-500">{s.batch}</td>
+                          <td className="px-3 py-2 text-center text-slate-500">{s.admissionCategory}</td>
+                          <td className="px-3 py-2 text-right">{formatCurrency(s.tTarget)}</td>
+                          <td className="px-3 py-2 text-right text-teal-700 font-medium">{formatCurrency(s.tPaid)}</td>
+                          <td className="px-3 py-2 text-right">{formatCurrency(s.uTarget)}</td>
+                          <td className="px-3 py-2 text-right text-purple-700 font-medium">{formatCurrency(s.uPaid)}</td>
+                          <td className="px-3 py-2 text-right text-emerald-700 font-semibold">{formatCurrency(s.totalPaid)}</td>
+                          <td className="px-3 py-2 text-right text-red-600 font-medium">{formatCurrency(s.totalBalance)}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-[#1a365d] text-white">
+                        <td colSpan={7} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
+                        <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedAyTotals.tTarget)}</td>
+                        <td className="px-3 py-3 text-right text-xs font-bold text-teal-300">{formatCurrency(selectedAyTotals.tPaid)}</td>
+                        <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedAyTotals.uTarget)}</td>
+                        <td className="px-3 py-3 text-right text-xs font-bold text-purple-300">{formatCurrency(selectedAyTotals.uPaid)}</td>
+                        <td className="px-3 py-3 text-right text-xs font-bold text-emerald-300">{formatCurrency(selectedAyTotals.totalPaid)}</td>
+                        <td className="px-3 py-3 text-right text-xs font-bold text-red-300">{formatCurrency(selectedAyTotals.totalBalance)}</td>
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {ayData.length === 0 && (
           <div className="text-center py-12 text-slate-400">
