@@ -100,6 +100,15 @@ const parsePaymentDate = (dateStr: string | null | undefined): Date | null => {
 const matchesDept = (studentDept: string, dept: { name: string; code: string }) =>
   !!studentDept && normalizeDepartment(studentDept) === normalizeDepartment(dept.code);
 
+const normalizeAdmissionCategory = (category: string | null | undefined): string => {
+  const raw = (category || '').trim();
+  const key = raw.toUpperCase().replace(/[^A-Z0-9&]/g, '');
+  if (!key) return '';
+  if (key === 'CON' || key.includes('CONVENOR') || key.includes('CONVENER')) return 'CONVENOR';
+  if (key.includes('DETAIN')) return 'DETAINED';
+  return raw.toUpperCase();
+};
+
 const findDeptForStudent = (studentDept: string, deptList: { name: string; code: string; duration?: number; courseType?: string }[]) =>
   deptList.find(d => matchesDept(studentDept, d));
 
@@ -135,7 +144,11 @@ export const Reports: React.FC = () => {
 
   const allBatches = Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort();
   const allFinYears = Array.from(new Set(transactions.map(t => t.financialYear))).filter(Boolean).sort();
-  const allCategories = Array.from(new Set(students.map(s => s.admissionCategory).filter(Boolean))).sort();
+  const allCategories = Array.from(new Set(
+    students
+      .map(s => normalizeAdmissionCategory(s.admissionCategory))
+      .filter(Boolean)
+  )).sort();
 
   const getStudentTargets = (s: Student, filterYear: number | null, fromDate?: Date | null, toDate?: Date | null) => {
     let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
@@ -301,7 +314,7 @@ export const Reports: React.FC = () => {
       else filtered = filtered.filter(s => s.department === deptFilter);
     }
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
-    if (categoryFilter !== 'all') filtered = filtered.filter(s => (s.admissionCategory || '') === categoryFilter);
+    if (categoryFilter !== 'all') filtered = filtered.filter(s => normalizeAdmissionCategory(s.admissionCategory) === categoryFilter);
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     return filtered.map(s => {
       const t = getStudentTargets(s, filterYear);
