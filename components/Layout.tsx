@@ -55,6 +55,7 @@ export const Layout: React.FC<{ children: React.ReactNode, activeView: string, o
 }) => {
   const { currentUser, logout } = useApp();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDesktopSidebarHidden, setIsDesktopSidebarHidden] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: [UserRole.ADMIN] },
@@ -108,8 +109,10 @@ export const Layout: React.FC<{ children: React.ReactNode, activeView: string, o
       </div>
 
       <aside className={`
-        fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static no-print
+        fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 transform transition-all duration-300 ease-in-out no-print
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${isDesktopSidebarHidden ? 'lg:w-0 lg:min-w-0 lg:-translate-x-full lg:border-r-0 lg:overflow-hidden' : 'lg:w-64 lg:translate-x-0'}
+        lg:static
       `}>
         <div className="flex flex-col h-full p-6">
           <div className="flex items-center space-x-3 mb-10 px-2">
@@ -161,9 +164,19 @@ export const Layout: React.FC<{ children: React.ReactNode, activeView: string, o
 
       <main className="flex-1 overflow-y-auto h-screen relative bg-[#f0f4f8]">
         <header className="sticky top-0 z-30 bg-[#f0f4f8]/90 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex items-center justify-between no-print">
-          <h2 className="text-xl font-bold text-slate-800 capitalize">
-            {activeView.replace('-', ' ')}
-          </h2>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsDesktopSidebarHidden(prev => !prev)}
+              className="hidden lg:inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Menu size={16} />
+              <span className="text-sm font-medium">{isDesktopSidebarHidden ? 'Show Menu' : 'Hide Menu'}</span>
+            </button>
+            <h2 className="text-xl font-bold text-slate-800 capitalize">
+              {activeView.replace('-', ' ')}
+            </h2>
+          </div>
         </header>
 
         <div className="p-8 print:p-0">
