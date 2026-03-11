@@ -109,6 +109,7 @@ export const Reports: React.FC = () => {
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [deptFilter, setDeptFilter] = useState<string>('all');
   const [batchFilter, setBatchFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [drYearFilter, setDrYearFilter] = useState<string>('all');
@@ -134,6 +135,7 @@ export const Reports: React.FC = () => {
 
   const allBatches = Array.from(new Set(students.map(s => s.batch))).filter(Boolean).sort();
   const allFinYears = Array.from(new Set(transactions.map(t => t.financialYear))).filter(Boolean).sort();
+  const allCategories = Array.from(new Set(students.map(s => s.admissionCategory).filter(Boolean))).sort();
 
   const getStudentTargets = (s: Student, filterYear: number | null, fromDate?: Date | null, toDate?: Date | null) => {
     let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
@@ -299,6 +301,7 @@ export const Reports: React.FC = () => {
       else filtered = filtered.filter(s => s.department === deptFilter);
     }
     if (batchFilter !== 'all') filtered = filtered.filter(s => s.batch === batchFilter);
+    if (categoryFilter !== 'all') filtered = filtered.filter(s => (s.admissionCategory || '') === categoryFilter);
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     return filtered.map(s => {
       const t = getStudentTargets(s, filterYear);
@@ -1948,6 +1951,10 @@ export const Reports: React.FC = () => {
             <option value="3">3rd Year</option>
             <option value="4">4th Year</option>
           </SelectFilter>
+          <SelectFilter label="Category" value={categoryFilter} onChange={setCategoryFilter}>
+            <option value="all">All Categories</option>
+            {allCategories.map(category => <option key={category} value={category}>{category}</option>)}
+          </SelectFilter>
         </FilterBar>
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
@@ -2322,7 +2329,7 @@ export const Reports: React.FC = () => {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setYearFilter('all'); setDeptFilter('all'); setBatchFilter('all'); }}
+            onClick={() => { setActiveTab(tab.id); setYearFilter('all'); setDeptFilter('all'); setBatchFilter('all'); setCategoryFilter('all'); }}
             className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-all border ${
               activeTab === tab.id
                 ? 'bg-[#1a365d] text-white border-[#1a365d] shadow-md shadow-blue-900/20'
