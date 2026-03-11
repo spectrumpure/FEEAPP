@@ -518,12 +518,50 @@ export const Reports: React.FC = () => {
     });
     return Object.entries(grouped).map(([batch, batchStudents]) => {
       let totalTarget = 0, totalPaid = 0;
+      let convCount = 0, mgmtCount = 0, tsmfcCount = 0, otherCount = 0;
+      let convTPaid = 0, convUPaid = 0, mgmtTPaid = 0, mgmtUPaid = 0, tsmfcTPaid = 0, tsmfcUPaid = 0, otherTPaid = 0, otherUPaid = 0;
       batchStudents.forEach(s => {
         const t = getStudentTargets(s, null, from, to);
         totalTarget += t.tTarget + t.uTarget;
         totalPaid += t.tPaid + t.uPaid;
+        const bucket = getAdmissionCategoryBucket(s.admissionCategory);
+        if (bucket === 'CONV') {
+          convCount += 1;
+          convTPaid += t.tPaid;
+          convUPaid += t.uPaid;
+        } else if (bucket === 'MGMT') {
+          mgmtCount += 1;
+          mgmtTPaid += t.tPaid;
+          mgmtUPaid += t.uPaid;
+        } else if (bucket === 'TSMFC') {
+          tsmfcCount += 1;
+          tsmfcTPaid += t.tPaid;
+          tsmfcUPaid += t.uPaid;
+        } else {
+          otherCount += 1;
+          otherTPaid += t.tPaid;
+          otherUPaid += t.uPaid;
+        }
       });
-      return { batch, count: batchStudents.length, totalTarget, totalPaid, balance: totalTarget - totalPaid };
+      return {
+        batch,
+        count: batchStudents.length,
+        totalTarget,
+        totalPaid,
+        balance: totalTarget - totalPaid,
+        convCount,
+        mgmtCount,
+        tsmfcCount,
+        otherCount,
+        convTPaid,
+        convUPaid,
+        mgmtTPaid,
+        mgmtUPaid,
+        tsmfcTPaid,
+        tsmfcUPaid,
+        otherTPaid,
+        otherUPaid,
+      };
     }).sort((a, b) => a.batch.localeCompare(b.batch));
   };
 
@@ -669,20 +707,53 @@ export const Reports: React.FC = () => {
     const total = data.reduce((acc, d) => ({
       count: acc.count + d.count, totalTarget: acc.totalTarget + d.totalTarget,
       totalPaid: acc.totalPaid + d.totalPaid, balance: acc.balance + d.balance,
-    }), { count: 0, totalTarget: 0, totalPaid: 0, balance: 0 });
+      convCount: acc.convCount + d.convCount, mgmtCount: acc.mgmtCount + d.mgmtCount,
+      tsmfcCount: acc.tsmfcCount + d.tsmfcCount, otherCount: acc.otherCount + d.otherCount,
+      convTPaid: acc.convTPaid + d.convTPaid, convUPaid: acc.convUPaid + d.convUPaid,
+      mgmtTPaid: acc.mgmtTPaid + d.mgmtTPaid, mgmtUPaid: acc.mgmtUPaid + d.mgmtUPaid,
+      tsmfcTPaid: acc.tsmfcTPaid + d.tsmfcTPaid, tsmfcUPaid: acc.tsmfcUPaid + d.tsmfcUPaid,
+      otherTPaid: acc.otherTPaid + d.otherTPaid, otherUPaid: acc.otherUPaid + d.otherUPaid,
+    }), {
+      count: 0, totalTarget: 0, totalPaid: 0, balance: 0,
+      convCount: 0, mgmtCount: 0, tsmfcCount: 0, otherCount: 0,
+      convTPaid: 0, convUPaid: 0, mgmtTPaid: 0, mgmtUPaid: 0, tsmfcTPaid: 0, tsmfcUPaid: 0, otherTPaid: 0, otherUPaid: 0,
+    });
     const rows = data.map(d => `<tr>
       <td class="font-bold">${d.batch}</td>
       <td class="text-center">${d.count}</td>
+      <td class="text-center">${d.convCount}</td>
+      <td class="text-center">${d.mgmtCount}</td>
+      <td class="text-center">${d.tsmfcCount}</td>
+      <td class="text-center">${d.otherCount}</td>
       <td class="text-right">${formatCurrency(d.totalTarget)}</td>
       <td class="text-right text-green font-bold">${formatCurrency(d.totalPaid)}</td>
+      <td class="text-right">${formatCurrency(d.convTPaid)}</td>
+      <td class="text-right">${formatCurrency(d.convUPaid)}</td>
+      <td class="text-right">${formatCurrency(d.mgmtTPaid)}</td>
+      <td class="text-right">${formatCurrency(d.mgmtUPaid)}</td>
+      <td class="text-right">${formatCurrency(d.tsmfcTPaid)}</td>
+      <td class="text-right">${formatCurrency(d.tsmfcUPaid)}</td>
+      <td class="text-right">${formatCurrency(d.otherTPaid)}</td>
+      <td class="text-right">${formatCurrency(d.otherUPaid)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(d.balance)}</td>
     </tr>`).join('');
     const html = `<table><thead><tr>
       <th>Batch</th><th class="text-center">Students</th>
-      <th class="text-right">Total Target</th><th class="text-right">Total Paid</th><th class="text-right">Balance</th>
+      <th class="text-center">Conv</th><th class="text-center">Mgmt</th><th class="text-center">TSMFC</th><th class="text-center">Other</th>
+      <th class="text-right">Total Target</th><th class="text-right">Total Paid</th>
+      <th class="text-right">Conv T</th><th class="text-right">Conv U</th>
+      <th class="text-right">Mgmt T</th><th class="text-right">Mgmt U</th>
+      <th class="text-right">TSMFC T</th><th class="text-right">TSMFC U</th>
+      <th class="text-right">Other T</th><th class="text-right">Other U</th>
+      <th class="text-right">Balance</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row"><td>GRAND TOTAL</td><td class="text-center">${total.count}</td>
+      <td class="text-center">${total.convCount}</td><td class="text-center">${total.mgmtCount}</td><td class="text-center">${total.tsmfcCount}</td><td class="text-center">${total.otherCount}</td>
       <td class="text-right">${formatCurrency(total.totalTarget)}</td><td class="text-right">${formatCurrency(total.totalPaid)}</td>
+      <td class="text-right">${formatCurrency(total.convTPaid)}</td><td class="text-right">${formatCurrency(total.convUPaid)}</td>
+      <td class="text-right">${formatCurrency(total.mgmtTPaid)}</td><td class="text-right">${formatCurrency(total.mgmtUPaid)}</td>
+      <td class="text-right">${formatCurrency(total.tsmfcTPaid)}</td><td class="text-right">${formatCurrency(total.tsmfcUPaid)}</td>
+      <td class="text-right">${formatCurrency(total.otherTPaid)}</td><td class="text-right">${formatCurrency(total.otherUPaid)}</td>
       <td class="text-right">${formatCurrency(total.balance)}</td>
     </tr></tbody></table>`;
     exportPDF('Batch Wise Fee Report', html);
@@ -2756,7 +2827,17 @@ export const Reports: React.FC = () => {
     const total = data.reduce((acc, d) => ({
       count: acc.count + d.count, totalTarget: acc.totalTarget + d.totalTarget,
       totalPaid: acc.totalPaid + d.totalPaid, balance: acc.balance + d.balance,
-    }), { count: 0, totalTarget: 0, totalPaid: 0, balance: 0 });
+      convCount: acc.convCount + d.convCount, mgmtCount: acc.mgmtCount + d.mgmtCount,
+      tsmfcCount: acc.tsmfcCount + d.tsmfcCount, otherCount: acc.otherCount + d.otherCount,
+      convTPaid: acc.convTPaid + d.convTPaid, convUPaid: acc.convUPaid + d.convUPaid,
+      mgmtTPaid: acc.mgmtTPaid + d.mgmtTPaid, mgmtUPaid: acc.mgmtUPaid + d.mgmtUPaid,
+      tsmfcTPaid: acc.tsmfcTPaid + d.tsmfcTPaid, tsmfcUPaid: acc.tsmfcUPaid + d.tsmfcUPaid,
+      otherTPaid: acc.otherTPaid + d.otherTPaid, otherUPaid: acc.otherUPaid + d.otherUPaid,
+    }), {
+      count: 0, totalTarget: 0, totalPaid: 0, balance: 0,
+      convCount: 0, mgmtCount: 0, tsmfcCount: 0, otherCount: 0,
+      convTPaid: 0, convUPaid: 0, mgmtTPaid: 0, mgmtUPaid: 0, tsmfcTPaid: 0, tsmfcUPaid: 0, otherTPaid: 0, otherUPaid: 0,
+    });
 
     return (
       <div>
@@ -2769,9 +2850,21 @@ export const Reports: React.FC = () => {
           <thead>
             <tr className="bg-slate-50/80">
               <th className={thClass}>Batch</th>
-              <th className={`${thClass} text-center`}>Students</th>
+              <th className={`${thClass} text-center bg-blue-50/50`}>Students</th>
+              <th className={`${thClass} text-center bg-purple-50/50`}>Conv</th>
+              <th className={`${thClass} text-center bg-amber-50/50`}>Mgmt</th>
+              <th className={`${thClass} text-center bg-blue-50/50`}>TSMFC</th>
+              <th className={`${thClass} text-center bg-slate-100`}>Other</th>
               <th className={`${thClass} text-right`}>Total Target</th>
               <th className={`${thClass} text-right`}>Total Paid</th>
+              <th className={`${thClass} text-right bg-purple-50/50`}>Conv T</th>
+              <th className={`${thClass} text-right bg-purple-50/50`}>Conv U</th>
+              <th className={`${thClass} text-right bg-amber-50/50`}>Mgmt T</th>
+              <th className={`${thClass} text-right bg-amber-50/50`}>Mgmt U</th>
+              <th className={`${thClass} text-right bg-blue-50/50`}>TSMFC T</th>
+              <th className={`${thClass} text-right bg-blue-50/50`}>TSMFC U</th>
+              <th className={`${thClass} text-right bg-slate-100`}>Other T</th>
+              <th className={`${thClass} text-right bg-slate-100`}>Other U</th>
               <th className={`${thClass} text-right`}>Balance</th>
               <th className={`${thClass} text-right`}>Collection %</th>
             </tr>
@@ -2793,9 +2886,21 @@ export const Reports: React.FC = () => {
                       {d.batch}
                     </span>
                   </td>
-                  <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
+                  <td className={`${tdClass} text-slate-500 text-center bg-blue-50/30`}>{d.count}</td>
+                  <td className={`${tdClass} text-purple-700 text-center bg-purple-50/30`}>{d.convCount}</td>
+                  <td className={`${tdClass} text-amber-700 text-center bg-amber-50/30`}>{d.mgmtCount}</td>
+                  <td className={`${tdClass} text-blue-700 text-center bg-blue-50/30`}>{d.tsmfcCount}</td>
+                  <td className={`${tdClass} text-slate-700 text-center bg-slate-100/80`}>{d.otherCount}</td>
                   <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.totalTarget)}</td>
                   <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.totalPaid)}</td>
+                  <td className={`${tdClass} text-right bg-purple-50/30`}>{formatCurrency(d.convTPaid)}</td>
+                  <td className={`${tdClass} text-right bg-purple-50/30`}>{formatCurrency(d.convUPaid)}</td>
+                  <td className={`${tdClass} text-right bg-amber-50/30`}>{formatCurrency(d.mgmtTPaid)}</td>
+                  <td className={`${tdClass} text-right bg-amber-50/30`}>{formatCurrency(d.mgmtUPaid)}</td>
+                  <td className={`${tdClass} text-right bg-blue-50/30`}>{formatCurrency(d.tsmfcTPaid)}</td>
+                  <td className={`${tdClass} text-right bg-blue-50/30`}>{formatCurrency(d.tsmfcUPaid)}</td>
+                  <td className={`${tdClass} text-right bg-slate-100/80`}>{formatCurrency(d.otherTPaid)}</td>
+                  <td className={`${tdClass} text-right bg-slate-100/80`}>{formatCurrency(d.otherUPaid)}</td>
                   <td className={`${tdClass} font-semibold text-right ${d.balance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(d.balance)}</td>
                   <td className={`${tdClass} text-right`}>
                     <div className="flex items-center justify-end gap-2">
@@ -2810,7 +2915,7 @@ export const Reports: React.FC = () => {
                 </tr>
                 {isBatchExpanded && (
                   <tr>
-                    <td colSpan={6} className="p-0">
+                    <td colSpan={18} className="p-0">
                       <div className="bg-slate-50 border-y border-slate-200 p-3">
                         <div className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-2">
                           <Users size={14} />
@@ -2855,8 +2960,20 @@ export const Reports: React.FC = () => {
               <tr className="bg-[#1a365d] text-white">
                 <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
                 <td className={`${tdClass} font-bold text-center`}>{total.count}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.convCount}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.mgmtCount}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.tsmfcCount}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.otherCount}</td>
                 <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.totalTarget)}</td>
                 <td className={`${tdClass} font-bold text-right text-emerald-200`}>{formatCurrency(total.totalPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.convTPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.convUPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.mgmtTPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.mgmtUPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.tsmfcTPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.tsmfcUPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.otherTPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.otherUPaid)}</td>
                 <td className={`${tdClass} font-bold text-right text-red-200`}>{formatCurrency(total.balance)}</td>
                 <td className={`${tdClass} font-bold text-right`}>
                   <span className="text-xs bg-white/20 px-2 py-0.5 rounded">
