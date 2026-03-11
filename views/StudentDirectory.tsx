@@ -1009,6 +1009,10 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                     <option>MANAGEMENT QUOTA</option>
                     <option>CONVENOR</option>
                     <option>SPOT</option>
+                    <option>DETAIN</option>
+                    <option>STAFF 50%</option>
+                    <option>READMISSION</option>
+                    <option>DISCT</option>
                     <option>LATERAL ENTRY TSMFC</option>
                     <option>LATERAL ENTRY TSECET</option>
                     <option>LATERAL ENTRY MANAGEMENT</option>
