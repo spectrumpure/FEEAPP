@@ -449,18 +449,59 @@ export const Reports: React.FC = () => {
   };
 
   const getFinancialYearData = () => {
-    const grouped: Record<string, { tuition: number; university: number; other: number; count: number }> = {};
-    const approvedTxs = transactions.filter(t => t.status === 'APPROVED');
-    approvedTxs.forEach(t => {
-      const fy = t.financialYear || 'Unknown';
-      if (!grouped[fy]) grouped[fy] = { tuition: 0, university: 0, other: 0, count: 0 };
-      grouped[fy].count++;
-      if (t.feeType === 'Tuition') grouped[fy].tuition += t.amount;
-      else if (t.feeType === 'University') grouped[fy].university += t.amount;
-      else grouped[fy].other += t.amount;
+    const grouped: Record<string, {
+      tuition: number; university: number; other: number; count: number;
+      convAmount: number; mgmtAmount: number; tsmfcAmount: number; otherAmount: number;
+      convStudents: Set<string>; mgmtStudents: Set<string>; tsmfcStudents: Set<string>; otherStudents: Set<string>;
+    }> = {};
+    students.forEach(s => {
+      const bucket = getAdmissionCategoryBucket(s.admissionCategory);
+      s.feeLockers.forEach(l => {
+        l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
+          const fy = t.financialYear || 'Unknown';
+          if (!grouped[fy]) {
+            grouped[fy] = {
+              tuition: 0, university: 0, other: 0, count: 0,
+              convAmount: 0, mgmtAmount: 0, tsmfcAmount: 0, otherAmount: 0,
+              convStudents: new Set(), mgmtStudents: new Set(), tsmfcStudents: new Set(), otherStudents: new Set(),
+            };
+          }
+          grouped[fy].count++;
+          if (t.feeType === 'Tuition') grouped[fy].tuition += t.amount;
+          else if (t.feeType === 'University') grouped[fy].university += t.amount;
+          else grouped[fy].other += t.amount;
+
+          if (bucket === 'CONV') {
+            grouped[fy].convAmount += t.amount;
+            grouped[fy].convStudents.add(s.hallTicketNumber);
+          } else if (bucket === 'MGMT') {
+            grouped[fy].mgmtAmount += t.amount;
+            grouped[fy].mgmtStudents.add(s.hallTicketNumber);
+          } else if (bucket === 'TSMFC') {
+            grouped[fy].tsmfcAmount += t.amount;
+            grouped[fy].tsmfcStudents.add(s.hallTicketNumber);
+          } else {
+            grouped[fy].otherAmount += t.amount;
+            grouped[fy].otherStudents.add(s.hallTicketNumber);
+          }
+        });
+      });
     });
     return Object.entries(grouped).map(([fy, data]) => ({
-      financialYear: fy, ...data, total: data.tuition + data.university + data.other,
+      financialYear: fy,
+      tuition: data.tuition,
+      university: data.university,
+      other: data.other,
+      count: data.count,
+      total: data.tuition + data.university + data.other,
+      convCount: data.convStudents.size,
+      mgmtCount: data.mgmtStudents.size,
+      tsmfcCount: data.tsmfcStudents.size,
+      otherCount: data.otherStudents.size,
+      convAmount: data.convAmount,
+      mgmtAmount: data.mgmtAmount,
+      tsmfcAmount: data.tsmfcAmount,
+      otherAmount: data.otherAmount,
     })).sort((a, b) => a.financialYear.localeCompare(b.financialYear));
   };
 
@@ -681,23 +722,45 @@ export const Reports: React.FC = () => {
     const total = data.reduce((acc, d) => ({
       tuition: acc.tuition + d.tuition, university: acc.university + d.university,
       other: acc.other + d.other, count: acc.count + d.count, total: acc.total + d.total,
-    }), { tuition: 0, university: 0, other: 0, count: 0, total: 0 });
+      convCount: acc.convCount + d.convCount, mgmtCount: acc.mgmtCount + d.mgmtCount,
+      tsmfcCount: acc.tsmfcCount + d.tsmfcCount, otherCount: acc.otherCount + d.otherCount,
+      convAmount: acc.convAmount + d.convAmount, mgmtAmount: acc.mgmtAmount + d.mgmtAmount,
+      tsmfcAmount: acc.tsmfcAmount + d.tsmfcAmount, otherAmount: acc.otherAmount + d.otherAmount,
+    }), {
+      tuition: 0, university: 0, other: 0, count: 0, total: 0,
+      convCount: 0, mgmtCount: 0, tsmfcCount: 0, otherCount: 0,
+      convAmount: 0, mgmtAmount: 0, tsmfcAmount: 0, otherAmount: 0,
+    });
     const rows = data.map(d => `<tr>
       <td class="font-bold">${d.financialYear}</td>
       <td class="text-center">${d.count}</td>
+      <td class="text-center">${d.convCount}</td>
+      <td class="text-center">${d.mgmtCount}</td>
+      <td class="text-center">${d.tsmfcCount}</td>
+      <td class="text-center">${d.otherCount}</td>
       <td class="text-right">${formatCurrency(d.tuition)}</td>
       <td class="text-right">${formatCurrency(d.university)}</td>
       <td class="text-right">${formatCurrency(d.other)}</td>
+      <td class="text-right">${formatCurrency(d.convAmount)}</td>
+      <td class="text-right">${formatCurrency(d.mgmtAmount)}</td>
+      <td class="text-right">${formatCurrency(d.tsmfcAmount)}</td>
+      <td class="text-right">${formatCurrency(d.otherAmount)}</td>
       <td class="text-right font-bold text-green">${formatCurrency(d.total)}</td>
     </tr>`).join('');
     const html = `<table><thead><tr>
       <th>Financial Year</th><th class="text-center">Transactions</th>
+      <th class="text-center">Conv</th><th class="text-center">Mgmt</th><th class="text-center">TSMFC</th><th class="text-center">Other</th>
       <th class="text-right">Tuition</th><th class="text-right">University</th>
-      <th class="text-right">Other</th><th class="text-right">Total</th>
+      <th class="text-right">Other</th>
+      <th class="text-right">Conv Amt</th><th class="text-right">Mgmt Amt</th><th class="text-right">TSMFC Amt</th><th class="text-right">Other Amt</th>
+      <th class="text-right">Total</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row"><td>GRAND TOTAL</td><td class="text-center">${total.count}</td>
+      <td class="text-center">${total.convCount}</td><td class="text-center">${total.mgmtCount}</td><td class="text-center">${total.tsmfcCount}</td><td class="text-center">${total.otherCount}</td>
       <td class="text-right">${formatCurrency(total.tuition)}</td><td class="text-right">${formatCurrency(total.university)}</td>
-      <td class="text-right">${formatCurrency(total.other)}</td><td class="text-right">${formatCurrency(total.total)}</td>
+      <td class="text-right">${formatCurrency(total.other)}</td>
+      <td class="text-right">${formatCurrency(total.convAmount)}</td><td class="text-right">${formatCurrency(total.mgmtAmount)}</td><td class="text-right">${formatCurrency(total.tsmfcAmount)}</td><td class="text-right">${formatCurrency(total.otherAmount)}</td>
+      <td class="text-right">${formatCurrency(total.total)}</td>
     </tr></tbody></table>`;
     exportPDF('Financial Year Wise Report', html);
   };
@@ -1612,10 +1675,18 @@ export const Reports: React.FC = () => {
       batch: string;
       entryLabel: string;
       count: number;
+      convCount: number;
+      mgmtCount: number;
+      tsmfcCount: number;
+      otherCount: number;
     }[] = [];
 
     const processRow = (dept: typeof departments[0], studyYear: number, batchStartYear: number, maxYears: number, studentsSubset: Student[], entryLabel: string) => {
       if (studentsSubset.length === 0) return;
+      const convCount = studentsSubset.filter(s => getAdmissionCategoryBucket(s.admissionCategory) === 'CONV').length;
+      const mgmtCount = studentsSubset.filter(s => getAdmissionCategoryBucket(s.admissionCategory) === 'MGMT').length;
+      const tsmfcCount = studentsSubset.filter(s => getAdmissionCategoryBucket(s.admissionCategory) === 'TSMFC').length;
+      const otherCount = studentsSubset.length - convCount - mgmtCount - tsmfcCount;
       rows.push({
         deptName: dept.name,
         deptCode: dept.code,
@@ -1624,6 +1695,10 @@ export const Reports: React.FC = () => {
         batch: getDisplayBatch(studentsSubset[0]) || `${batchStartYear}-${batchStartYear + maxYears}`,
         entryLabel,
         count: studentsSubset.length,
+        convCount,
+        mgmtCount,
+        tsmfcCount,
+        otherCount,
       });
     };
 
@@ -2380,18 +2455,18 @@ export const Reports: React.FC = () => {
       if (sectionRows.length === 0) return '';
       let html = `<h3 style="margin:15px 0 5px;font-size:13px;color:#312e81;font-weight:bold">${sectionLabel}</h3>`;
       html += '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:11px">';
-      html += '<tr style="background:#1a365d;color:white"><th>Department</th><th>Year</th><th>Batch</th><th>Entry</th><th>Students</th></tr>';
+      html += '<tr style="background:#1a365d;color:white"><th>Department</th><th>Year</th><th>Batch</th><th>Entry</th><th>Students</th><th>Conv</th><th>Mgmt</th><th>TSMFC</th><th>Other</th></tr>';
       sectionDepts.forEach(dept => {
         const deptRows = sectionRows.filter(r => r.deptCode === dept.code);
         if (deptRows.length === 0) return;
         deptRows.forEach((r, ri) => {
           html += `<tr style="background:${ri % 2 === 0 ? '#fff' : '#f8fafc'}">`;
           if (ri === 0) html += `<td rowspan="${deptRows.length + 1}" style="font-weight:600">${dept.courseType}-${dept.code}</td>`;
-          html += `<td align="center">Y${r.studyYear}</td><td align="center">${r.batch}</td><td align="center">${r.entryLabel || '-'}</td><td align="center" style="font-weight:600">${r.count}</td></tr>`;
+          html += `<td align="center">Y${r.studyYear}</td><td align="center">${r.batch}</td><td align="center">${r.entryLabel || '-'}</td><td align="center" style="font-weight:600">${r.count}</td><td align="center">${r.convCount}</td><td align="center">${r.mgmtCount}</td><td align="center">${r.tsmfcCount}</td><td align="center">${r.otherCount}</td></tr>`;
         });
-        html += `<tr style="background:#eef2ff;font-weight:bold"><td colspan="3" align="right">Dept Total</td><td align="center">${deptRows.reduce((sum, row) => sum + row.count, 0)}</td></tr>`;
+        html += `<tr style="background:#eef2ff;font-weight:bold"><td colspan="3" align="right">Dept Total</td><td align="center">${deptRows.reduce((sum, row) => sum + row.count, 0)}</td><td align="center">${deptRows.reduce((sum, row) => sum + row.convCount, 0)}</td><td align="center">${deptRows.reduce((sum, row) => sum + row.mgmtCount, 0)}</td><td align="center">${deptRows.reduce((sum, row) => sum + row.tsmfcCount, 0)}</td><td align="center">${deptRows.reduce((sum, row) => sum + row.otherCount, 0)}</td></tr>`;
       });
-      html += `<tr style="background:#1a365d;color:white;font-weight:bold"><td colspan="4">Grand Total</td><td align="center">${sectionRows.reduce((sum, row) => sum + row.count, 0)}</td></tr>`;
+      html += `<tr style="background:#1a365d;color:white;font-weight:bold"><td colspan="4">Grand Total</td><td align="center">${sectionRows.reduce((sum, row) => sum + row.count, 0)}</td><td align="center">${sectionRows.reduce((sum, row) => sum + row.convCount, 0)}</td><td align="center">${sectionRows.reduce((sum, row) => sum + row.mgmtCount, 0)}</td><td align="center">${sectionRows.reduce((sum, row) => sum + row.tsmfcCount, 0)}</td><td align="center">${sectionRows.reduce((sum, row) => sum + row.otherCount, 0)}</td></tr>`;
       html += '</table>';
       return html;
     };
@@ -2721,7 +2796,15 @@ export const Reports: React.FC = () => {
     const total = data.reduce((acc, d) => ({
       tuition: acc.tuition + d.tuition, university: acc.university + d.university,
       other: acc.other + d.other, count: acc.count + d.count, total: acc.total + d.total,
-    }), { tuition: 0, university: 0, other: 0, count: 0, total: 0 });
+      convCount: acc.convCount + d.convCount, mgmtCount: acc.mgmtCount + d.mgmtCount,
+      tsmfcCount: acc.tsmfcCount + d.tsmfcCount, otherCount: acc.otherCount + d.otherCount,
+      convAmount: acc.convAmount + d.convAmount, mgmtAmount: acc.mgmtAmount + d.mgmtAmount,
+      tsmfcAmount: acc.tsmfcAmount + d.tsmfcAmount, otherAmount: acc.otherAmount + d.otherAmount,
+    }), {
+      tuition: 0, university: 0, other: 0, count: 0, total: 0,
+      convCount: 0, mgmtCount: 0, tsmfcCount: 0, otherCount: 0,
+      convAmount: 0, mgmtAmount: 0, tsmfcAmount: 0, otherAmount: 0,
+    });
 
     return (
       <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -2730,9 +2813,17 @@ export const Reports: React.FC = () => {
             <tr className="bg-slate-50/80">
               <th className={thClass}>Financial Year</th>
               <th className={`${thClass} text-center`}>Transactions</th>
+              <th className={`${thClass} text-center bg-purple-50/50`}>Conv</th>
+              <th className={`${thClass} text-center bg-amber-50/50`}>Mgmt</th>
+              <th className={`${thClass} text-center bg-blue-50/50`}>TSMFC</th>
+              <th className={`${thClass} text-center bg-slate-100`}>Other</th>
               <th className={`${thClass} text-right`}>Tuition Collected</th>
               <th className={`${thClass} text-right`}>University Collected</th>
               <th className={`${thClass} text-right`}>Other</th>
+              <th className={`${thClass} text-right bg-purple-50/50`}>Conv Amt</th>
+              <th className={`${thClass} text-right bg-amber-50/50`}>Mgmt Amt</th>
+              <th className={`${thClass} text-right bg-blue-50/50`}>TSMFC Amt</th>
+              <th className={`${thClass} text-right bg-slate-100`}>Other Amt</th>
               <th className={`${thClass} text-right`}>Total</th>
             </tr>
           </thead>
@@ -2754,14 +2845,22 @@ export const Reports: React.FC = () => {
                       </span>
                     </td>
                     <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
+                    <td className={`${tdClass} text-purple-700 text-center bg-purple-50/30`}>{d.convCount}</td>
+                    <td className={`${tdClass} text-amber-700 text-center bg-amber-50/30`}>{d.mgmtCount}</td>
+                    <td className={`${tdClass} text-blue-700 text-center bg-blue-50/30`}>{d.tsmfcCount}</td>
+                    <td className={`${tdClass} text-slate-700 text-center bg-slate-100/80`}>{d.otherCount}</td>
                     <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tuition)}</td>
                     <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.university)}</td>
                     <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.other)}</td>
+                    <td className={`${tdClass} text-right bg-purple-50/30`}>{formatCurrency(d.convAmount)}</td>
+                    <td className={`${tdClass} text-right bg-amber-50/30`}>{formatCurrency(d.mgmtAmount)}</td>
+                    <td className={`${tdClass} text-right bg-blue-50/30`}>{formatCurrency(d.tsmfcAmount)}</td>
+                    <td className={`${tdClass} text-right bg-slate-100/80`}>{formatCurrency(d.otherAmount)}</td>
                     <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.total)}</td>
                   </tr>
                   {isExpanded && (
                     <tr>
-                      <td colSpan={6} className="p-0">
+                      <td colSpan={14} className="p-0">
                         <div className="bg-slate-50 border-y border-slate-200 p-3">
                           <div className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-2">
                             <Users size={14} />
@@ -2810,9 +2909,17 @@ export const Reports: React.FC = () => {
               <tr className="bg-[#1a365d] text-white">
                 <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
                 <td className={`${tdClass} font-bold text-center`}>{total.count}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.convCount}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.mgmtCount}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.tsmfcCount}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.otherCount}</td>
                 <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.tuition)}</td>
                 <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.university)}</td>
                 <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.other)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.convAmount)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.mgmtAmount)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.tsmfcAmount)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.otherAmount)}</td>
                 <td className={`${tdClass} font-bold text-right text-emerald-200`}>{formatCurrency(total.total)}</td>
               </tr>
             )}
@@ -3015,7 +3122,11 @@ export const Reports: React.FC = () => {
                   <th className={countThClass + ' text-slate-500 border-r border-slate-200 w-[50px]'}>Year</th>
                   <th className={countThClass + ' text-slate-500 border-r border-slate-200'}>Batch</th>
                   <th className={countThClass + ' text-slate-500 border-r border-slate-200'}>Entry</th>
-                  <th className={countThClass + ' text-blue-600 bg-blue-50'}>Students</th>
+                  <th className={countThClass + ' text-blue-600 bg-blue-50 border-r border-slate-200'}>Students</th>
+                  <th className={countThClass + ' text-purple-600 bg-purple-50 border-r border-slate-200'}>Conv</th>
+                  <th className={countThClass + ' text-amber-600 bg-amber-50 border-r border-slate-200'}>Mgmt</th>
+                  <th className={countThClass + ' text-blue-600 bg-blue-50 border-r border-slate-200'}>TSMFC</th>
+                  <th className={countThClass + ' text-slate-600 bg-slate-100'}>Other</th>
                 </tr>
               </thead>
               <tbody>
@@ -3041,12 +3152,20 @@ export const Reports: React.FC = () => {
                               </span>
                             ) : <span className="text-slate-400">-</span>}
                           </td>
-                          <td className="px-2 py-2 text-xs text-center font-semibold text-blue-700 bg-blue-50/30">{row.count}</td>
+                          <td className="px-2 py-2 text-xs text-center font-semibold text-blue-700 bg-blue-50/30 border-r border-slate-100">{row.count}</td>
+                          <td className="px-2 py-2 text-xs text-center font-semibold text-purple-700 bg-purple-50/30 border-r border-slate-100">{row.convCount}</td>
+                          <td className="px-2 py-2 text-xs text-center font-semibold text-amber-700 bg-amber-50/30 border-r border-slate-100">{row.mgmtCount}</td>
+                          <td className="px-2 py-2 text-xs text-center font-semibold text-blue-700 bg-blue-50/30 border-r border-slate-100">{row.tsmfcCount}</td>
+                          <td className="px-2 py-2 text-xs text-center font-semibold text-slate-700 bg-slate-100/70">{row.otherCount}</td>
                         </tr>
                       ))}
                       <tr className="bg-indigo-50/50 border-t border-indigo-100">
                         <td colSpan={3} className="px-2 py-1.5 text-[10px] font-bold text-indigo-600 text-right border-r border-slate-200">Dept Total</td>
                         <td className="px-2 py-1.5 text-xs text-center font-bold text-indigo-700">{deptTotal}</td>
+                        <td className="px-2 py-1.5 text-xs text-center font-bold text-indigo-700">{deptRows.reduce((sum, row) => sum + row.convCount, 0)}</td>
+                        <td className="px-2 py-1.5 text-xs text-center font-bold text-indigo-700">{deptRows.reduce((sum, row) => sum + row.mgmtCount, 0)}</td>
+                        <td className="px-2 py-1.5 text-xs text-center font-bold text-indigo-700">{deptRows.reduce((sum, row) => sum + row.tsmfcCount, 0)}</td>
+                        <td className="px-2 py-1.5 text-xs text-center font-bold text-indigo-700">{deptRows.reduce((sum, row) => sum + row.otherCount, 0)}</td>
                       </tr>
                     </React.Fragment>
                   );
@@ -3054,6 +3173,10 @@ export const Reports: React.FC = () => {
                 <tr className="bg-[#1a365d] text-white border-t-2 border-[#1a365d]">
                   <td colSpan={4} className="px-3 py-3 text-xs font-bold">{sectionLabel} Grand Total</td>
                   <td className="px-2 py-3 text-xs text-center font-bold">{sectionRows.reduce((sum, row) => sum + row.count, 0)}</td>
+                  <td className="px-2 py-3 text-xs text-center font-bold">{sectionRows.reduce((sum, row) => sum + row.convCount, 0)}</td>
+                  <td className="px-2 py-3 text-xs text-center font-bold">{sectionRows.reduce((sum, row) => sum + row.mgmtCount, 0)}</td>
+                  <td className="px-2 py-3 text-xs text-center font-bold">{sectionRows.reduce((sum, row) => sum + row.tsmfcCount, 0)}</td>
+                  <td className="px-2 py-3 text-xs text-center font-bold">{sectionRows.reduce((sum, row) => sum + row.otherCount, 0)}</td>
                 </tr>
               </tbody>
             </table>
