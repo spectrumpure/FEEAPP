@@ -15,7 +15,8 @@ import {
   Printer,
   BarChart3,
   TrendingUp,
-  GraduationCap
+  GraduationCap,
+  X
 } from 'lucide-react';
 import { Student } from '../types';
 import { normalizeDepartment } from '../constants';
@@ -1545,81 +1546,98 @@ export const Reports: React.FC = () => {
         {renderHistoricalSection()}
 
         {selectedAyDetailRow && (
-          <div className="mt-6 rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">
-                  {selectedAyDetailRow.courseType}-{selectedAyDetailRow.deptCode} {typeof selectedAyDetailRow.studyYear === 'number' ? `Y${selectedAyDetailRow.studyYear}` : 'Historical'} {selectedAyDetailRow.batch}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {selectedAyDetailRow.entryLabel || 'All'} students with fee details ({selectedAyStudents.length})
-                </p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setSelectedAyDetailKey(null)}
+              className="absolute inset-0 bg-slate-900/45 backdrop-blur-[1px]"
+            />
+            <div className="relative w-full max-w-7xl max-h-[90vh] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+              <div className="flex items-start justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {selectedAyDetailRow.courseType}-{selectedAyDetailRow.deptCode} {typeof selectedAyDetailRow.studyYear === 'number' ? `Y${selectedAyDetailRow.studyYear}` : 'Historical'} {selectedAyDetailRow.batch}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {selectedAyDetailRow.entryLabel || 'All'} students with fee details ({selectedAyStudents.length})
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => exportAcademicYearDetailPDF(selectedAyDetailRow)}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+                  >
+                    <Printer size={14} />
+                    Export PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAyDetailKey(null)}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => exportAcademicYearDetailPDF(selectedAyDetailRow)}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
-              >
-                <Printer size={14} />
-                Export PDF
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className={thClass + ' text-center w-10'}>S.No</th>
-                    <th className={thClass + ' text-left'}>Hall Ticket</th>
-                    <th className={thClass + ' text-left'}>Name</th>
-                    <th className={thClass + ' text-left'}>Father</th>
-                    <th className={thClass + ' text-center'}>Entry</th>
-                    <th className={thClass + ' text-center'}>Batch</th>
-                    <th className={thClass + ' text-center'}>Category</th>
-                    <th className={thClass + ' text-right'}>T-Target</th>
-                    <th className={thClass + ' text-right'}>T-Paid</th>
-                    <th className={thClass + ' text-right'}>U-Target</th>
-                    <th className={thClass + ' text-right'}>U-Paid</th>
-                    <th className={thClass + ' text-right'}>Total Paid</th>
-                    <th className={thClass + ' text-right'}>Balance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedAyStudents.length === 0 ? (
-                    <EmptyState message="No students found for this academic year row." />
-                  ) : (
-                    <>
-                      {selectedAyStudents.map((s, idx) => (
-                        <tr key={s.hallTicketNumber} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                          <td className="px-3 py-2 text-center text-slate-400">{idx + 1}</td>
-                          <td className="px-3 py-2 font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
-                          <td className="px-3 py-2 font-medium text-slate-800">{s.name}</td>
-                          <td className="px-3 py-2 text-slate-500">{s.fatherName || '-'}</td>
-                          <td className="px-3 py-2 text-center">
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${s.entryType === 'L.E' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{s.entryType}</span>
-                          </td>
-                          <td className="px-3 py-2 text-center text-slate-500">{s.batch}</td>
-                          <td className="px-3 py-2 text-center text-slate-500">{s.admissionCategory}</td>
-                          <td className="px-3 py-2 text-right">{formatCurrency(s.tTarget)}</td>
-                          <td className="px-3 py-2 text-right text-teal-700 font-medium">{formatCurrency(s.tPaid)}</td>
-                          <td className="px-3 py-2 text-right">{formatCurrency(s.uTarget)}</td>
-                          <td className="px-3 py-2 text-right text-purple-700 font-medium">{formatCurrency(s.uPaid)}</td>
-                          <td className="px-3 py-2 text-right text-emerald-700 font-semibold">{formatCurrency(s.totalPaid)}</td>
-                          <td className="px-3 py-2 text-right text-red-600 font-medium">{formatCurrency(s.totalBalance)}</td>
+              <div className="overflow-auto max-h-[calc(90vh-72px)]">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className={thClass + ' text-center w-10'}>S.No</th>
+                      <th className={thClass + ' text-left'}>Hall Ticket</th>
+                      <th className={thClass + ' text-left'}>Name</th>
+                      <th className={thClass + ' text-left'}>Father</th>
+                      <th className={thClass + ' text-center'}>Entry</th>
+                      <th className={thClass + ' text-center'}>Batch</th>
+                      <th className={thClass + ' text-center'}>Category</th>
+                      <th className={thClass + ' text-right'}>T-Target</th>
+                      <th className={thClass + ' text-right'}>T-Paid</th>
+                      <th className={thClass + ' text-right'}>U-Target</th>
+                      <th className={thClass + ' text-right'}>U-Paid</th>
+                      <th className={thClass + ' text-right'}>Total Paid</th>
+                      <th className={thClass + ' text-right'}>Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedAyStudents.length === 0 ? (
+                      <EmptyState message="No students found for this academic year row." />
+                    ) : (
+                      <>
+                        {selectedAyStudents.map((s, idx) => (
+                          <tr key={s.hallTicketNumber} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                            <td className="px-3 py-2 text-center text-slate-400">{idx + 1}</td>
+                            <td className="px-3 py-2 font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
+                            <td className="px-3 py-2 font-medium text-slate-800">{s.name}</td>
+                            <td className="px-3 py-2 text-slate-500">{s.fatherName || '-'}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${s.entryType === 'L.E' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{s.entryType}</span>
+                            </td>
+                            <td className="px-3 py-2 text-center text-slate-500">{s.batch}</td>
+                            <td className="px-3 py-2 text-center text-slate-500">{s.admissionCategory}</td>
+                            <td className="px-3 py-2 text-right">{formatCurrency(s.tTarget)}</td>
+                            <td className="px-3 py-2 text-right text-teal-700 font-medium">{formatCurrency(s.tPaid)}</td>
+                            <td className="px-3 py-2 text-right">{formatCurrency(s.uTarget)}</td>
+                            <td className="px-3 py-2 text-right text-purple-700 font-medium">{formatCurrency(s.uPaid)}</td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-semibold">{formatCurrency(s.totalPaid)}</td>
+                            <td className="px-3 py-2 text-right text-red-600 font-medium">{formatCurrency(s.totalBalance)}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-[#1a365d] text-white sticky bottom-0">
+                          <td colSpan={7} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedAyTotals.tTarget)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-teal-300">{formatCurrency(selectedAyTotals.tPaid)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedAyTotals.uTarget)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-purple-300">{formatCurrency(selectedAyTotals.uPaid)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-emerald-300">{formatCurrency(selectedAyTotals.totalPaid)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-red-300">{formatCurrency(selectedAyTotals.totalBalance)}</td>
                         </tr>
-                      ))}
-                      <tr className="bg-[#1a365d] text-white">
-                        <td colSpan={7} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
-                        <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedAyTotals.tTarget)}</td>
-                        <td className="px-3 py-3 text-right text-xs font-bold text-teal-300">{formatCurrency(selectedAyTotals.tPaid)}</td>
-                        <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedAyTotals.uTarget)}</td>
-                        <td className="px-3 py-3 text-right text-xs font-bold text-purple-300">{formatCurrency(selectedAyTotals.uPaid)}</td>
-                        <td className="px-3 py-3 text-right text-xs font-bold text-emerald-300">{formatCurrency(selectedAyTotals.totalPaid)}</td>
-                        <td className="px-3 py-3 text-right text-xs font-bold text-red-300">{formatCurrency(selectedAyTotals.totalBalance)}</td>
-                      </tr>
-                    </>
-                  )}
-                </tbody>
-              </table>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
