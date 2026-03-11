@@ -202,6 +202,7 @@ export const Reports: React.FC = () => {
   const [selectedAyDetailKey, setSelectedAyDetailKey] = useState<string | null>(null);
   const [selectedAyDetailCategory, setSelectedAyDetailCategory] = useState<'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER'>('ALL');
   const [selectedCategoryDetail, setSelectedCategoryDetail] = useState<{ rowKey: string; bucket: 'TSMFC' | 'MGMT' | 'CONV' } | null>(null);
+  const [selectedDeptDetail, setSelectedDeptDetail] = useState<{ rowKey: string; bucket: 'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER' } | null>(null);
 
   const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} />, desc: 'Revenue by department' },
@@ -272,11 +273,40 @@ export const Reports: React.FC = () => {
     return { tTarget, uTarget, tPaid, uPaid };
   };
 
+  type DeptSummaryRow = {
+    department: string;
+    code: string;
+    courseType: string;
+    entryLabel: string;
+    count: number;
+    tTarget: number;
+    uTarget: number;
+    tPaid: number;
+    uPaid: number;
+    totalReceived: number;
+    totalBalance: number;
+    convCount: number;
+    mgmtCount: number;
+    tsmfcCount: number;
+    otherCount: number;
+    convTPaid: number;
+    convUPaid: number;
+    mgmtTPaid: number;
+    mgmtUPaid: number;
+    tsmfcTPaid: number;
+    tsmfcUPaid: number;
+    otherTPaid: number;
+    otherUPaid: number;
+  };
+
+  const getDeptSummaryRowKey = (row: DeptSummaryRow) =>
+    [row.courseType, row.code, row.entryLabel || 'ALL'].join('|');
+
   const getDeptSummaryData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
-    const rows: { department: string; code: string; courseType: string; entryLabel: string; count: number; tTarget: number; uTarget: number; tPaid: number; uPaid: number; totalReceived: number; totalBalance: number }[] = [];
+    const rows: DeptSummaryRow[] = [];
     departments.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => getDisplayBatch(s) === batchFilter);
@@ -284,14 +314,36 @@ export const Reports: React.FC = () => {
       const lateralStudents = (filterYear === 1) ? [] : deptStudents.filter(s => s.entryType === 'LATERAL');
       const calcRow = (subset: typeof deptStudents, label: string) => {
         let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
+        let convCount = 0, mgmtCount = 0, tsmfcCount = 0, otherCount = 0;
+        let convTPaid = 0, convUPaid = 0, mgmtTPaid = 0, mgmtUPaid = 0, tsmfcTPaid = 0, tsmfcUPaid = 0, otherTPaid = 0, otherUPaid = 0;
         subset.forEach(s => {
           const t = getStudentTargets(s, filterYear, from, to);
           tTarget += t.tTarget; uTarget += t.uTarget; tPaid += t.tPaid; uPaid += t.uPaid;
+          const bucket = getAdmissionCategoryBucket(s.admissionCategory);
+          if (bucket === 'CONV') {
+            convCount++;
+            convTPaid += t.tPaid;
+            convUPaid += t.uPaid;
+          } else if (bucket === 'MGMT') {
+            mgmtCount++;
+            mgmtTPaid += t.tPaid;
+            mgmtUPaid += t.uPaid;
+          } else if (bucket === 'TSMFC') {
+            tsmfcCount++;
+            tsmfcTPaid += t.tPaid;
+            tsmfcUPaid += t.uPaid;
+          } else {
+            otherCount++;
+            otherTPaid += t.tPaid;
+            otherUPaid += t.uPaid;
+          }
         });
         rows.push({
           department: dept.name, code: dept.code, courseType: dept.courseType, entryLabel: label,
           count: subset.length, tTarget, uTarget, tPaid, uPaid,
           totalReceived: tPaid + uPaid, totalBalance: (tTarget + uTarget) - (tPaid + uPaid),
+          convCount, mgmtCount, tsmfcCount, otherCount,
+          convTPaid, convUPaid, mgmtTPaid, mgmtUPaid, tsmfcTPaid, tsmfcUPaid, otherTPaid, otherUPaid,
         });
       };
       if (dept.courseType === 'B.E') {
@@ -304,6 +356,96 @@ export const Reports: React.FC = () => {
       }
     });
     return rows;
+  };
+
+  const getDeptSummaryDetailStudents = (
+    row: DeptSummaryRow,
+    bucket: 'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER'
+  ) => {
+    const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
+    const dept = departments.find(d => d.code === row.code && d.courseType === row.courseType);
+    if (!dept) return [];
+
+    return students
+      .filter(s => {
+        if (!matchesDept(s.department, dept)) return false;
+        if (batchFilter !== 'all' && getDisplayBatch(s) !== batchFilter) return false;
+        if (row.entryLabel === 'Regular' && s.entryType === 'LATERAL') return false;
+        if (row.entryLabel === 'Lateral' && s.entryType !== 'LATERAL') return false;
+        if (bucket === 'ALL') return true;
+        return getAdmissionCategoryBucket(s.admissionCategory) === bucket;
+      })
+      .map(s => {
+        const t = getStudentTargets(s, filterYear, from, to);
+        return {
+          hallTicketNumber: s.hallTicketNumber,
+          name: s.name,
+          fatherName: s.fatherName,
+          department: (s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', ''),
+          batch: getDisplayBatch(s) || '-',
+          entryType: s.entryType === 'LATERAL' ? 'L.E' : 'R',
+          admissionCategory: normalizeAdmissionCategory(s.admissionCategory) || '-',
+          tTarget: t.tTarget,
+          tPaid: t.tPaid,
+          uTarget: t.uTarget,
+          uPaid: t.uPaid,
+          totalPaid: t.tPaid + t.uPaid,
+          totalBalance: (t.tTarget + t.uTarget) - (t.tPaid + t.uPaid),
+        };
+      })
+      .sort((a, b) => a.hallTicketNumber.localeCompare(b.hallTicketNumber));
+  };
+
+  const exportDeptSummaryDetailPDF = (
+    row: DeptSummaryRow,
+    bucket: 'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER'
+  ) => {
+    const detailStudents = getDeptSummaryDetailStudents(row, bucket);
+    const totals = detailStudents.reduce((acc, s) => ({
+      tTarget: acc.tTarget + s.tTarget,
+      tPaid: acc.tPaid + s.tPaid,
+      uTarget: acc.uTarget + s.uTarget,
+      uPaid: acc.uPaid + s.uPaid,
+      totalPaid: acc.totalPaid + s.totalPaid,
+      totalBalance: acc.totalBalance + s.totalBalance,
+    }), { tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalPaid: 0, totalBalance: 0 });
+
+    const rows = detailStudents.map((s, idx) => `<tr>
+      <td class="text-center">${idx + 1}</td>
+      <td>${s.hallTicketNumber}</td>
+      <td>${s.name}</td>
+      <td>${s.fatherName || '-'}</td>
+      <td class="text-center">${s.department}</td>
+      <td class="text-center">${s.batch}</td>
+      <td class="text-center">${s.entryType}</td>
+      <td class="text-center">${s.admissionCategory}</td>
+      <td class="text-right">${formatCurrency(s.tTarget)}</td>
+      <td class="text-right">${formatCurrency(s.tPaid)}</td>
+      <td class="text-right">${formatCurrency(s.uTarget)}</td>
+      <td class="text-right">${formatCurrency(s.uPaid)}</td>
+      <td class="text-right">${formatCurrency(s.totalPaid)}</td>
+      <td class="text-right">${formatCurrency(s.totalBalance)}</td>
+    </tr>`).join('');
+
+    const html = `<table><thead><tr>
+      <th class="text-center">S.No</th><th>Hall Ticket</th><th>Name</th><th>Father</th>
+      <th class="text-center">Dept</th><th class="text-center">Batch</th><th class="text-center">Entry</th><th class="text-center">Category</th>
+      <th class="text-right">T.Target</th><th class="text-right">T.Paid</th><th class="text-right">U.Target</th><th class="text-right">U.Paid</th>
+      <th class="text-right">Total Paid</th><th class="text-right">Balance</th>
+    </tr></thead><tbody>${rows}
+    <tr class="summary-row">
+      <td colspan="8" class="text-right font-bold">GRAND TOTAL</td>
+      <td class="text-right">${formatCurrency(totals.tTarget)}</td>
+      <td class="text-right">${formatCurrency(totals.tPaid)}</td>
+      <td class="text-right">${formatCurrency(totals.uTarget)}</td>
+      <td class="text-right">${formatCurrency(totals.uPaid)}</td>
+      <td class="text-right">${formatCurrency(totals.totalPaid)}</td>
+      <td class="text-right">${formatCurrency(totals.totalBalance)}</td>
+    </tr></tbody></table>`;
+
+    exportPDF(`Dept Summary Students - ${row.courseType}(${row.code}) ${row.entryLabel || 'All'} ${bucket}`, html);
   };
 
   const getFinancialYearData = () => {
@@ -438,27 +580,59 @@ export const Reports: React.FC = () => {
       count: acc.count + d.count, tTarget: acc.tTarget + d.tTarget, tPaid: acc.tPaid + d.tPaid,
       uTarget: acc.uTarget + d.uTarget, uPaid: acc.uPaid + d.uPaid,
       totalReceived: acc.totalReceived + d.totalReceived, totalBalance: acc.totalBalance + d.totalBalance,
-    }), { count: 0, tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalReceived: 0, totalBalance: 0 });
+      convCount: acc.convCount + d.convCount, mgmtCount: acc.mgmtCount + d.mgmtCount,
+      tsmfcCount: acc.tsmfcCount + d.tsmfcCount, otherCount: acc.otherCount + d.otherCount,
+      convTPaid: acc.convTPaid + d.convTPaid, convUPaid: acc.convUPaid + d.convUPaid,
+      mgmtTPaid: acc.mgmtTPaid + d.mgmtTPaid, mgmtUPaid: acc.mgmtUPaid + d.mgmtUPaid,
+      tsmfcTPaid: acc.tsmfcTPaid + d.tsmfcTPaid, tsmfcUPaid: acc.tsmfcUPaid + d.tsmfcUPaid,
+      otherTPaid: acc.otherTPaid + d.otherTPaid, otherUPaid: acc.otherUPaid + d.otherUPaid,
+    }), {
+      count: 0, tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalReceived: 0, totalBalance: 0,
+      convCount: 0, mgmtCount: 0, tsmfcCount: 0, otherCount: 0,
+      convTPaid: 0, convUPaid: 0, mgmtTPaid: 0, mgmtUPaid: 0, tsmfcTPaid: 0, tsmfcUPaid: 0, otherTPaid: 0, otherUPaid: 0,
+    });
     const rows = data.map(d => `<tr>
       <td class="font-bold">${d.courseType}(${d.code})</td>
       <td class="text-center">${d.count}</td>
+      <td class="text-center">${d.convCount}</td>
+      <td class="text-center">${d.mgmtCount}</td>
+      <td class="text-center">${d.tsmfcCount}</td>
+      <td class="text-center">${d.otherCount}</td>
       <td class="text-right">${formatCurrency(d.tTarget)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(d.tPaid)}</td>
       <td class="text-right">${formatCurrency(d.uTarget)}</td>
       <td class="text-right text-blue font-bold">${formatCurrency(d.uPaid)}</td>
+      <td class="text-right">${formatCurrency(d.convTPaid)}</td>
+      <td class="text-right">${formatCurrency(d.convUPaid)}</td>
+      <td class="text-right">${formatCurrency(d.mgmtTPaid)}</td>
+      <td class="text-right">${formatCurrency(d.mgmtUPaid)}</td>
+      <td class="text-right">${formatCurrency(d.tsmfcTPaid)}</td>
+      <td class="text-right">${formatCurrency(d.tsmfcUPaid)}</td>
+      <td class="text-right">${formatCurrency(d.otherTPaid)}</td>
+      <td class="text-right">${formatCurrency(d.otherUPaid)}</td>
       <td class="text-right text-green font-bold">${formatCurrency(d.totalReceived)}</td>
       <td class="text-right text-red font-bold">${formatCurrency(d.totalBalance)}</td>
     </tr>`).join('');
     const html = `<table><thead><tr>
       <th>Department</th><th class="text-center">Students</th>
+      <th class="text-center">Conv</th><th class="text-center">Mgmt</th><th class="text-center">TSMFC</th><th class="text-center">Other</th>
       <th class="text-right">T.Target</th><th class="text-right">T.Paid</th>
       <th class="text-right">U.Target</th><th class="text-right">U.Paid</th>
+      <th class="text-right">Conv T</th><th class="text-right">Conv U</th>
+      <th class="text-right">Mgmt T</th><th class="text-right">Mgmt U</th>
+      <th class="text-right">TSMFC T</th><th class="text-right">TSMFC U</th>
+      <th class="text-right">Other T</th><th class="text-right">Other U</th>
       <th class="text-right">Total Received</th><th class="text-right">Total Balance</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row">
       <td>GRAND TOTAL</td><td class="text-center">${total.count}</td>
+      <td class="text-center">${total.convCount}</td><td class="text-center">${total.mgmtCount}</td><td class="text-center">${total.tsmfcCount}</td><td class="text-center">${total.otherCount}</td>
       <td class="text-right">${formatCurrency(total.tTarget)}</td><td class="text-right">${formatCurrency(total.tPaid)}</td>
       <td class="text-right">${formatCurrency(total.uTarget)}</td><td class="text-right">${formatCurrency(total.uPaid)}</td>
+      <td class="text-right">${formatCurrency(total.convTPaid)}</td><td class="text-right">${formatCurrency(total.convUPaid)}</td>
+      <td class="text-right">${formatCurrency(total.mgmtTPaid)}</td><td class="text-right">${formatCurrency(total.mgmtUPaid)}</td>
+      <td class="text-right">${formatCurrency(total.tsmfcTPaid)}</td><td class="text-right">${formatCurrency(total.tsmfcUPaid)}</td>
+      <td class="text-right">${formatCurrency(total.otherTPaid)}</td><td class="text-right">${formatCurrency(total.otherUPaid)}</td>
       <td class="text-right">${formatCurrency(total.totalReceived)}</td><td class="text-right">${formatCurrency(total.totalBalance)}</td>
     </tr></tbody></table>`;
     exportPDF(`Dept Summary Report${yearFilter !== 'all' ? ` - Year ${yearFilter}` : ' - All Years'}`, html);
@@ -2242,7 +2416,31 @@ export const Reports: React.FC = () => {
       count: acc.count + d.count, tTarget: acc.tTarget + d.tTarget, tPaid: acc.tPaid + d.tPaid,
       uTarget: acc.uTarget + d.uTarget, uPaid: acc.uPaid + d.uPaid,
       totalReceived: acc.totalReceived + d.totalReceived, totalBalance: acc.totalBalance + d.totalBalance,
-    }), { count: 0, tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalReceived: 0, totalBalance: 0 });
+      convCount: acc.convCount + d.convCount, mgmtCount: acc.mgmtCount + d.mgmtCount,
+      tsmfcCount: acc.tsmfcCount + d.tsmfcCount, otherCount: acc.otherCount + d.otherCount,
+      convTPaid: acc.convTPaid + d.convTPaid, convUPaid: acc.convUPaid + d.convUPaid,
+      mgmtTPaid: acc.mgmtTPaid + d.mgmtTPaid, mgmtUPaid: acc.mgmtUPaid + d.mgmtUPaid,
+      tsmfcTPaid: acc.tsmfcTPaid + d.tsmfcTPaid, tsmfcUPaid: acc.tsmfcUPaid + d.tsmfcUPaid,
+      otherTPaid: acc.otherTPaid + d.otherTPaid, otherUPaid: acc.otherUPaid + d.otherUPaid,
+    }), {
+      count: 0, tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalReceived: 0, totalBalance: 0,
+      convCount: 0, mgmtCount: 0, tsmfcCount: 0, otherCount: 0,
+      convTPaid: 0, convUPaid: 0, mgmtTPaid: 0, mgmtUPaid: 0, tsmfcTPaid: 0, tsmfcUPaid: 0, otherTPaid: 0, otherUPaid: 0,
+    });
+    const selectedDeptRow = selectedDeptDetail
+      ? data.find(row => getDeptSummaryRowKey(row) === selectedDeptDetail.rowKey)
+      : undefined;
+    const selectedDeptStudents = selectedDeptRow && selectedDeptDetail
+      ? getDeptSummaryDetailStudents(selectedDeptRow, selectedDeptDetail.bucket)
+      : [];
+    const selectedDeptTotals = selectedDeptStudents.reduce((acc, s) => ({
+      tTarget: acc.tTarget + s.tTarget,
+      tPaid: acc.tPaid + s.tPaid,
+      uTarget: acc.uTarget + s.uTarget,
+      uPaid: acc.uPaid + s.uPaid,
+      totalPaid: acc.totalPaid + s.totalPaid,
+      totalBalance: acc.totalBalance + s.totalBalance,
+    }), { tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalPaid: 0, totalBalance: 0 });
 
     return (
       <div>
@@ -2262,15 +2460,27 @@ export const Reports: React.FC = () => {
         </FilterBar>
         <DateRangeBanner />
         <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-[12px]">
             <thead>
               <tr className="bg-slate-50/80">
                 <th className={thClass}>Department</th>
-                <th className={`${thClass} text-center`}>Students</th>
+                <th className={`${thClass} text-center bg-blue-50/50`}>Students</th>
+                <th className={`${thClass} text-center bg-purple-50/50`}>Conv</th>
+                <th className={`${thClass} text-center bg-amber-50/50`}>Mgmt</th>
+                <th className={`${thClass} text-center bg-blue-50/50`}>TSMFC</th>
+                <th className={`${thClass} text-center bg-slate-100`}>Other</th>
                 <th className={`${thClass} text-right`}>T.Target</th>
                 <th className={`${thClass} text-right`}>T.Paid</th>
                 <th className={`${thClass} text-right`}>U.Target</th>
                 <th className={`${thClass} text-right`}>U.Paid</th>
+                <th className={`${thClass} text-right bg-purple-50/50`}>Conv T</th>
+                <th className={`${thClass} text-right bg-purple-50/50`}>Conv U</th>
+                <th className={`${thClass} text-right bg-amber-50/50`}>Mgmt T</th>
+                <th className={`${thClass} text-right bg-amber-50/50`}>Mgmt U</th>
+                <th className={`${thClass} text-right bg-blue-50/50`}>TSMFC T</th>
+                <th className={`${thClass} text-right bg-blue-50/50`}>TSMFC U</th>
+                <th className={`${thClass} text-right bg-slate-100`}>Other T</th>
+                <th className={`${thClass} text-right bg-slate-100`}>Other U</th>
                 <th className={`${thClass} text-right`}>Total Received</th>
                 <th className={`${thClass} text-right`}>Total Balance</th>
               </tr>
@@ -2279,11 +2489,33 @@ export const Reports: React.FC = () => {
               {data.map((d, i) => (
                 <tr key={`${d.code}-${d.entryLabel}`} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className={`${tdClass} font-semibold text-slate-800`}>{d.courseType}({d.code}){d.entryLabel ? <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${d.entryLabel === 'Lateral' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{d.entryLabel}</span> : ''}</td>
-                  <td className={`${tdClass} text-slate-500 text-center`}>{d.count}</td>
+                  <td className={`${tdClass} text-center bg-blue-50/30`}>
+                    <button type="button" onClick={() => setSelectedDeptDetail({ rowKey: getDeptSummaryRowKey(d), bucket: 'ALL' })} className="text-blue-700 font-semibold hover:underline">{d.count}</button>
+                  </td>
+                  <td className={`${tdClass} text-center bg-purple-50/30`}>
+                    <button type="button" onClick={() => setSelectedDeptDetail({ rowKey: getDeptSummaryRowKey(d), bucket: 'CONV' })} className="text-purple-700 font-semibold hover:underline">{d.convCount}</button>
+                  </td>
+                  <td className={`${tdClass} text-center bg-amber-50/30`}>
+                    <button type="button" onClick={() => setSelectedDeptDetail({ rowKey: getDeptSummaryRowKey(d), bucket: 'MGMT' })} className="text-amber-700 font-semibold hover:underline">{d.mgmtCount}</button>
+                  </td>
+                  <td className={`${tdClass} text-center bg-blue-50/30`}>
+                    <button type="button" onClick={() => setSelectedDeptDetail({ rowKey: getDeptSummaryRowKey(d), bucket: 'TSMFC' })} className="text-blue-700 font-semibold hover:underline">{d.tsmfcCount}</button>
+                  </td>
+                  <td className={`${tdClass} text-center bg-slate-100/80`}>
+                    <button type="button" onClick={() => setSelectedDeptDetail({ rowKey: getDeptSummaryRowKey(d), bucket: 'OTHER' })} className="text-slate-700 font-semibold hover:underline">{d.otherCount}</button>
+                  </td>
                   <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.tTarget)}</td>
                   <td className={`${tdClass} font-semibold text-amber-600 text-right`}>{formatCurrency(d.tPaid)}</td>
                   <td className={`${tdClass} text-slate-600 text-right`}>{formatCurrency(d.uTarget)}</td>
                   <td className={`${tdClass} font-semibold text-blue-600 text-right`}>{formatCurrency(d.uPaid)}</td>
+                  <td className={`${tdClass} text-right bg-purple-50/30`}>{formatCurrency(d.convTPaid)}</td>
+                  <td className={`${tdClass} text-right bg-purple-50/30`}>{formatCurrency(d.convUPaid)}</td>
+                  <td className={`${tdClass} text-right bg-amber-50/30`}>{formatCurrency(d.mgmtTPaid)}</td>
+                  <td className={`${tdClass} text-right bg-amber-50/30`}>{formatCurrency(d.mgmtUPaid)}</td>
+                  <td className={`${tdClass} text-right bg-blue-50/30`}>{formatCurrency(d.tsmfcTPaid)}</td>
+                  <td className={`${tdClass} text-right bg-blue-50/30`}>{formatCurrency(d.tsmfcUPaid)}</td>
+                  <td className={`${tdClass} text-right bg-slate-100/80`}>{formatCurrency(d.otherTPaid)}</td>
+                  <td className={`${tdClass} text-right bg-slate-100/80`}>{formatCurrency(d.otherUPaid)}</td>
                   <td className={`${tdClass} font-semibold text-emerald-600 text-right`}>{formatCurrency(d.totalReceived)}</td>
                   <td className={`${tdClass} font-semibold text-right ${d.totalBalance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(d.totalBalance)}</td>
                 </tr>
@@ -2291,16 +2523,124 @@ export const Reports: React.FC = () => {
               <tr className="bg-[#1a365d] text-white">
                 <td className={`${tdClass} font-bold`}>GRAND TOTAL</td>
                 <td className={`${tdClass} font-bold text-center`}>{total.count}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.convCount}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.mgmtCount}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.tsmfcCount}</td>
+                <td className={`${tdClass} font-bold text-center`}>{total.otherCount}</td>
                 <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.tTarget)}</td>
                 <td className={`${tdClass} font-bold text-right text-amber-200`}>{formatCurrency(total.tPaid)}</td>
                 <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.uTarget)}</td>
                 <td className={`${tdClass} font-bold text-right text-blue-200`}>{formatCurrency(total.uPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.convTPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.convUPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.mgmtTPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.mgmtUPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.tsmfcTPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.tsmfcUPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.otherTPaid)}</td>
+                <td className={`${tdClass} font-bold text-right`}>{formatCurrency(total.otherUPaid)}</td>
                 <td className={`${tdClass} font-bold text-right text-emerald-200`}>{formatCurrency(total.totalReceived)}</td>
                 <td className={`${tdClass} font-bold text-right text-red-200`}>{formatCurrency(total.totalBalance)}</td>
               </tr>
             </tbody>
           </table>
         </div>
+        {selectedDeptRow && selectedDeptDetail && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setSelectedDeptDetail(null)}
+              className="absolute inset-0 bg-slate-900/45 backdrop-blur-[1px]"
+            />
+            <div className="relative w-full max-w-7xl max-h-[90vh] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+              <div className="flex items-start justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {selectedDeptRow.courseType}({selectedDeptRow.code}) {selectedDeptRow.entryLabel || 'All'} {selectedDeptDetail.bucket}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Student list for the selected department summary split ({selectedDeptStudents.length})
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => exportDeptSummaryDetailPDF(selectedDeptRow, selectedDeptDetail.bucket)}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+                  >
+                    <Printer size={14} />
+                    Export PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDeptDetail(null)}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-auto max-h-[calc(90vh-72px)]">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className={thClass + ' text-center w-10'}>S.No</th>
+                      <th className={thClass + ' text-left'}>Hall Ticket</th>
+                      <th className={thClass + ' text-left'}>Name</th>
+                      <th className={thClass + ' text-left'}>Father</th>
+                      <th className={thClass + ' text-center'}>Dept</th>
+                      <th className={thClass + ' text-center'}>Batch</th>
+                      <th className={thClass + ' text-center'}>Entry</th>
+                      <th className={thClass + ' text-center'}>Category</th>
+                      <th className={thClass + ' text-right'}>T-Target</th>
+                      <th className={thClass + ' text-right'}>T-Paid</th>
+                      <th className={thClass + ' text-right'}>U-Target</th>
+                      <th className={thClass + ' text-right'}>U-Paid</th>
+                      <th className={thClass + ' text-right'}>Total Paid</th>
+                      <th className={thClass + ' text-right'}>Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedDeptStudents.length === 0 ? (
+                      <EmptyState message="No students found for this department summary row." />
+                    ) : (
+                      <>
+                        {selectedDeptStudents.map((s, idx) => (
+                          <tr key={s.hallTicketNumber} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                            <td className="px-3 py-2 text-center text-slate-400">{idx + 1}</td>
+                            <td className="px-3 py-2 font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
+                            <td className="px-3 py-2 font-medium text-slate-800">{s.name}</td>
+                            <td className="px-3 py-2 text-slate-500">{s.fatherName || '-'}</td>
+                            <td className="px-3 py-2 text-center text-slate-500">{s.department}</td>
+                            <td className="px-3 py-2 text-center text-slate-500">{s.batch}</td>
+                            <td className="px-3 py-2 text-center text-slate-500">{s.entryType}</td>
+                            <td className="px-3 py-2 text-center text-slate-500">{s.admissionCategory}</td>
+                            <td className="px-3 py-2 text-right">{formatCurrency(s.tTarget)}</td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-medium">{formatCurrency(s.tPaid)}</td>
+                            <td className="px-3 py-2 text-right">{formatCurrency(s.uTarget)}</td>
+                            <td className="px-3 py-2 text-right text-purple-700 font-medium">{formatCurrency(s.uPaid)}</td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-semibold">{formatCurrency(s.totalPaid)}</td>
+                            <td className="px-3 py-2 text-right text-red-600 font-medium">{formatCurrency(s.totalBalance)}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-[#1a365d] text-white sticky bottom-0">
+                          <td colSpan={8} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedDeptTotals.tTarget)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-emerald-300">{formatCurrency(selectedDeptTotals.tPaid)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedDeptTotals.uTarget)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-purple-300">{formatCurrency(selectedDeptTotals.uPaid)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-emerald-300">{formatCurrency(selectedDeptTotals.totalPaid)}</td>
+                          <td className="px-3 py-3 text-right text-xs font-bold text-red-300">{formatCurrency(selectedDeptTotals.totalBalance)}</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
