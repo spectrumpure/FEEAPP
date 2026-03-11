@@ -1974,7 +1974,12 @@ export const Reports: React.FC = () => {
                 <tr key={s.hallTicketNumber} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                   <td className="px-3 py-2.5 text-xs text-slate-400 text-center">{i + 1}</td>
                   <td className="px-3 py-2.5 text-xs font-mono font-semibold text-slate-700">{s.hallTicketNumber}</td>
-                  <td className="px-3 py-2.5 text-xs font-semibold text-slate-800">{s.name}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-slate-800">
+                    {s.name}
+                    <span className={`ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${s.entryType === 'LATERAL' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                      {s.entryType === 'LATERAL' ? 'L.E' : 'R'}
+                    </span>
+                  </td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 text-center">{(s.department || '').replace('B.E(', '').replace('M.E(', '').replace('M.E ', '').replace(')', '')}</td>
                   <td className="px-3 py-2.5 text-center">
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.admissionCategory?.includes('MANAGEMENT') ? 'bg-amber-50 text-amber-700 border border-amber-200' : s.admissionCategory?.includes('CONVENOR') || s.admissionCategory?.includes('CONVENER') ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
