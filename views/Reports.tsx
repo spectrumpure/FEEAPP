@@ -128,6 +128,13 @@ const isTSMFCCategory = (category: string | null | undefined) => {
   return key.includes('TSMFC') || key.includes('TSECET');
 };
 
+const getAdmissionCategoryBucket = (category: string | null | undefined): 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER' => {
+  if (isConvenorCategory(category)) return 'CONV';
+  if (isManagementCategory(category)) return 'MGMT';
+  if (isTSMFCCategory(category)) return 'TSMFC';
+  return 'OTHER';
+};
+
 const getDisplayBatch = (student: Pick<Student, 'batch' | 'entryType' | 'course'>): string => {
   return (student.batch || '').trim();
 };
@@ -193,6 +200,7 @@ export const Reports: React.FC = () => {
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
   const [ayFilter, setAyFilter] = useState<string>('2025-26');
   const [selectedAyDetailKey, setSelectedAyDetailKey] = useState<string | null>(null);
+  const [selectedAyDetailCategory, setSelectedAyDetailCategory] = useState<'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER'>('ALL');
 
   const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} />, desc: 'Revenue by department' },
@@ -1290,7 +1298,7 @@ export const Reports: React.FC = () => {
     entryLabel: string;
   };
 
-  const getAcademicYearDetailStudents = (row: AcademicYearDetailRow) => {
+  const getAcademicYearDetailStudents = (row: AcademicYearDetailRow, categoryBucket: 'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER' = 'ALL') => {
     const ayStartYear = parseInt(ayFilter.split('-')[0]);
     const dept = departments.find(d => d.code === row.deptCode && d.courseType === row.courseType);
     if (!dept) return [];
@@ -1300,6 +1308,7 @@ export const Reports: React.FC = () => {
       if ((getDisplayBatch(s) || '-') !== row.batch) return false;
       if (row.entryLabel === 'Regular' && s.entryType === 'LATERAL') return false;
       if (row.entryLabel === 'Lateral' && s.entryType !== 'LATERAL') return false;
+      if (categoryBucket !== 'ALL' && getAdmissionCategoryBucket(s.admissionCategory) !== categoryBucket) return false;
       if (typeof row.studyYear === 'number') {
         return getAcademicStudyYear(s, ayStartYear, dept.courseType === 'B.E' ? 4 : 2) === row.studyYear;
       }
@@ -1328,7 +1337,7 @@ export const Reports: React.FC = () => {
   };
 
   const exportAcademicYearDetailPDF = (row: AcademicYearDetailRow) => {
-    const detailStudents = getAcademicYearDetailStudents(row);
+    const detailStudents = getAcademicYearDetailStudents(row, selectedAyDetailCategory);
     const totals = detailStudents.reduce((acc, s) => ({
       tTarget: acc.tTarget + s.tTarget,
       tPaid: acc.tPaid + s.tPaid,
@@ -1372,7 +1381,8 @@ export const Reports: React.FC = () => {
     </tr></tbody></table>`;
 
     const studyYearLabel = typeof row.studyYear === 'number' ? `Y${row.studyYear}` : 'Historical';
-    exportPDF(`Academic Year Students - ${row.courseType}-${row.deptCode} ${studyYearLabel} ${row.batch} ${row.entryLabel || ''}`.trim(), html);
+    const categoryLabel = selectedAyDetailCategory === 'ALL' ? '' : ` ${selectedAyDetailCategory}`;
+    exportPDF(`Academic Year Students - ${row.courseType}-${row.deptCode} ${studyYearLabel} ${row.batch} ${row.entryLabel || ''}${categoryLabel}`.trim(), html);
   };
 
   const renderAcademicYear = () => {
@@ -1390,7 +1400,7 @@ export const Reports: React.FC = () => {
     const selectedActiveRow = ayData.find(row => getAyRowKey(row) === selectedAyDetailKey);
     const selectedHistoricalRow = historicalData.find(row => getAyRowKey(row) === selectedAyDetailKey);
     const selectedAyDetailRow = selectedActiveRow || selectedHistoricalRow || null;
-    const selectedAyStudents = selectedAyDetailRow ? getAcademicYearDetailStudents(selectedAyDetailRow) : [];
+    const selectedAyStudents = selectedAyDetailRow ? getAcademicYearDetailStudents(selectedAyDetailRow, selectedAyDetailCategory) : [];
     const selectedAyTotals = selectedAyStudents.reduce((acc, s) => ({
       tTarget: acc.tTarget + s.tTarget,
       tPaid: acc.tPaid + s.tPaid,
@@ -1399,8 +1409,21 @@ export const Reports: React.FC = () => {
       totalPaid: acc.totalPaid + s.totalPaid,
       totalBalance: acc.totalBalance + s.totalBalance,
     }), { tTarget: 0, tPaid: 0, uTarget: 0, uPaid: 0, totalPaid: 0, totalBalance: 0 });
+    const detailCategoryLabel = selectedAyDetailCategory === 'ALL'
+      ? 'All'
+      : selectedAyDetailCategory === 'CONV'
+        ? 'Convenor'
+        : selectedAyDetailCategory === 'MGMT'
+          ? 'Management'
+          : selectedAyDetailCategory === 'TSMFC'
+            ? 'TSMFC'
+            : 'Others';
 
     const renderSection = (sectionDepts: typeof departments, maxYears: number, sectionLabel: string) => {
+      const openAyDetail = (row: { deptCode: string; courseType: string; batch: string; entryLabel: string; studyYear?: number }, category: 'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER' = 'ALL') => {
+        setSelectedAyDetailCategory(category);
+        setSelectedAyDetailKey(getAyRowKey(row));
+      };
       const yearLabels = Array.from({ length: maxYears }, (_, i) => {
         const sy = i + 1;
         const batchStart = ayStartYear - i;
@@ -1532,17 +1555,31 @@ export const Reports: React.FC = () => {
                           <td className={tdClass + ' text-center font-semibold text-blue-700 bg-blue-50/30'}>
                             <button
                               type="button"
-                              onClick={() => setSelectedAyDetailKey(current => current === getAyRowKey(row) ? null : getAyRowKey(row))}
+                              onClick={() => {
+                                if (selectedAyDetailKey === getAyRowKey(row) && selectedAyDetailCategory === 'ALL') {
+                                  setSelectedAyDetailKey(null);
+                                } else {
+                                  openAyDetail(row, 'ALL');
+                                }
+                              }}
                               className="inline-flex items-center gap-1 rounded px-2 py-0.5 hover:bg-blue-100 transition-colors"
                             >
                               <span>{row.count}</span>
-                              <span className="text-[9px] text-blue-500">{selectedAyDetailKey === getAyRowKey(row) ? 'Hide' : 'View'}</span>
+                              <span className="text-[9px] text-blue-500">{selectedAyDetailKey === getAyRowKey(row) && selectedAyDetailCategory === 'ALL' ? 'Hide' : 'View'}</span>
                             </button>
                           </td>
-                          <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20">{row.convCount}</td>
-                          <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20">{row.mgmtCount}</td>
-                          <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20">{row.tsmfcCount}</td>
-                          <td className="px-2 py-2 text-xs text-center border-r border-slate-200 text-blue-700 bg-blue-50/20">{row.otherCount}</td>
+                          <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20">
+                            <button type="button" onClick={() => openAyDetail(row, 'CONV')} className="hover:underline">{row.convCount}</button>
+                          </td>
+                          <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20">
+                            <button type="button" onClick={() => openAyDetail(row, 'MGMT')} className="hover:underline">{row.mgmtCount}</button>
+                          </td>
+                          <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20">
+                            <button type="button" onClick={() => openAyDetail(row, 'TSMFC')} className="hover:underline">{row.tsmfcCount}</button>
+                          </td>
+                          <td className="px-2 py-2 text-xs text-center border-r border-slate-200 text-blue-700 bg-blue-50/20">
+                            <button type="button" onClick={() => openAyDetail(row, 'OTHER')} className="hover:underline">{row.otherCount}</button>
+                          </td>
                           <td className={tdClass}>{formatCurrency(row.tTarget)}</td>
                           <td className={tdClass + (row.tPaid > 0 ? ' text-teal-700 font-medium' : ' text-slate-400')}>{formatCurrency(row.tPaid)}</td>
                           <td className={tdClass}>{formatCurrency(row.uTarget)}</td>
@@ -1676,17 +1713,24 @@ export const Reports: React.FC = () => {
                     <td className={tdClass + ' text-center font-semibold text-blue-700 bg-blue-50/30'}>
                       <button
                         type="button"
-                        onClick={() => setSelectedAyDetailKey(current => current === getAyRowKey(row) ? null : getAyRowKey(row))}
+                        onClick={() => {
+                          if (selectedAyDetailKey === getAyRowKey(row) && selectedAyDetailCategory === 'ALL') {
+                            setSelectedAyDetailKey(null);
+                          } else {
+                            setSelectedAyDetailCategory('ALL');
+                            setSelectedAyDetailKey(getAyRowKey(row));
+                          }
+                        }}
                         className="inline-flex items-center gap-1 rounded px-2 py-0.5 hover:bg-blue-100 transition-colors"
                       >
                         <span>{row.count}</span>
-                        <span className="text-[9px] text-blue-500">{selectedAyDetailKey === getAyRowKey(row) ? 'Hide' : 'View'}</span>
+                        <span className="text-[9px] text-blue-500">{selectedAyDetailKey === getAyRowKey(row) && selectedAyDetailCategory === 'ALL' ? 'Hide' : 'View'}</span>
                       </button>
                     </td>
-                    <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20">{row.convCount}</td>
-                    <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20">{row.mgmtCount}</td>
-                    <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20">{row.tsmfcCount}</td>
-                    <td className="px-2 py-2 text-xs text-center border-r border-slate-200 text-blue-700 bg-blue-50/20">{row.otherCount}</td>
+                    <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20"><button type="button" onClick={() => { setSelectedAyDetailCategory('CONV'); setSelectedAyDetailKey(getAyRowKey(row)); }} className="hover:underline">{row.convCount}</button></td>
+                    <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20"><button type="button" onClick={() => { setSelectedAyDetailCategory('MGMT'); setSelectedAyDetailKey(getAyRowKey(row)); }} className="hover:underline">{row.mgmtCount}</button></td>
+                    <td className="px-2 py-2 text-xs text-center border-r border-slate-100 text-blue-700 bg-blue-50/20"><button type="button" onClick={() => { setSelectedAyDetailCategory('TSMFC'); setSelectedAyDetailKey(getAyRowKey(row)); }} className="hover:underline">{row.tsmfcCount}</button></td>
+                    <td className="px-2 py-2 text-xs text-center border-r border-slate-200 text-blue-700 bg-blue-50/20"><button type="button" onClick={() => { setSelectedAyDetailCategory('OTHER'); setSelectedAyDetailKey(getAyRowKey(row)); }} className="hover:underline">{row.otherCount}</button></td>
                     <td className={tdClass}>{formatCurrency(row.tTarget)}</td>
                     <td className={tdClass + (row.tPaid > 0 ? ' text-teal-700 font-medium' : ' text-slate-400')}>{formatCurrency(row.tPaid)}</td>
                     <td className={tdClass}>{formatCurrency(row.uTarget)}</td>
@@ -1761,7 +1805,7 @@ export const Reports: React.FC = () => {
               <div className="flex items-start justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <div>
                   <p className="text-sm font-semibold text-slate-800">
-                    {selectedAyDetailRow.courseType}-{selectedAyDetailRow.deptCode} {typeof selectedAyDetailRow.studyYear === 'number' ? `Y${selectedAyDetailRow.studyYear}` : 'Historical'} {selectedAyDetailRow.batch}
+                    {selectedAyDetailRow.courseType}-{selectedAyDetailRow.deptCode} {typeof selectedAyDetailRow.studyYear === 'number' ? `Y${selectedAyDetailRow.studyYear}` : 'Historical'} {selectedAyDetailRow.batch} {detailCategoryLabel}
                   </p>
                   <p className="text-xs text-slate-500">
                     {selectedAyDetailRow.entryLabel || 'All'} students with fee details ({selectedAyStudents.length})
