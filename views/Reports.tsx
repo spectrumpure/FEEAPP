@@ -110,14 +110,40 @@ const normalizeAdmissionCategory = (category: string | null | undefined): string
 };
 
 const getDisplayBatch = (student: Pick<Student, 'batch' | 'entryType' | 'course'>): string => {
-  const rawBatch = (student.batch || '').trim();
-  if (!rawBatch) return '';
-  if (student.entryType !== 'LATERAL' || student.course !== 'B.E') return rawBatch;
-  const [startStr, endStr] = rawBatch.split('-');
-  const start = parseInt(startStr, 10);
-  const end = parseInt(endStr, 10);
-  if (Number.isNaN(start) || Number.isNaN(end)) return rawBatch;
-  return `${start + 1}-${end + 1}`;
+  return (student.batch || '').trim();
+};
+
+const getBatchStartYear = (student: Pick<Student, 'batch'>): number | null => {
+  const start = parseInt(((student.batch || '').split('-')[0] || '').trim(), 10);
+  return Number.isNaN(start) ? null : start;
+};
+
+const getAcademicStudyYear = (
+  student: Pick<Student, 'batch' | 'entryType' | 'course'>,
+  ayStartYear: number,
+  duration: number
+): number | null => {
+  const batchStart = getBatchStartYear(student);
+  if (batchStart === null) return null;
+  const studyYear = student.course === 'B.E' && student.entryType === 'LATERAL'
+    ? ayStartYear - batchStart + 2
+    : ayStartYear - batchStart + 1;
+  if (studyYear < 1 || studyYear > duration) return null;
+  if (student.course === 'B.E' && student.entryType === 'LATERAL' && studyYear < 2) return null;
+  return studyYear;
+};
+
+const isHistoricalForAcademicYear = (
+  student: Pick<Student, 'batch' | 'entryType' | 'course'>,
+  ayStartYear: number,
+  duration: number
+): boolean => {
+  const batchStart = getBatchStartYear(student);
+  if (batchStart === null) return false;
+  const studyYear = student.course === 'B.E' && student.entryType === 'LATERAL'
+    ? ayStartYear - batchStart + 2
+    : ayStartYear - batchStart + 1;
+  return studyYear > duration;
 };
 
 const findDeptForStudent = (studentDept: string, deptList: { name: string; code: string; duration?: number; courseType?: string }[]) =>
@@ -154,6 +180,10 @@ export const Reports: React.FC = () => {
   ];
 
   const allBatches = Array.from(new Set(students.map(s => getDisplayBatch(s)).filter(Boolean))).sort();
+  const batchOptions = allBatches.map(batch => ({
+    value: batch,
+    count: students.filter(s => getDisplayBatch(s) === batch).length,
+  }));
   const allFinYears = Array.from(new Set(transactions.map(t => t.financialYear))).filter(Boolean).sort();
   const allCategories = Array.from(new Set(
     students
@@ -803,7 +833,7 @@ export const Reports: React.FC = () => {
             <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Batch</label>
             <select value={drBatchFilter} onChange={e => setDrBatchFilter(e.target.value)} className={selectClass}>
               <option value="all">All Batches</option>
-              {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+              {batchOptions.map(b => <option key={b.value} value={b.value}>{b.value} ({b.count})</option>)}
             </select>
           </div>
         </div>
@@ -973,21 +1003,23 @@ export const Reports: React.FC = () => {
     const beDepts = departments.filter(d => d.courseType === 'B.E');
     const meDepts = departments.filter(d => d.courseType === 'M.E');
 
-    const processGroup = (dept: typeof departments[0], studyYear: number, batchStartYear: number, maxYears: number) => {
-      const matchingStudents = students.filter(s => {
-        if (!matchesDept(s.department, dept)) return false;
-        const bStart = parseInt((getDisplayBatch(s) || '').split('-')[0]);
-        return bStart === batchStartYear;
-      });
+    const processGroup = (dept: typeof departments[0], studyYear: number, maxYears: number) => {
+      const regularStudents = students.filter(s =>
+        matchesDept(s.department, dept) &&
+        s.entryType !== 'LATERAL' &&
+        getAcademicStudyYear(s, ayStartYear, maxYears) === studyYear
+      );
+      const lateralStudents = students.filter(s =>
+        matchesDept(s.department, dept) &&
+        s.entryType === 'LATERAL' &&
+        getAcademicStudyYear(s, ayStartYear, maxYears) === studyYear
+      );
 
-      const regularStudents = matchingStudents.filter(s => s.entryType !== 'LATERAL');
-      const lateralStudents = matchingStudents.filter(s => s.entryType === 'LATERAL');
-
-      const calcRow = (subset: typeof matchingStudents, label: string) => {
+      const calcRow = (subset: Student[], label: string) => {
         let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
         const batchLabel = subset.length > 0
           ? getDisplayBatch(subset[0])
-          : `${batchStartYear}-${batchStartYear + maxYears}`;
+          : '-';
         subset.forEach(s => {
           const totals = getStudentTargets(s, null);
           tTarget += totals.tTarget;
@@ -1009,21 +1041,19 @@ export const Reports: React.FC = () => {
           calcRow(lateralStudents, 'Lateral');
         }
       } else {
-        calcRow(matchingStudents, '');
+        calcRow(regularStudents, '');
       }
     };
 
     beDepts.forEach(dept => {
       for (let sy = 1; sy <= 4; sy++) {
-        const batchStart = ayStartYear - (sy - 1);
-        processGroup(dept, sy, batchStart, 4);
+        processGroup(dept, sy, 4);
       }
     });
 
     meDepts.forEach(dept => {
       for (let sy = 1; sy <= 2; sy++) {
-        const batchStart = ayStartYear - (sy - 1);
-        processGroup(dept, sy, batchStart, 2);
+        processGroup(dept, sy, 2);
       }
     });
 
@@ -1049,11 +1079,9 @@ export const Reports: React.FC = () => {
 
     departments.forEach(dept => {
       const maxYears = dept.courseType === 'B.E' ? 4 : 2;
-      const minActiveBatchStart = ayStartYear - (maxYears - 1);
       const matchingStudents = students.filter(s => {
         if (!matchesDept(s.department, dept)) return false;
-        const bStart = parseInt((getDisplayBatch(s) || '').split('-')[0]);
-        return !isNaN(bStart) && bStart < minActiveBatchStart;
+        return isHistoricalForAcademicYear(s, ayStartYear, maxYears);
       });
 
       const pushRow = (subset: Student[], entryLabel: string) => {
@@ -1125,28 +1153,30 @@ export const Reports: React.FC = () => {
 
     departments.filter(d => d.courseType === 'B.E').forEach(dept => {
       for (let sy = 1; sy <= 4; sy++) {
-        const batchStartYear = ayStartYear - (sy - 1);
-        const matchingStudents = students.filter(s => {
-          if (!matchesDept(s.department, dept)) return false;
-          const bStart = parseInt((getDisplayBatch(s) || '').split('-')[0]);
-          return bStart === batchStartYear;
-        });
-        processRow(dept, sy, batchStartYear, 4, matchingStudents.filter(s => s.entryType !== 'LATERAL'), 'Regular');
+        const regularStudents = students.filter(s =>
+          matchesDept(s.department, dept) &&
+          s.entryType !== 'LATERAL' &&
+          getAcademicStudyYear(s, ayStartYear, 4) === sy
+        );
+        const lateralStudents = students.filter(s =>
+          matchesDept(s.department, dept) &&
+          s.entryType === 'LATERAL' &&
+          getAcademicStudyYear(s, ayStartYear, 4) === sy
+        );
+        processRow(dept, sy, ayStartYear, 4, regularStudents, 'Regular');
         if (sy > 1) {
-          processRow(dept, sy, batchStartYear, 4, matchingStudents.filter(s => s.entryType === 'LATERAL'), 'Lateral');
+          processRow(dept, sy, ayStartYear, 4, lateralStudents, 'Lateral');
         }
       }
     });
 
     departments.filter(d => d.courseType === 'M.E').forEach(dept => {
       for (let sy = 1; sy <= 2; sy++) {
-        const batchStartYear = ayStartYear - (sy - 1);
-        const matchingStudents = students.filter(s => {
-          if (!matchesDept(s.department, dept)) return false;
-          const bStart = parseInt((getDisplayBatch(s) || '').split('-')[0]);
-          return bStart === batchStartYear;
-        });
-        processRow(dept, sy, batchStartYear, 2, matchingStudents, '');
+        const matchingStudents = students.filter(s =>
+          matchesDept(s.department, dept) &&
+          getAcademicStudyYear(s, ayStartYear, 2) === sy
+        );
+        processRow(dept, sy, ayStartYear, 2, matchingStudents, '');
       }
     });
 
@@ -1565,7 +1595,7 @@ export const Reports: React.FC = () => {
         <FilterBar>
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
-            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+            {batchOptions.map(b => <option key={b.value} value={b.value}>{b.value} ({b.count})</option>)}
           </SelectFilter>
           <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
             <option value="all">All Years</option>
@@ -1967,7 +1997,7 @@ export const Reports: React.FC = () => {
           </SelectFilter>
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
-            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+            {batchOptions.map(b => <option key={b.value} value={b.value}>{b.value} ({b.count})</option>)}
           </SelectFilter>
           <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
             <option value="all">All Years</option>
@@ -2059,7 +2089,7 @@ export const Reports: React.FC = () => {
           </SelectFilter>
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
-            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+            {batchOptions.map(b => <option key={b.value} value={b.value}>{b.value} ({b.count})</option>)}
           </SelectFilter>
         </FilterBar>
         <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -2122,7 +2152,7 @@ export const Reports: React.FC = () => {
         <FilterBar count={data.length} countLabel="defaulters">
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
-            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+            {batchOptions.map(b => <option key={b.value} value={b.value}>{b.value} ({b.count})</option>)}
           </SelectFilter>
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
@@ -2211,7 +2241,7 @@ export const Reports: React.FC = () => {
         <FilterBar count={total.all} countLabel="students">
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
-            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+            {batchOptions.map(b => <option key={b.value} value={b.value}>{b.value} ({b.count})</option>)}
           </SelectFilter>
           <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
             <option value="all">All Years</option>
