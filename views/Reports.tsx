@@ -119,13 +119,24 @@ const getBatchStartYear = (student: Pick<Student, 'batch'>): number | null => {
   return Number.isNaN(start) ? null : start;
 };
 
+const getBatchEndYear = (student: Pick<Student, 'batch'>): number | null => {
+  const end = parseInt(((student.batch || '').split('-')[1] || '').trim(), 10);
+  return Number.isNaN(end) ? null : end;
+};
+
 const getAcademicStudyYear = (
-  student: Pick<Student, 'batch' | 'entryType' | 'course'>,
+  student: Pick<Student, 'batch' | 'entryType' | 'course' | 'currentYear'>,
   ayStartYear: number,
   duration: number
 ): number | null => {
   const batchStart = getBatchStartYear(student);
-  if (batchStart === null) return null;
+  const batchEnd = getBatchEndYear(student);
+  if (batchStart === null || batchEnd === null) return null;
+  if (ayStartYear < batchStart || ayStartYear >= batchEnd) return null;
+  if (student.currentYear >= 1 && student.currentYear <= duration) {
+    if (student.course === 'B.E' && student.entryType === 'LATERAL' && student.currentYear < 2) return null;
+    return student.currentYear;
+  }
   const studyYear = student.course === 'B.E' && student.entryType === 'LATERAL'
     ? ayStartYear - batchStart + 2
     : ayStartYear - batchStart + 1;
@@ -135,16 +146,13 @@ const getAcademicStudyYear = (
 };
 
 const isHistoricalForAcademicYear = (
-  student: Pick<Student, 'batch' | 'entryType' | 'course'>,
+  student: Pick<Student, 'batch'>,
   ayStartYear: number,
-  duration: number
+  _duration: number
 ): boolean => {
-  const batchStart = getBatchStartYear(student);
-  if (batchStart === null) return false;
-  const studyYear = student.course === 'B.E' && student.entryType === 'LATERAL'
-    ? ayStartYear - batchStart + 2
-    : ayStartYear - batchStart + 1;
-  return studyYear > duration;
+  const batchEnd = getBatchEndYear(student);
+  if (batchEnd === null) return false;
+  return ayStartYear >= batchEnd;
 };
 
 const findDeptForStudent = (studentDept: string, deptList: { name: string; code: string; duration?: number; courseType?: string }[]) =>
