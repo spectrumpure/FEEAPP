@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server/index.ts",
+    "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "NODE_ENV=production tsx server/index.ts"
+    "start": "vite preview --host 0.0.0.0 --port 5000"
   },
   "dependencies": {
     "@octokit/rest": "^22.0.1",
