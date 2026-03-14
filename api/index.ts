@@ -14,15 +14,23 @@ export default async function handler(req: any, res: any) {
     if (!dbInitialized) {
       if (!dbInitPromise) {
         dbInitPromise = initDB()
-          .then(() => { dbInitialized = true; })
-          .catch((err) => { dbInitPromise = null; throw err; });
+          .then(() => {
+            dbInitialized = true;
+          })
+          .catch((err) => {
+            dbInitPromise = null;
+            throw err;
+          });
       }
       await dbInitPromise;
     }
     await new Promise<void>((resolve, reject) => {
       app(req, res, (err: any) => {
-        if (err) reject(err);
-        else resolve();
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
       });
     });
   } catch (err: any) {
