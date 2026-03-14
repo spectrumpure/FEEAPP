@@ -1002,6 +1002,7 @@ export const Reports: React.FC<ReportsProps> = ({
     departments.forEach(dept => {
       let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => getDisplayBatch(s) === batchFilter);
+      if (filterYear !== null) deptStudents = deptStudents.filter(s => s.currentYear === filterYear);
       const regularStudents = deptStudents.filter(s => s.entryType !== 'LATERAL');
       const lateralStudents = (filterYear === 1) ? [] : deptStudents.filter(s => s.entryType === 'LATERAL');
       if (lateralStudents.length > 0) {
