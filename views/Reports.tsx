@@ -1011,6 +1011,16 @@ export const Reports: React.FC<ReportsProps> = ({
         pushRow(filterYear === 1 ? regularStudents : deptStudents, dept, '');
       }
     });
+
+    const unassignedStudents = students.filter(s => {
+      if ((s.department || '').trim()) return false;
+      if (batchFilter !== 'all' && getDisplayBatch(s) !== batchFilter) return false;
+      if (filterYear !== null && s.currentYear !== filterYear) return false;
+      return true;
+    });
+    if (unassignedStudents.length > 0) {
+      pushRow(unassignedStudents, { name: 'Unauthorised / No Department', code: 'UNAUTH', courseType: 'B.E' }, '');
+    }
     return result;
   };
 
@@ -1089,15 +1099,19 @@ export const Reports: React.FC<ReportsProps> = ({
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
+    const isUnassignedRow = row.code === 'UNAUTH';
     const dept = departments.find(d => d.code === row.code && d.courseType === row.courseType);
-    if (!dept) return [];
+    if (!dept && !isUnassignedRow) return [];
 
     return students
       .filter(s => {
-        if (!matchesDept(s.department, dept)) return false;
+        if (isUnassignedRow) {
+          if ((s.department || '').trim()) return false;
+        } else if (!matchesDept(s.department, dept)) return false;
         if (batchFilter !== 'all' && getDisplayBatch(s) !== batchFilter) return false;
         if (row.entryLabel === 'Regular' && s.entryType === 'LATERAL') return false;
         if (row.entryLabel === 'Lateral' && s.entryType !== 'LATERAL') return false;
+        if (filterYear !== null && s.currentYear !== filterYear) return false;
         const studentBucket = getAdmissionCategoryBucket(s.admissionCategory);
         return studentBucket === bucket;
       })
