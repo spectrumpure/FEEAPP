@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../store';
 import {
   FileText,
@@ -16,6 +16,7 @@ import {
   BarChart3,
   TrendingUp,
   GraduationCap,
+  Edit2,
   X
 } from 'lucide-react';
 import { Student } from '../types';
@@ -205,10 +206,19 @@ const isHistoricalForAcademicYear = (
 const findDeptForStudent = (studentDept: string, deptList: { name: string; code: string; duration?: number; courseType?: string }[]) =>
   deptList.find(d => matchesDept(studentDept, d));
 
-const getStudentCourseType = (student: Pick<Student, 'course'>) =>
-  student.course === 'M.E' ? 'M.E' : 'B.E';
+interface ReportsProps {
+  onEditStudent?: (htn: string) => void;
+  onEditFee?: (htn: string) => void;
+  canEditStudent?: boolean;
+  canEditFee?: boolean;
+}
 
-export const Reports: React.FC = () => {
+export const Reports: React.FC<ReportsProps> = ({
+  onEditStudent,
+  onEditFee,
+  canEditStudent = false,
+  canEditFee = false,
+}) => {
   const { students, departments, transactions, getFeeTargets } = useApp();
   const [activeTab, setActiveTab] = useState<ReportTab>('dept_summary');
   const [yearFilter, setYearFilter] = useState<string>('all');
@@ -228,29 +238,6 @@ export const Reports: React.FC = () => {
   const [selectedAyDetailCategory, setSelectedAyDetailCategory] = useState<'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER'>('ALL');
   const [selectedCategoryDetail, setSelectedCategoryDetail] = useState<{ rowKey: string; bucket: 'TSMFC' | 'MGMT' | 'CONV' } | null>(null);
   const [selectedDeptDetail, setSelectedDeptDetail] = useState<{ rowKey: string; bucket: 'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER' } | null>(null);
-
-  const reportDepartments = useMemo(() => {
-    const extras: typeof departments = [];
-    const hasUnassignedBE = students.some(s => !findDeptForStudent(s.department, departments) && getStudentCourseType(s) === 'B.E');
-    const hasUnassignedME = students.some(s => !findDeptForStudent(s.department, departments) && getStudentCourseType(s) === 'M.E');
-    if (hasUnassignedBE) {
-      extras.push({ id: '__UNASSIGNED_BE__', name: 'Unassigned', code: 'UNASSIGNED-BE', duration: 4, courseType: 'B.E' });
-    }
-    if (hasUnassignedME) {
-      extras.push({ id: '__UNASSIGNED_ME__', name: 'Unassigned (M.E)', code: 'UNASSIGNED-ME', duration: 2, courseType: 'M.E' });
-    }
-    return [...departments, ...extras];
-  }, [departments, students]);
-
-  const studentMatchesReportDept = (student: Student, dept: typeof reportDepartments[number]) => {
-    if (dept.code === 'UNASSIGNED-BE') {
-      return !findDeptForStudent(student.department, departments) && getStudentCourseType(student) === 'B.E';
-    }
-    if (dept.code === 'UNASSIGNED-ME') {
-      return !findDeptForStudent(student.department, departments) && getStudentCourseType(student) === 'M.E';
-    }
-    return matchesDept(student.department, dept);
-  };
 
   const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'dept_summary', label: 'Dept Summary', icon: <Building2 size={16} />, desc: 'Revenue by department' },
@@ -279,8 +266,8 @@ export const Reports: React.FC = () => {
 
   const getStudentTargets = (s: Student, filterYear: number | null, fromDate?: Date | null, toDate?: Date | null) => {
     let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
-    const dept = reportDepartments.find(d => studentMatchesReportDept(s, d));
-    const duration = dept?.duration || (getStudentCourseType(s) === 'M.E' ? 2 : 4);
+    const dept = departments.find(d => matchesDept(s.department, d));
+    const duration = dept?.duration || 4;
     const isLateral = s.entryType === 'LATERAL';
     const startYear = isLateral ? 2 : 1;
     const lockers = filterYear ? s.feeLockers.filter(l => l.year === filterYear) : s.feeLockers;
@@ -355,8 +342,8 @@ export const Reports: React.FC = () => {
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
     const rows: DeptSummaryRow[] = [];
-    reportDepartments.forEach(dept => {
-      let deptStudents = students.filter(s => studentMatchesReportDept(s, dept));
+    departments.forEach(dept => {
+      let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => getDisplayBatch(s) === batchFilter);
       const regularStudents = deptStudents.filter(s => s.entryType !== 'LATERAL');
       const lateralStudents = (filterYear === 1) ? [] : deptStudents.filter(s => s.entryType === 'LATERAL');
@@ -413,12 +400,12 @@ export const Reports: React.FC = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
-    const dept = reportDepartments.find(d => d.code === row.code && d.courseType === row.courseType);
+    const dept = departments.find(d => d.code === row.code && d.courseType === row.courseType);
     if (!dept) return [];
 
     return students
       .filter(s => {
-        if (!studentMatchesReportDept(s, dept)) return false;
+        if (!matchesDept(s.department, dept)) return false;
         if (batchFilter !== 'all' && getDisplayBatch(s) !== batchFilter) return false;
         if (row.entryLabel === 'Regular' && s.entryType === 'LATERAL') return false;
         if (row.entryLabel === 'Lateral' && s.entryType !== 'LATERAL') return false;
@@ -657,8 +644,8 @@ export const Reports: React.FC = () => {
   const getStudentMasterData = () => {
     let filtered = [...students];
     if (deptFilter !== 'all') {
-      const filterDeptObj = reportDepartments.find(d => d.name === deptFilter);
-      if (filterDeptObj) filtered = filtered.filter(s => studentMatchesReportDept(s, filterDeptObj));
+      const filterDeptObj = departments.find(d => d.name === deptFilter);
+      if (filterDeptObj) filtered = filtered.filter(s => matchesDept(s.department, filterDeptObj));
       else filtered = filtered.filter(s => s.department === deptFilter);
     }
     if (batchFilter !== 'all') filtered = filtered.filter(s => getDisplayBatch(s) === batchFilter);
@@ -673,8 +660,8 @@ export const Reports: React.FC = () => {
   const getStudentInfoData = () => {
     let filtered = [...students];
     if (deptFilter !== 'all') {
-      const filterDeptObj = reportDepartments.find(d => d.name === deptFilter);
-      if (filterDeptObj) filtered = filtered.filter(s => studentMatchesReportDept(s, filterDeptObj));
+      const filterDeptObj = departments.find(d => d.name === deptFilter);
+      if (filterDeptObj) filtered = filtered.filter(s => matchesDept(s.department, filterDeptObj));
       else filtered = filtered.filter(s => s.department === deptFilter);
     }
     if (batchFilter !== 'all') filtered = filtered.filter(s => getDisplayBatch(s) === batchFilter);
@@ -683,12 +670,12 @@ export const Reports: React.FC = () => {
 
   const getDefaultersData = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
-    const filterDeptObj = deptFilter === 'all' ? null : reportDepartments.find(d => d.name === deptFilter);
+    const filterDeptObj = deptFilter === 'all' ? null : departments.find(d => d.name === deptFilter);
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
     return students.filter(s => {
       if (batchFilter !== 'all' && getDisplayBatch(s) !== batchFilter) return false;
-      if (filterDeptObj && !studentMatchesReportDept(s, filterDeptObj)) return false;
+      if (filterDeptObj && !matchesDept(s.department, filterDeptObj)) return false;
       const t = getStudentTargets(s, filterYear, from, to);
       const totalTarget = t.tTarget + t.uTarget;
       const totalPaid = t.tPaid + t.uPaid;
@@ -1012,8 +999,8 @@ export const Reports: React.FC = () => {
       }
     };
 
-    reportDepartments.forEach(dept => {
-      let deptStudents = students.filter(s => studentMatchesReportDept(s, dept));
+    departments.forEach(dept => {
+      let deptStudents = students.filter(s => matchesDept(s.department, dept));
       if (batchFilter !== 'all') deptStudents = deptStudents.filter(s => getDisplayBatch(s) === batchFilter);
       const regularStudents = deptStudents.filter(s => s.entryType !== 'LATERAL');
       const lateralStudents = (filterYear === 1) ? [] : deptStudents.filter(s => s.entryType === 'LATERAL');
@@ -1102,12 +1089,12 @@ export const Reports: React.FC = () => {
     const filterYear = yearFilter === 'all' ? null : parseInt(yearFilter);
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
-    const dept = reportDepartments.find(d => d.code === row.code && d.courseType === row.courseType);
+    const dept = departments.find(d => d.code === row.code && d.courseType === row.courseType);
     if (!dept) return [];
 
     return students
       .filter(s => {
-        if (!studentMatchesReportDept(s, dept)) return false;
+        if (!matchesDept(s.department, dept)) return false;
         if (batchFilter !== 'all' && getDisplayBatch(s) !== batchFilter) return false;
         if (row.entryLabel === 'Regular' && s.entryType === 'LATERAL') return false;
         if (row.entryLabel === 'Lateral' && s.entryType !== 'LATERAL') return false;
@@ -1190,15 +1177,15 @@ export const Reports: React.FC = () => {
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
 
-    return reportDepartments
-      .filter(dept => drDeptFilter === 'all' || dept.code === drDeptFilter)
+    return departments
+      .filter(dept => drDeptFilter === 'all' || matchesDept(drDeptFilter, dept))
       .map(dept => {
-        let deptStudents = students.filter(s => studentMatchesReportDept(s, dept));
+        let deptStudents = students.filter(s => matchesDept(s.department, dept));
         if (drBatchFilter !== 'all') deptStudents = deptStudents.filter(s => getDisplayBatch(s) === drBatchFilter);
 
         const results = deptStudents.map(s => {
-          const d = reportDepartments.find(dd => studentMatchesReportDept(s, dd));
-          const duration = d?.duration || (getStudentCourseType(s) === 'M.E' ? 2 : 4);
+          const d = departments.find(dd => matchesDept(s.department, dd));
+          const duration = d?.duration || 4;
           const isLateral = s.entryType === 'LATERAL';
           const startYear = isLateral ? 2 : 1;
           let tTarget = 0, uTarget = 0, tPaid = 0, uPaid = 0;
@@ -1323,7 +1310,7 @@ export const Reports: React.FC = () => {
             <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Department</label>
             <select value={drDeptFilter} onChange={e => setDrDeptFilter(e.target.value)} className={selectClass}>
               <option value="all">All Departments</option>
-              {reportDepartments.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+              {departments.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1">
@@ -1541,17 +1528,17 @@ export const Reports: React.FC = () => {
     };
 
     const rows: AYRow[] = [];
-    const beDepts = reportDepartments.filter(d => d.courseType === 'B.E');
-    const meDepts = reportDepartments.filter(d => d.courseType === 'M.E');
+    const beDepts = departments.filter(d => d.courseType === 'B.E');
+    const meDepts = departments.filter(d => d.courseType === 'M.E');
 
     const processGroup = (dept: typeof departments[0], studyYear: number, maxYears: number) => {
       const regularStudents = students.filter(s =>
-        studentMatchesReportDept(s, dept) &&
+        matchesDept(s.department, dept) &&
         s.entryType !== 'LATERAL' &&
         getAcademicStudyYear(s, ayStartYear, maxYears) === studyYear
       );
       const lateralStudents = students.filter(s =>
-        studentMatchesReportDept(s, dept) &&
+        matchesDept(s.department, dept) &&
         s.entryType === 'LATERAL' &&
         getAcademicStudyYear(s, ayStartYear, maxYears) === studyYear
       );
@@ -1632,10 +1619,10 @@ export const Reports: React.FC = () => {
       otherUPaid: number;
     }[] = [];
 
-    reportDepartments.forEach(dept => {
+    departments.forEach(dept => {
       const maxYears = dept.courseType === 'B.E' ? 4 : 2;
       const matchingStudents = students.filter(s => {
-        if (!studentMatchesReportDept(s, dept)) return false;
+        if (!matchesDept(s.department, dept)) return false;
         return isHistoricalForAcademicYear(s, ayStartYear, maxYears);
       });
 
@@ -1750,15 +1737,15 @@ export const Reports: React.FC = () => {
       });
     };
 
-    reportDepartments.filter(d => d.courseType === 'B.E').forEach(dept => {
+    departments.filter(d => d.courseType === 'B.E').forEach(dept => {
       for (let sy = 1; sy <= 4; sy++) {
         const regularStudents = students.filter(s =>
-          studentMatchesReportDept(s, dept) &&
+          matchesDept(s.department, dept) &&
           s.entryType !== 'LATERAL' &&
           getAcademicStudyYear(s, ayStartYear, 4) === sy
         );
         const lateralStudents = students.filter(s =>
-          studentMatchesReportDept(s, dept) &&
+          matchesDept(s.department, dept) &&
           s.entryType === 'LATERAL' &&
           getAcademicStudyYear(s, ayStartYear, 4) === sy
         );
@@ -1769,10 +1756,10 @@ export const Reports: React.FC = () => {
       }
     });
 
-    reportDepartments.filter(d => d.courseType === 'M.E').forEach(dept => {
+    departments.filter(d => d.courseType === 'M.E').forEach(dept => {
       for (let sy = 1; sy <= 2; sy++) {
         const matchingStudents = students.filter(s =>
-          studentMatchesReportDept(s, dept) &&
+          matchesDept(s.department, dept) &&
           getAcademicStudyYear(s, ayStartYear, 2) === sy
         );
         processRow(dept, sy, ayStartYear, 2, matchingStudents, '');
@@ -1793,11 +1780,11 @@ export const Reports: React.FC = () => {
 
   const getAcademicYearDetailStudents = (row: AcademicYearDetailRow, categoryBucket: 'ALL' | 'CONV' | 'MGMT' | 'TSMFC' | 'OTHER' = 'ALL') => {
     const ayStartYear = parseInt(ayFilter.split('-')[0]);
-    const dept = reportDepartments.find(d => d.code === row.deptCode && d.courseType === row.courseType);
+    const dept = departments.find(d => d.code === row.deptCode && d.courseType === row.courseType);
     if (!dept) return [];
 
     const filteredStudents = students.filter(s => {
-      if (!studentMatchesReportDept(s, dept)) return false;
+      if (!matchesDept(s.department, dept)) return false;
       if ((getDisplayBatch(s) || '-') !== row.batch) return false;
       if (row.entryLabel === 'Regular' && s.entryType === 'LATERAL') return false;
       if (row.entryLabel === 'Lateral' && s.entryType !== 'LATERAL') return false;
@@ -1882,8 +1869,8 @@ export const Reports: React.FC = () => {
     const ayData = getAcademicYearData();
     const historicalData = getHistoricalAcademicYearData();
     const ayOptions = getAcademicYearOptions();
-    const beDepts = reportDepartments.filter(d => d.courseType === 'B.E');
-    const meDepts = reportDepartments.filter(d => d.courseType === 'M.E');
+    const beDepts = departments.filter(d => d.courseType === 'B.E');
+    const meDepts = departments.filter(d => d.courseType === 'M.E');
     const ayStartYear = parseInt(ayFilter.split('-')[0]);
 
     const thClass = 'px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center whitespace-nowrap';
@@ -2383,6 +2370,7 @@ export const Reports: React.FC = () => {
                       <th className={thClass + ' text-right'}>{FEE_LABELS.uPaid}</th>
                       <th className={thClass + ' text-right'}>Total Paid</th>
                       <th className={thClass + ' text-right'}>Balance</th>
+                      {showEditActions && <th className={thClass + ' text-center'}>Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -2407,10 +2395,36 @@ export const Reports: React.FC = () => {
                             <td className="px-3 py-2 text-right text-purple-700 font-medium">{formatCurrency(s.uPaid)}</td>
                             <td className="px-3 py-2 text-right text-emerald-700 font-semibold">{formatCurrency(s.totalPaid)}</td>
                             <td className="px-3 py-2 text-right text-red-600 font-medium">{formatCurrency(s.totalBalance)}</td>
+                            {showEditActions && (
+                              <td className="px-3 py-2 text-center">
+                                <div className="inline-flex items-center gap-2">
+                                  {canEditStudent && onEditStudent && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onEditStudent(s.hallTicketNumber)}
+                                      className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 hover:bg-blue-100"
+                                    >
+                                      <Edit2 size={11} />
+                                      Edit Student
+                                    </button>
+                                  )}
+                                  {canEditFee && onEditFee && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onEditFee(s.hallTicketNumber)}
+                                      className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                                    >
+                                      <IndianRupee size={11} />
+                                      Edit Fee
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            )}
                           </tr>
                         ))}
                         <tr className="bg-[#1a365d] text-white sticky bottom-0">
-                          <td colSpan={7} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
+                          <td colSpan={showEditActions ? 8 : 7} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
                           <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedAyTotals.tTarget)}</td>
                           <td className="px-3 py-3 text-right text-xs font-bold text-teal-300">{formatCurrency(selectedAyTotals.tPaid)}</td>
                           <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedAyTotals.uTarget)}</td>
@@ -2439,10 +2453,10 @@ export const Reports: React.FC = () => {
 
   const handleExportAcademicYear = () => {
     const ayData = getAcademicYearData();
-    const beDepts = reportDepartments.filter(d => d.courseType === 'B.E');
-    const meDepts = reportDepartments.filter(d => d.courseType === 'M.E');
+    const beDepts = departments.filter(d => d.courseType === 'B.E');
+    const meDepts = departments.filter(d => d.courseType === 'M.E');
 
-    const renderSectionHTML = (sectionDepts: typeof reportDepartments, sectionLabel: string) => {
+    const renderSectionHTML = (sectionDepts: typeof departments, sectionLabel: string) => {
       const sectionRows = ayData.filter(r => r.courseType === (sectionLabel.includes('B.E') ? 'B.E' : 'M.E'));
       if (sectionRows.length === 0) return '';
       let html = `<h3 style="margin:15px 0 5px;font-size:13px;color:#312e81;font-weight:bold">${sectionLabel}</h3>`;
@@ -2495,10 +2509,10 @@ export const Reports: React.FC = () => {
 
   const handleExportAcademicYearCount = () => {
     const ayData = getAcademicYearCountData();
-    const beDepts = reportDepartments.filter(d => d.courseType === 'B.E');
-    const meDepts = reportDepartments.filter(d => d.courseType === 'M.E');
+    const beDepts = departments.filter(d => d.courseType === 'B.E');
+    const meDepts = departments.filter(d => d.courseType === 'M.E');
 
-    const renderSectionHTML = (sectionDepts: typeof reportDepartments, sectionLabel: string) => {
+    const renderSectionHTML = (sectionDepts: typeof departments, sectionLabel: string) => {
       const sectionRows = ayData.filter(r => r.courseType === (sectionLabel.includes('B.E') ? 'B.E' : 'M.E'));
       if (sectionRows.length === 0) return '';
       let html = `<h3 style="margin:15px 0 5px;font-size:13px;color:#312e81;font-weight:bold">${sectionLabel}</h3>`;
@@ -2603,6 +2617,8 @@ export const Reports: React.FC = () => {
       Showing fee collections from <strong>{dateFrom || 'beginning'}</strong> to <strong>{dateTo || 'present'}</strong>. Targets reflect full fee obligation.
     </div>
   ) : null;
+
+  const showEditActions = canEditStudent || canEditFee;
 
   const renderDeptSummary = () => {
     const data = getDeptSummaryData();
@@ -2793,6 +2809,7 @@ export const Reports: React.FC = () => {
                       <th className={thClass + ' text-right'}>{FEE_LABELS.uPaid}</th>
                       <th className={thClass + ' text-right'}>Total Paid</th>
                       <th className={thClass + ' text-right'}>Balance</th>
+                      {showEditActions && <th className={thClass + ' text-center'}>Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -2816,10 +2833,28 @@ export const Reports: React.FC = () => {
                             <td className="px-3 py-2 text-right text-purple-700 font-medium">{formatCurrency(s.uPaid)}</td>
                             <td className="px-3 py-2 text-right text-emerald-700 font-semibold">{formatCurrency(s.totalPaid)}</td>
                             <td className="px-3 py-2 text-right text-red-600 font-medium">{formatCurrency(s.totalBalance)}</td>
+                            {showEditActions && (
+                              <td className="px-3 py-2 text-center">
+                                <div className="inline-flex items-center gap-2">
+                                  {canEditStudent && onEditStudent && (
+                                    <button type="button" onClick={() => onEditStudent(s.hallTicketNumber)} className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 hover:bg-blue-100">
+                                      <Edit2 size={11} />
+                                      Edit Student
+                                    </button>
+                                  )}
+                                  {canEditFee && onEditFee && (
+                                    <button type="button" onClick={() => onEditFee(s.hallTicketNumber)} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100">
+                                      <IndianRupee size={11} />
+                                      Edit Fee
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            )}
                           </tr>
                         ))}
                         <tr className="bg-[#1a365d] text-white sticky bottom-0">
-                          <td colSpan={8} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
+                          <td colSpan={showEditActions ? 9 : 8} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
                           <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedDeptTotals.tTarget)}</td>
                           <td className="px-3 py-3 text-right text-xs font-bold text-emerald-300">{formatCurrency(selectedDeptTotals.tPaid)}</td>
                           <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedDeptTotals.uTarget)}</td>
@@ -3147,13 +3182,13 @@ export const Reports: React.FC = () => {
   const renderAcademicYearCount = () => {
     const ayData = getAcademicYearCountData();
     const ayOptions = getAcademicYearOptions();
-    const beDepts = reportDepartments.filter(d => d.courseType === 'B.E');
-    const meDepts = reportDepartments.filter(d => d.courseType === 'M.E');
+    const beDepts = departments.filter(d => d.courseType === 'B.E');
+    const meDepts = departments.filter(d => d.courseType === 'M.E');
 
     const countThClass = 'px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center whitespace-nowrap';
     const countTdClass = 'px-2 py-2 text-xs border-r border-slate-100';
 
-    const renderSection = (sectionDepts: typeof reportDepartments, courseType: 'B.E' | 'M.E', sectionLabel: string) => {
+    const renderSection = (sectionDepts: typeof departments, courseType: 'B.E' | 'M.E', sectionLabel: string) => {
       const sectionRows = ayData.filter(r => r.courseType === courseType);
       if (sectionRows.length === 0) return null;
 
@@ -3275,7 +3310,7 @@ export const Reports: React.FC = () => {
         <FilterBar count={data.length} countLabel="students">
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
-            {reportDepartments.map(d => <option key={d.id ?? d.code} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
           </SelectFilter>
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
@@ -3367,7 +3402,7 @@ export const Reports: React.FC = () => {
         <FilterBar count={data.length} countLabel="students">
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
-            {reportDepartments.map(d => <option key={d.id ?? d.code} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
           </SelectFilter>
           <SelectFilter label="Batch" value={batchFilter} onChange={setBatchFilter}>
             <option value="all">All Batches</option>
@@ -3438,7 +3473,7 @@ export const Reports: React.FC = () => {
           </SelectFilter>
           <SelectFilter label="Department" value={deptFilter} onChange={setDeptFilter}>
             <option value="all">All Departments</option>
-            {reportDepartments.map(d => <option key={d.id ?? d.code} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
           </SelectFilter>
           <SelectFilter label="Year" value={yearFilter} onChange={setYearFilter}>
             <option value="all">All Years</option>
@@ -3685,6 +3720,7 @@ export const Reports: React.FC = () => {
                       <th className={thClass + ' text-right'}>{FEE_LABELS.uPaid}</th>
                       <th className={thClass + ' text-right'}>Total Paid</th>
                       <th className={thClass + ' text-right'}>Balance</th>
+                      {showEditActions && <th className={thClass + ' text-center'}>Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -3708,10 +3744,28 @@ export const Reports: React.FC = () => {
                             <td className="px-3 py-2 text-right text-purple-700 font-medium">{formatCurrency(s.uPaid)}</td>
                             <td className="px-3 py-2 text-right text-emerald-700 font-semibold">{formatCurrency(s.totalPaid)}</td>
                             <td className="px-3 py-2 text-right text-red-600 font-medium">{formatCurrency(s.totalBalance)}</td>
+                            {showEditActions && (
+                              <td className="px-3 py-2 text-center">
+                                <div className="inline-flex items-center gap-2">
+                                  {canEditStudent && onEditStudent && (
+                                    <button type="button" onClick={() => onEditStudent(s.hallTicketNumber)} className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 hover:bg-blue-100">
+                                      <Edit2 size={11} />
+                                      Edit Student
+                                    </button>
+                                  )}
+                                  {canEditFee && onEditFee && (
+                                    <button type="button" onClick={() => onEditFee(s.hallTicketNumber)} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100">
+                                      <IndianRupee size={11} />
+                                      Edit Fee
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            )}
                           </tr>
                         ))}
                         <tr className="bg-[#1a365d] text-white sticky bottom-0">
-                          <td colSpan={8} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
+                          <td colSpan={showEditActions ? 9 : 8} className="px-3 py-3 text-right text-xs font-bold">GRAND TOTAL</td>
                           <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedCategoryTotals.tTarget)}</td>
                           <td className="px-3 py-3 text-right text-xs font-bold text-emerald-300">{formatCurrency(selectedCategoryTotals.tPaid)}</td>
                           <td className="px-3 py-3 text-right text-xs font-bold">{formatCurrency(selectedCategoryTotals.uTarget)}</td>

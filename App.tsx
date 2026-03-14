@@ -211,6 +211,7 @@ const MainApp: React.FC = () => {
   const [activeView, setActiveView] = useState(getDefaultView());
   const [selectedStudentHTN, setSelectedStudentHTN] = useState<string | null>(null);
   const [preSelectedFeeHTN, setPreSelectedFeeHTN] = useState<string | null>(null);
+  const [editStudentHTN, setEditStudentHTN] = useState<string | null>(null);
 
   if (!currentUser) return <LoginPage />;
 
@@ -241,13 +242,30 @@ const MainApp: React.FC = () => {
           onViewStudent={(htn) => {
             setSelectedStudentHTN(htn);
           }}
+          editStudentHTN={editStudentHTN}
+          onEditStudentHandled={() => setEditStudentHTN(null)}
         />
       );
       case 'enrollment': return <StudentEnrollment />;
       case 'fee-entry': return <FeeEntry preSelectedHTN={preSelectedFeeHTN} />;
       case 'bulk-upload': return <BulkUpload />;
       case 'approvals': return <Approvals />;
-      case 'reports': return <Reports />;
+      case 'reports': return (
+        <Reports
+          canEditStudent={currentUser?.role === UserRole.ADMIN}
+          canEditFee={currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.ACCOUNTANT}
+          onEditStudent={(htn) => {
+            setEditStudentHTN(htn);
+            setSelectedStudentHTN(null);
+            setActiveView('students');
+          }}
+          onEditFee={(htn) => {
+            setSelectedStudentHTN(htn);
+            setEditStudentHTN(null);
+            setActiveView('students');
+          }}
+        />
+      );
       case 'certificates': return <Certificates />;
       case 'fee-lockers': return <FeeLockers />;
       case 'defaulters': return <DefaulterList />;
@@ -260,6 +278,7 @@ const MainApp: React.FC = () => {
     <Layout activeView={activeView} onViewChange={(view) => {
       setActiveView(view);
       setSelectedStudentHTN(null);
+      setEditStudentHTN(null);
       if (view !== 'fee-entry') setPreSelectedFeeHTN(null);
     }}>
       {renderView()}

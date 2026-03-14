@@ -24,11 +24,13 @@ import { COURSES, SECTIONS, normalizeDepartment } from '../constants';
 interface StudentDirectoryProps {
   onFeeEntry?: (htn: string) => void;
   onViewStudent?: (htn: string) => void;
+  editStudentHTN?: string | null;
+  onEditStudentHandled?: () => void;
 }
 
 
 
-export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, onViewStudent }) => {
+export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, onViewStudent, editStudentHTN, onEditStudentHandled }) => {
   const { students, addStudent, departments, updateStudent, deleteStudent, currentUser, getFeeTargets } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showManualModal, setShowManualModal] = useState(false);
@@ -210,6 +212,10 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
 
   const handleEditClick = (e: React.MouseEvent, student: Student) => {
     e.stopPropagation();
+    openStudentEditor(student);
+  };
+
+  const openStudentEditor = (student: Student) => {
     setIsEditing(true);
     setEditingHTN(student.hallTicketNumber);
     setFormData({
@@ -235,6 +241,15 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     });
     setShowManualModal(true);
   };
+
+  useEffect(() => {
+    if (!editStudentHTN) return;
+    const student = students.find(s => s.hallTicketNumber === editStudentHTN);
+    if (student) {
+      openStudentEditor(student);
+    }
+    onEditStudentHandled?.();
+  }, [editStudentHTN, students, onEditStudentHandled]);
 
   const handleView = (e: React.MouseEvent, htn: string) => {
     e.stopPropagation();
