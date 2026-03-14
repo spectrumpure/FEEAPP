@@ -1038,9 +1038,9 @@ export const Reports: React.FC = () => {
       <th colspan="5" class="text-center" style="background:#ede9fe;color:#5b21b6">Convenor</th>
       <th rowspan="2" class="text-center">Total</th>
     </tr><tr>
-      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Tui. Paid</th><th class="text-right">Uni. Paid</th><th class="text-right">Pending</th>
-      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Tui. Paid</th><th class="text-right">Uni. Paid</th><th class="text-right">Pending</th>
-      <th class="text-center">Count</th><th class="text-right">Target</th><th class="text-right">Tui. Paid</th><th class="text-right">Uni. Paid</th><th class="text-right">Pending</th>
+      <th class="text-center">Students</th><th class="text-right">Actual Fee</th><th class="text-right">${FEE_LABELS.tPaid}</th><th class="text-right">${FEE_LABELS.uPaid}</th><th class="text-right">Due</th>
+      <th class="text-center">Students</th><th class="text-right">Actual Fee</th><th class="text-right">${FEE_LABELS.tPaid}</th><th class="text-right">${FEE_LABELS.uPaid}</th><th class="text-right">Due</th>
+      <th class="text-center">Students</th><th class="text-right">Actual Fee</th><th class="text-right">${FEE_LABELS.tPaid}</th><th class="text-right">${FEE_LABELS.uPaid}</th><th class="text-right">Due</th>
     </tr></thead><tbody>${rows}
     <tr class="summary-row">
       <td class="font-bold">GRAND TOTAL</td>
@@ -1252,7 +1252,7 @@ export const Reports: React.FC = () => {
     </tr>`;
     const html = `<table><thead><tr>
       <th>Department</th><th class="text-center">Total Students</th><th class="text-center">Paid</th><th class="text-center">Balance</th>
-      <th class="text-right">Target</th><th class="text-right">Collected</th><th class="text-right">Pending</th>
+      <th class="text-right">Actual Fee</th><th class="text-right">Collected</th><th class="text-right">Due</th>
     </tr></thead><tbody>${rows}</tbody></table>`;
     exportPDF(`Date Range Financial Report${dateLabel}${drYearFilter !== 'all' ? ` - Year ${drYearFilter}` : ''}`, html);
   };
@@ -1331,7 +1331,7 @@ export const Reports: React.FC = () => {
           </div>
           <div className="bg-red-50 rounded-xl p-4 border border-red-100">
             <p className="text-2xl font-bold text-red-700">{formatCurrency(gPending)}</p>
-            <p className="text-xs text-red-500 font-medium">Total Pending</p>
+            <p className="text-xs text-red-500 font-medium">Total Due</p>
             <p className="text-xs text-slate-400 mt-2">{gTarget > 0 ? Math.round((gPending / gTarget) * 100) : 0}% outstanding</p>
           </div>
         </div>
@@ -1346,7 +1346,7 @@ export const Reports: React.FC = () => {
                 <th className={thClass + ' text-center'}>Balance</th>
                 <th className={thClass + ' text-right'}>Target</th>
                 <th className={thClass + ' text-right'}>Collected</th>
-                <th className={thClass + ' text-right'}>Pending</th>
+                <th className={thClass + ' text-right'}>Due</th>
               </tr>
             </thead>
             <tbody>
@@ -3534,21 +3534,21 @@ export const Reports: React.FC = () => {
                 <th className="px-2 py-2 text-[9px] font-bold text-slate-700 uppercase tracking-wider bg-slate-100 text-center border-b border-slate-300" rowSpan={2}>Total</th>
               </tr>
               <tr className="bg-slate-50/80">
-                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-center">Count</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Target</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Tui. Paid</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Uni. Paid</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Pending</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-center">Count</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Target</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Tui. Paid</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Uni. Paid</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Pending</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-center">Count</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Target</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Tui. Paid</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Uni. Paid</th>
-                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Pending</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-center">Students</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Actual Fee</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">{FEE_LABELS.tPaid}</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">{FEE_LABELS.uPaid}</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-blue-700 bg-blue-50/50 text-right">Due</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-center">Students</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Actual Fee</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">{FEE_LABELS.tPaid}</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">{FEE_LABELS.uPaid}</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-amber-700 bg-amber-50/50 text-right">Due</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-center">Students</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Actual Fee</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">{FEE_LABELS.tPaid}</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">{FEE_LABELS.uPaid}</th>
+                <th className="px-1.5 py-2 text-[8px] font-bold text-purple-700 bg-purple-50/50 text-right">Due</th>
               </tr>
             </thead>
             <tbody>
@@ -3727,7 +3727,7 @@ export const Reports: React.FC = () => {
     student_master: { title: 'Student Master Fee List', subtitle: 'Year wise fee details per student' },
     student_info: { title: 'Student Master List', subtitle: 'Complete student personal information directory' },
     defaulters: { title: 'Fee Defaulters', subtitle: 'Department & year wise outstanding balance' },
-    category_analysis: { title: 'Category Analysis', subtitle: 'Management vs Convenor fee payment & pending summary' },
+    category_analysis: { title: 'Category Analysis', subtitle: 'Management vs Convenor fee payment & due summary' },
     date_range: { title: 'Date Range Financial Report', subtitle: 'Fee collection within a custom date period vs overall targets' },
   };
 
