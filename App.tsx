@@ -1,362 +1,276 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import resultsData from './attached_assets/results-data.json';
+import React, { useState } from 'react';
+import { AppProvider, useApp } from './store';
+import { UserRole } from './types';
+import { Layout } from './components/Layout';
+import { Dashboard } from './views/Dashboard';
+import { StudentDirectory } from './views/StudentDirectory';
+import { FeeEntry } from './views/FeeEntry';
+import { FeeLedger } from './views/FeeLedger';
+import { Reports } from './views/Reports';
+import { Approvals } from './views/Approvals';
+import { Certificates } from './views/Certificates';
+import { DefaulterList } from './views/DefaulterList';
+import { FeeLockers } from './views/FeeLockers';
+import { DatabaseAdmin } from './views/DatabaseAdmin';
+import { BulkUpload } from './views/BulkUpload';
+import { StudentEnrollment } from './views/StudentEnrollment';
+import { GraduationCap, ShieldCheck, ClipboardCheck, Eye, EyeOff, ArrowLeft, AlertCircle, ArrowRight, Shield, Calculator, FileBarChart, BookCheck } from 'lucide-react';
 
-type SubjectResult = {
-  subjectCode: string;
-  subjectName: string;
-  subjectType: string;
-  credits: number;
-  obtainedMarks: number;
-  internalMarks: number;
-  aggregateMarks: number;
-  result: string;
-  gradeLetter: string;
-  gradePoints: number;
-  creditScore: number;
-};
+const ROLE_CARDS = [
+  { key: 'admin', label: 'Admin', subtitle: 'FULL SYSTEM ACCESS & ENTRY', icon: Shield, color: 'blue', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', accentColor: 'bg-blue-500', username: 'admin' },
+  { key: 'accountant', label: 'Accountant', subtitle: 'FEE APPROVALS & FINANCE', icon: Calculator, color: 'emerald', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', accentColor: 'bg-emerald-500', username: 'accountant' },
+  { key: 'principal', label: 'Principal', subtitle: 'REPORTS & INSTITUTIONAL STATS', icon: FileBarChart, color: 'slate', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', iconBg: 'bg-slate-100', iconColor: 'text-slate-600', accentColor: 'bg-slate-500', username: 'principal' },
+  { key: 'examcell', label: 'Exam Branch', subtitle: 'CLEARANCE & DUES MONITORING', icon: BookCheck, color: 'amber', bgColor: 'bg-amber-50', borderColor: 'border-amber-200', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', accentColor: 'bg-amber-500', username: 'examcell' },
+];
 
-type StudentResult = {
-  hallTicketNumber: string;
-  name: string;
-  course: string;
-  branch: string;
-  semester: string;
-  examType: string;
-  publishedOn: string;
-  sgpa: number | string | null;
-  sgpaDisplay: string;
-  overallResult: string;
-  subjects: SubjectResult[];
-};
-
-const studentResults = resultsData as StudentResult[];
-
-const resultMap = new Map(
-  studentResults.map((student) => [student.hallTicketNumber.toUpperCase(), student]),
-);
-
-const toOrdinalSemester = (semester: string) => {
-  const value = Number(semester);
-  if (!Number.isFinite(value)) return semester;
-  const suffix =
-    value % 10 === 1 && value % 100 !== 11 ? 'st' :
-    value % 10 === 2 && value % 100 !== 12 ? 'nd' :
-    value % 10 === 3 && value % 100 !== 13 ? 'rd' :
-    'th';
-  return `${value}${suffix}`;
-};
-
-const getPerformanceLabel = (student: StudentResult) => {
-  const sgpa = student.sgpa;
-  return typeof sgpa === 'number'
-    ? `SGPA: ${student.sgpaDisplay}`
-    : `Academic Status: ${student.sgpaDisplay}`;
-};
-
-const formatExamLabel = (student: StudentResult) =>
-  `${student.course} ${toOrdinalSemester(student.semester)} Semester End Examination / ${student.examType} Results`;
-
-const StatCard: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <div className="rounded-[24px] border border-white/60 bg-white/75 px-5 py-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur">
-    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">{label}</p>
-    <p className="mt-2 text-lg font-semibold text-slate-800">{value}</p>
-  </div>
-);
-
-const App: React.FC = () => {
-  const [query, setQuery] = useState('');
-  const [searchedHallTicket, setSearchedHallTicket] = useState('');
-  const [activeStudent, setActiveStudent] = useState<StudentResult | null>(null);
+const LoginPage: React.FC = () => {
+  const { login } = useApp();
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const totalStudents = studentResults.length.toLocaleString('en-IN');
-  const totalBranches = useMemo(
-    () => new Set(studentResults.map((student) => student.branch)).size.toString(),
-    [],
-  );
-
-  useEffect(() => {
-    const firstStudent = studentResults[0];
-    if (!firstStudent) return;
-    setQuery(firstStudent.hallTicketNumber);
-    setSearchedHallTicket(firstStudent.hallTicketNumber);
-    setActiveStudent(firstStudent);
-  }, []);
-
-  const handleSearch = (event: React.FormEvent) => {
-    event.preventDefault();
-    const normalized = query.trim().toUpperCase();
-    setSearchedHallTicket(normalized);
-    if (!normalized) {
-      setActiveStudent(null);
-      setError('Enter a hall ticket number to view the memo.');
-      return;
+  const handleSelectRole = (roleKey: string) => {
+    const role = ROLE_CARDS.find(r => r.key === roleKey);
+    if (role) {
+      setSelectedRole(roleKey);
+      setUsername(role.username);
+      setPassword('');
+      setError('');
+      setShowPassword(false);
     }
-
-    const student = resultMap.get(normalized) ?? null;
-    setActiveStudent(student);
-    setError(student ? '' : `No result found for hall ticket number ${normalized}.`);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleBack = () => {
+    setSelectedRole(null);
+    setUsername('');
+    setPassword('');
+    setError('');
+    setShowPassword(false);
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      setError('Please enter your password');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    const result = await login(username.trim(), password);
+    setLoading(false);
+    if (!result.success) {
+      setError(result.error || 'Login failed');
+    }
+  };
+
+  const activeRole = ROLE_CARDS.find(r => r.key === selectedRole);
+
+  return (
+    <div className="min-h-screen flex flex-col md:flex-row">
+      <div className="relative w-full md:w-[45%] h-[30vh] md:h-screen md:sticky md:top-0 overflow-hidden">
+        <img src="/mjcet-college.png" alt="MJCET Campus" className="w-full h-full object-cover" style={{ objectPosition: 'center 40%' }} />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0f1f3d] via-[#1a365d]/60 to-[#1a365d]/30"></div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-8">
+          <div className="text-center">
+            <img src="/mjcet-logo.png" alt="MJCET Logo" className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white p-2 shadow-2xl mx-auto mb-5 object-contain" />
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white tracking-tight drop-shadow-lg">MJCET FEE APP</h1>
+            <div className="w-16 h-1 bg-amber-400 mx-auto my-4 rounded-full"></div>
+            <p className="font-semibold text-base md:text-lg text-white/90">Muffakham Jah College of Engineering & Technology</p>
+            <p className="text-white/60 mt-2 text-xs md:text-sm">Autonomous & Accredited by NAAC with A+ and NBA</p>
+            <p className="text-white/60 text-xs md:text-sm">Affiliated to Osmania University & Approved by AICTE</p>
+          </div>
+          <div className="hidden md:flex items-center gap-6 mt-10">
+            <div className="flex items-center gap-2 text-white/50 text-xs">
+              <ShieldCheck size={14} />
+              <span>Secure Access</span>
+            </div>
+            <div className="w-1 h-1 bg-white/30 rounded-full"></div>
+            <div className="flex items-center gap-2 text-white/50 text-xs">
+              <ClipboardCheck size={14} />
+              <span>Fee Management</span>
+            </div>
+            <div className="w-1 h-1 bg-white/30 rounded-full"></div>
+            <div className="flex items-center gap-2 text-white/50 text-xs">
+              <GraduationCap size={14} />
+              <span>Student Records</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50/30 p-6 md:p-12">
+        <div className="w-full max-w-lg">
+          <p className="text-center text-slate-400 text-sm font-medium mb-8 tracking-wide uppercase">Centralized College Fee Management & Governance System</p>
+
+          {!selectedRole ? (
+            <div>
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-slate-800">Select Your Role</h2>
+                <p className="text-sm text-slate-400 mt-1">Choose your role to sign in</p>
+              </div>
+              <div className="space-y-3">
+                {ROLE_CARDS.map((role) => {
+                  const Icon = role.icon;
+                  return (
+                    <button
+                      key={role.key}
+                      onClick={() => handleSelectRole(role.key)}
+                      className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 ${role.borderColor} bg-white hover:${role.bgColor} transition-all duration-200 group cursor-pointer relative overflow-hidden`}
+                    >
+                      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${role.accentColor} rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity`}></div>
+                      <div className={`w-12 h-12 ${role.iconBg} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                        <Icon size={22} className={role.iconColor} />
+                      </div>
+                      <div className="text-left flex-1">
+                        <h3 className="text-lg font-bold text-slate-800">{role.label}</h3>
+                        <p className="text-xs font-semibold text-slate-400 tracking-wider uppercase">{role.subtitle}</p>
+                      </div>
+                      <ArrowRight size={20} className="text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/50 p-8 md:p-10">
+              <button onClick={handleBack} className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 font-medium mb-6 transition-colors">
+                <ArrowLeft size={16} /> Back to Role Selection
+              </button>
+              <div className="text-center mb-8">
+                {activeRole && (
+                  <>
+                    <div className={`w-16 h-16 ${activeRole.iconBg} rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg`}>
+                      <activeRole.icon size={28} className={activeRole.iconColor} />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-800">{activeRole.label}</h2>
+                    <p className="text-xs font-semibold text-slate-400 tracking-wider uppercase mt-1">{activeRole.subtitle}</p>
+                  </>
+                )}
+              </div>
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Username</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); setError(''); }}
+                    className="w-full px-4 py-3.5 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all"
+                    placeholder="Enter your username"
+                    autoComplete="username"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Password</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                      className="w-full px-4 py-3.5 pr-12 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all"
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                      autoFocus
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                {error && (
+                  <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-3 rounded-xl border border-red-100">
+                    <AlertCircle size={16} className="flex-shrink-0" />{error}
+                  </div>
+                )}
+                <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#1a365d] to-[#2c5282] text-white rounded-xl font-bold text-sm hover:from-[#2c5282] hover:to-[#3b6cb5] transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20 mt-2">
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          <div className="mt-8 text-center text-slate-300 text-xs font-medium">
+            &copy; {new Date().getFullYear()} Sultan-Ul-Uloom Education Society. All Rights Reserved.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MainApp: React.FC = () => {
+  const { currentUser, students, refreshData } = useApp();
+  const getDefaultView = () => {
+    if (currentUser?.role === UserRole.EXAM_CELL) return 'defaulters';
+    if (currentUser?.role === UserRole.ACCOUNTANT) return 'students';
+    if (currentUser?.role === UserRole.PRINCIPAL) return 'students';
+    return 'dashboard';
+  };
+  const [activeView, setActiveView] = useState(getDefaultView());
+  const [selectedStudentHTN, setSelectedStudentHTN] = useState<string | null>(null);
+  const [preSelectedFeeHTN, setPreSelectedFeeHTN] = useState<string | null>(null);
+
+  if (!currentUser) return <LoginPage />;
+
+  const renderView = () => {
+    if (activeView === 'students' && selectedStudentHTN) {
+      const student = students.find(s => s.hallTicketNumber === selectedStudentHTN);
+      if (student) return (
+        <div>
+          <button
+            onClick={() => setSelectedStudentHTN(null)}
+            className="mb-4 text-blue-600 font-bold text-sm flex items-center hover:underline no-print"
+          >
+            &larr; Back to Directory
+          </button>
+          <FeeLedger student={student} canEdit={currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.ACCOUNTANT} onDataChanged={refreshData} />
+        </div>
+      );
+    }
+
+    switch (activeView) {
+      case 'dashboard': return <Dashboard />;
+      case 'students': return (
+        <StudentDirectory
+          onFeeEntry={(htn) => {
+            setPreSelectedFeeHTN(htn);
+            setActiveView('fee-entry');
+          }}
+          onViewStudent={(htn) => {
+            setSelectedStudentHTN(htn);
+          }}
+        />
+      );
+      case 'enrollment': return <StudentEnrollment />;
+      case 'fee-entry': return <FeeEntry preSelectedHTN={preSelectedFeeHTN} />;
+      case 'bulk-upload': return <BulkUpload />;
+      case 'approvals': return <Approvals />;
+      case 'reports': return <Reports />;
+      case 'certificates': return <Certificates />;
+      case 'fee-lockers': return <FeeLockers />;
+      case 'defaulters': return <DefaulterList />;
+      case 'database': return <DatabaseAdmin />;
+      default: return <Dashboard />;
+    }
   };
 
   return (
-    <>
-      <style>{`
-        :root {
-          --paper: #fffdf9;
-          --ink: #172033;
-          --accent: #16335b;
-          --accent-soft: #e7eff9;
-          --gold: #b88a2d;
-        }
-
-        body {
-          margin: 0;
-          min-width: 320px;
-          background:
-            radial-gradient(circle at top left, rgba(184, 138, 45, 0.20), transparent 28%),
-            radial-gradient(circle at top right, rgba(22, 51, 91, 0.18), transparent 24%),
-            linear-gradient(180deg, #f7f2e8 0%, #eef4fb 48%, #eef2f7 100%);
-          color: var(--ink);
-        }
-
-        @media print {
-          body {
-            background: #ffffff;
-          }
-
-          .no-print {
-            display: none !important;
-          }
-
-          .print-shell {
-            padding: 0 !important;
-            max-width: none !important;
-          }
-
-          .memo-card {
-            box-shadow: none !important;
-            border: 0 !important;
-            border-radius: 0 !important;
-          }
-
-          .memo-table th,
-          .memo-table td {
-            font-size: 11px !important;
-            padding-top: 8px !important;
-            padding-bottom: 8px !important;
-          }
-        }
-      `}</style>
-
-      <main className="min-h-screen px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
-        <div className="print-shell mx-auto max-w-6xl">
-          <section className="no-print relative overflow-hidden rounded-[32px] border border-white/70 bg-white/72 px-6 py-8 shadow-[0_25px_80px_rgba(15,23,42,0.15)] backdrop-blur sm:px-8 lg:px-12">
-            <div className="absolute inset-y-0 right-0 w-1/3 bg-[radial-gradient(circle_at_top,_rgba(184,138,45,0.18),_transparent_58%)]" />
-
-            <div className="relative grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-              <div>
-                <div className="mb-6 flex items-center gap-4">
-                  <img
-                    src="/mjcet-logo.png"
-                    alt="MJCET Logo"
-                    className="h-16 w-16 rounded-full border border-amber-200 bg-white object-contain p-2 shadow-md"
-                  />
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-700">
-                      Result Verification Portal
-                    </p>
-                    <h1 className="font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
-                      Muffakham Jah College of Engineering & Technology
-                    </h1>
-                  </div>
-                </div>
-
-                <p className="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-                  Students can enter their hall ticket number to view an individual memo with
-                  subject-wise grades, SGPA, and overall result. The displayed memo is formatted for
-                  direct printing or PDF download.
-                </p>
-
-                <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                  <StatCard label="Students" value={totalStudents} />
-                  <StatCard label="Branches" value={totalBranches} />
-                  <StatCard label="Workbook" value="ALL BRANCHES_UPDATE" />
-                </div>
-              </div>
-
-              <div className="rounded-[28px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(247,250,252,0.92))] p-6 shadow-[0_22px_55px_rgba(15,23,42,0.12)]">
-                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-slate-500">
-                  Search Memo
-                </p>
-                <form onSubmit={handleSearch} className="mt-5 space-y-4">
-                  <div>
-                    <label
-                      htmlFor="hallTicket"
-                      className="mb-2 block text-sm font-medium text-slate-600"
-                    >
-                      Hall Ticket Number
-                    </label>
-                    <input
-                      id="hallTicket"
-                      value={query}
-                      onChange={(event) => {
-                        setQuery(event.target.value);
-                        if (error) setError('');
-                      }}
-                      placeholder="Enter hall ticket number"
-                      className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base uppercase tracking-[0.08em] text-slate-900 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full rounded-2xl bg-[linear-gradient(135deg,#16335b,#26558f)] px-4 py-3 text-sm font-semibold uppercase tracking-[0.24em] text-white shadow-[0_16px_35px_rgba(22,51,91,0.28)] transition hover:translate-y-[-1px]"
-                  >
-                    Search Result
-                  </button>
-                </form>
-
-                <p className="mt-4 text-sm text-slate-500">
-                  Example hall ticket: <span className="font-semibold text-slate-700">160425732001</span>
-                </p>
-
-                {error ? (
-                  <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {error}
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                    {activeStudent
-                      ? `Memo loaded for ${activeStudent.name}.`
-                      : 'Search by hall ticket number to load a memo.'}
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-
-          <section className="memo-card mt-8 rounded-[32px] border border-slate-300/70 bg-[var(--paper)] px-4 py-5 shadow-[0_30px_90px_rgba(15,23,42,0.18)] sm:px-8 sm:py-8">
-            {activeStudent ? (
-              <>
-                <div className="border-b border-slate-200 pb-6 text-center">
-                  <img
-                    src="/mjcet-logo.png"
-                    alt="MJCET Seal"
-                    className="mx-auto h-20 w-20 object-contain"
-                  />
-                  <h2 className="mt-4 font-serif text-[1.7rem] font-bold uppercase tracking-[0.04em] text-slate-900 sm:text-[2rem]">
-                    Muffakham Jah College of Engineering & Technology
-                  </h2>
-                  <p className="mt-2 text-sm font-medium uppercase tracking-[0.16em] text-slate-500">
-                    {formatExamLabel(activeStudent)}
-                  </p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">
-                    Published Batch: {activeStudent.publishedOn || 'Result Sheet'}
-                  </p>
-                </div>
-
-                <div className="no-print mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">
-                      Student Memo
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Showing result for hall ticket <span className="font-semibold">{searchedHallTicket}</span>
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handlePrint}
-                    className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-slate-700"
-                  >
-                    Download PDF
-                  </button>
-                </div>
-
-                <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Course</p>
-                    <p className="mt-2 text-lg font-semibold text-slate-900">{activeStudent.course}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Branch</p>
-                    <p className="mt-2 text-lg font-semibold text-slate-900">{activeStudent.branch}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Roll No.</p>
-                    <p className="mt-2 text-lg font-semibold text-slate-900">{activeStudent.hallTicketNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Student Name</p>
-                    <p className="mt-2 text-lg font-semibold text-slate-900">{activeStudent.name}</p>
-                  </div>
-                </div>
-
-                <div className="mt-8 overflow-hidden rounded-[28px] border border-slate-200">
-                  <table className="memo-table min-w-full border-collapse">
-                    <thead className="bg-[var(--accent-soft)] text-left">
-                      <tr>
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Subject Code</th>
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Subject Name</th>
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Credits</th>
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Grade Points</th>
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Grade Secured</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeStudent.subjects.map((subject) => (
-                        <tr key={`${activeStudent.hallTicketNumber}-${subject.subjectCode}`} className="border-t border-slate-200/80">
-                          <td className="px-4 py-3 text-sm font-medium text-slate-700">{subject.subjectCode}</td>
-                          <td className="px-4 py-3 text-sm text-slate-700">{subject.subjectName}</td>
-                          <td className="px-4 py-3 text-sm text-slate-700">{subject.credits}</td>
-                          <td className="px-4 py-3 text-sm text-slate-700">{subject.gradePoints}</td>
-                          <td className="px-4 py-3 text-sm font-semibold text-slate-900">{subject.gradeLetter}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="mt-8 grid gap-4 border-t border-slate-200 pt-6 sm:grid-cols-2">
-                  <div className="rounded-[24px] bg-slate-50 px-5 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-                      Performance
-                    </p>
-                    <p className="mt-2 text-xl font-semibold text-slate-900">{getPerformanceLabel(activeStudent)}</p>
-                  </div>
-                  <div className="rounded-[24px] bg-slate-50 px-5 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-                      Overall Result
-                    </p>
-                    <p className="mt-2 text-xl font-semibold text-slate-900">{activeStudent.overallResult}</p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="py-20 text-center">
-                <img
-                  src="/mjcet-logo.png"
-                  alt="MJCET Logo"
-                  className="mx-auto h-20 w-20 object-contain opacity-70"
-                />
-                <h2 className="mt-5 font-serif text-3xl font-semibold text-slate-800">
-                  Result memo will appear here
-                </h2>
-                <p className="mx-auto mt-3 max-w-xl text-base leading-7 text-slate-500">
-                  Enter a valid hall ticket number in the search box above to display the student
-                  memo in the same format used for examination results.
-                </p>
-              </div>
-            )}
-          </section>
-        </div>
-      </main>
-    </>
+    <Layout activeView={activeView} onViewChange={(view) => {
+      setActiveView(view);
+      setSelectedStudentHTN(null);
+      if (view !== 'fee-entry') setPreSelectedFeeHTN(null);
+    }}>
+      {renderView()}
+    </Layout>
   );
 };
 
-export default App;
+export default function App() {
+  return (
+    <AppProvider>
+      <MainApp />
+    </AppProvider>
+  );
+}
