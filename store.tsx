@@ -381,6 +381,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const parseApiResult = async (res: Response) => {
+    const raw = await res.text();
+    try {
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return { error: raw || `Request failed with status ${res.status}` };
+    }
+  };
+
   const bulkAddStudents = async (newStudents: Student[]) => {
     const CHUNK_SIZE = 15;
     let totalSaved = 0;
@@ -394,7 +403,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ students: chunk }),
         });
-        const result = await res.json();
+        const result = await parseApiResult(res);
         if (!res.ok) throw new Error(result.error || 'Upload failed');
         totalSaved += result.count || chunk.length;
       } catch (err: any) {
@@ -462,7 +471,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transactions: chunk }),
         });
-        const result = await res.json();
+        const result = await parseApiResult(res);
         if (!res.ok) throw new Error(result.error || 'Upload failed');
         totalSaved += result.count || chunk.length;
       } catch (err: any) {

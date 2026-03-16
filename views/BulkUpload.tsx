@@ -275,7 +275,7 @@ export const BulkUpload: React.FC = () => {
         const batchEnd = entryType === 'LATERAL' ? admYearNum + 3 : admYearNum + duration;
         const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || 0;
 
-        const student: Student = {
+        let student: Student = {
           hallTicketNumber: htn,
           name: name.toUpperCase(),
           department: dept,
@@ -395,26 +395,9 @@ export const BulkUpload: React.FC = () => {
 
         if (locker.transactions.length > 0) {
           if (existingStudent) {
-            let finalLockers: YearLocker[];
-            if (mergeMode === 'replace') {
-              finalLockers = [locker];
-            } else {
-              const mergedLockers = [...existingStudent.feeLockers];
-              const existingLockerIdx = mergedLockers.findIndex(l => l.year === feeYear);
-              if (existingLockerIdx >= 0) {
-                mergedLockers[existingLockerIdx] = {
-                  ...mergedLockers[existingLockerIdx],
-                  transactions: [...mergedLockers[existingLockerIdx].transactions, ...locker.transactions]
-                };
-              } else {
-                mergedLockers.push(locker);
-              }
-              finalLockers = mergedLockers;
-            }
-            finalLockers.sort((a, b) => a.year - b.year);
             const studentCopy: Student = {
               ...existingStudent,
-              feeLockers: finalLockers
+              feeLockers: [locker]
             };
             newStudents.push(studentCopy);
           } else {
@@ -479,7 +462,7 @@ export const BulkUpload: React.FC = () => {
         const feeYear = parseInt(feeYearRaw) || currentYearRaw || 1;
         const acYear = `${admYearNum + feeYear - 1}-${(admYearNum + feeYear).toString().slice(-2)}`;
 
-        const student: Student = {
+        let student: Student = {
           hallTicketNumber: htn,
           name: name.toUpperCase(),
           department: dept,
@@ -573,26 +556,13 @@ export const BulkUpload: React.FC = () => {
 
         const existingStudent = students.find(s => s.hallTicketNumber === htn);
         if (existingStudent && mergeMode === 'add') {
-          const mergedLockers = [...existingStudent.feeLockers];
-          for (const newLocker of student.feeLockers) {
-            if (newLocker.transactions.length === 0) {
-              if (!mergedLockers.find(l => l.year === newLocker.year)) {
-                mergedLockers.push(newLocker);
-              }
-              continue;
-            }
-            const existingIdx = mergedLockers.findIndex(l => l.year === newLocker.year);
-            if (existingIdx >= 0) {
-              mergedLockers[existingIdx] = {
-                ...mergedLockers[existingIdx],
-                transactions: [...mergedLockers[existingIdx].transactions, ...newLocker.transactions]
-              };
-            } else {
-              mergedLockers.push(newLocker);
-            }
-          }
-          mergedLockers.sort((a, b) => a.year - b.year);
-          student.feeLockers = mergedLockers;
+          // For existing students, only send the lockers from this upload.
+          // Re-sending the full historical fee history makes fee-sheet uploads unnecessarily heavy.
+          student = {
+            ...existingStudent,
+            ...student,
+            feeLockers: student.feeLockers
+          };
         }
 
         newStudents.push(student);
