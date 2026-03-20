@@ -177,6 +177,45 @@ export async function initDB() {
         AND batch != CONCAT(admission_year, '-', CAST(CAST(admission_year AS INT) + 2 AS TEXT));
       UPDATE students SET current_year = 2
         WHERE entry_type = 'LATERAL' AND current_year = 1;
+      WITH academic_context AS (
+        SELECT CASE
+          WHEN EXTRACT(MONTH FROM CURRENT_DATE) >= 6 THEN EXTRACT(YEAR FROM CURRENT_DATE)::INT
+          ELSE EXTRACT(YEAR FROM CURRENT_DATE)::INT - 1
+        END AS academic_start_year
+      ),
+      normalized_students AS (
+        SELECT
+          hall_ticket_number,
+          CASE
+            WHEN course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS') THEN 2
+            ELSE 4
+          END AS duration,
+          CASE
+            WHEN entry_type = 'LATERAL'
+              THEN GREATEST(2, (SELECT academic_start_year FROM academic_context) - CAST(admission_year AS INT) + 2)
+            ELSE GREATEST(1, (SELECT academic_start_year FROM academic_context) - CAST(admission_year AS INT) + 1)
+          END AS derived_current_year,
+          CASE
+            WHEN entry_type = 'LATERAL'
+              THEN CONCAT(admission_year, '-', CAST(CAST(admission_year AS INT) + CASE
+                WHEN course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS') THEN 2
+                ELSE 3
+              END AS TEXT))
+            ELSE CONCAT(admission_year, '-', CAST(CAST(admission_year AS INT) + CASE
+                WHEN course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS') THEN 2
+                ELSE 4
+              END AS TEXT))
+          END AS derived_batch
+        FROM students
+        WHERE admission_year ~ '^\\d{4}$'
+      )
+      UPDATE students s
+      SET current_year = ns.derived_current_year,
+          batch = ns.derived_batch,
+          updated_at = NOW()
+      FROM normalized_students ns
+      WHERE s.hall_ticket_number = ns.hall_ticket_number
+        AND (s.current_year IS DISTINCT FROM ns.derived_current_year OR s.batch IS DISTINCT FROM ns.derived_batch);
       DELETE FROM year_lockers
         WHERE year = 1 AND student_htn IN (SELECT hall_ticket_number FROM students WHERE entry_type = 'LATERAL');
       SELECT setval('year_lockers_id_seq', COALESCE((SELECT MAX(id) FROM year_lockers), 0) + 1, false);
