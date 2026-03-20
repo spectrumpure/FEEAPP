@@ -151,10 +151,11 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
 
   const getDerivedCurrentYear = (admissionYear: string, duration: number, entryType: 'REGULAR' | 'LATERAL') => {
     const admYear = parseInt(admissionYear, 10);
-    const minYear = entryType === 'LATERAL' ? 2 : 1;
+    const isLateralBE = entryType === 'LATERAL' && duration >= 3;
+    const minYear = isLateralBE ? 2 : 1;
     if (Number.isNaN(admYear)) return minYear;
     const yearOffset = getAcademicStartYear() - admYear + 1;
-    return Math.max(minYear, entryType === 'LATERAL' ? yearOffset + 1 : yearOffset);
+    return Math.max(minYear, isLateralBE ? yearOffset + 1 : yearOffset);
   };
 
   const [departmentFilter, setDepartmentFilter] = useState('');

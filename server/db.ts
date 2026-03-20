@@ -192,6 +192,7 @@ export async function initDB() {
           END AS duration,
           CASE
             WHEN entry_type = 'LATERAL'
+                 AND NOT (course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS'))
               THEN GREATEST(2, (SELECT academic_start_year FROM academic_context) - CAST(admission_year AS INT) + 2)
             ELSE GREATEST(1, (SELECT academic_start_year FROM academic_context) - CAST(admission_year AS INT) + 1)
           END AS derived_current_year,

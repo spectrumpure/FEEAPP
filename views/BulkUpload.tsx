@@ -235,10 +235,11 @@ export const BulkUpload: React.FC = () => {
   };
 
   const getDerivedCurrentYear = (admissionYear: number, entryType: 'REGULAR' | 'LATERAL', duration: number) => {
-    const minYear = entryType === 'LATERAL' ? 2 : 1;
+    const isLateralBE = entryType === 'LATERAL' && duration >= 3;
+    const minYear = isLateralBE ? 2 : 1;
     if (!admissionYear) return minYear;
     const yearOffset = getAcademicStartYear() - admissionYear + 1;
-    return Math.max(minYear, entryType === 'LATERAL' ? yearOffset + 1 : yearOffset);
+    return Math.max(minYear, isLateralBE ? yearOffset + 1 : yearOffset);
   };
 
   const parseFileToRows = (file: File): Promise<string[][]> => {
