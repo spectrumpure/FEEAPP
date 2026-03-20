@@ -142,6 +142,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     return deptMeta?.duration || (course === 'M.E' ? 2 : 4);
   };
 
+  const isCompletedStudent = (student: Pick<Student, 'department' | 'course' | 'currentYear'>) =>
+    student.currentYear > getProgramDuration(student.department, student.course);
+
   const getDerivedBatch = (admissionYear: string, duration: number, entryType: 'REGULAR' | 'LATERAL') => {
     const admYear = parseInt(admissionYear, 10);
     if (Number.isNaN(admYear)) return '';
@@ -800,6 +803,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                 const paid = locker?.transactions.filter(t => t.status === 'APPROVED').reduce((sum, t) => sum + t.amount, 0) || 0;
                 const target = (locker?.tuitionTarget || 0) + (locker?.universityTarget || 0);
                 const progress = target > 0 ? (paid / target) * 100 : 0;
+                const isCompleted = isCompletedStudent(student);
 
                 return (
                   <tr 
@@ -828,6 +832,11 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm font-semibold text-slate-800 uppercase truncate">{student.name}</p>
+                            {isCompleted && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 flex-shrink-0">
+                                COMPLETED
+                              </span>
+                            )}
                             {allRemarks[student.hallTicketNumber] && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setRemarksModalHTN(student.hallTicketNumber); }}
