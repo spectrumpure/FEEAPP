@@ -183,6 +183,51 @@ export const Dashboard: React.FC = () => {
     return `₹${val}`;
   };
 
+  const parsePaymentDate = (dateStr: string | null | undefined): Date | null => {
+    if (!dateStr) return null;
+    const dotMatch = dateStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (dotMatch) return new Date(parseInt(dotMatch[3]), parseInt(dotMatch[2]) - 1, parseInt(dotMatch[1]));
+    const dashMatch = dateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (dashMatch) return new Date(parseInt(dashMatch[3]), parseInt(dashMatch[2]) - 1, parseInt(dashMatch[1]));
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const isValidFinancialYearLabel = (fy: string | null | undefined): fy is string => {
+    if (!fy) return false;
+    const match = fy.trim().match(/^(\d{4})-(\d{2})$/);
+    if (!match) return false;
+    const start = parseInt(match[1], 10);
+    const end = parseInt(match[2], 10);
+    return start >= 2000 && start <= 2100 && ((start + 1) % 100) === end;
+  };
+
+  const getFinancialYearFromDate = (dateStr: string | null | undefined): string | null => {
+    const d = parsePaymentDate(dateStr);
+    if (!d) return null;
+    const y = d.getFullYear();
+    if (y < 2000 || y > 2100) return null;
+    const fyStart = d.getMonth() + 1 >= 4 ? y : y - 1;
+    if (fyStart < 2000 || fyStart > 2100) return null;
+    return `${fyStart}-${(fyStart + 1).toString().slice(-2)}`;
+  };
+
+  const getNormalizedFinancialYear = (tx: { financialYear?: string; paymentDate?: string; academicYear?: string }): string => {
+    const raw = (tx.financialYear || '').trim();
+    if (isValidFinancialYearLabel(raw)) return raw;
+    const derived = getFinancialYearFromDate(tx.paymentDate);
+    if (derived) return derived;
+    const academic = (tx.academicYear || '').trim();
+    if (isValidFinancialYearLabel(academic)) return academic;
+    return 'Unknown';
+  };
+
+  const compareFinancialYears = (a: string, b: string) => {
+    if (a === 'Unknown') return 1;
+    if (b === 'Unknown') return -1;
+    return a.localeCompare(b);
+  };
+
   const filteredStudents = useMemo(() => {
     if (yearFilter === 0) return students;
     return students.filter(s => s.feeLockers.some(l => l.year === yearFilter));
@@ -217,7 +262,7 @@ export const Dashboard: React.FC = () => {
         .filter(l => yearFilter === 0 || l.year === yearFilter)
         .forEach(l => {
           l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-            const fy = t.financialYear || 'Unknown';
+            const fy = getNormalizedFinancialYear(t);
             if (!fyMap[fy]) fyMap[fy] = { tuition: 0, university: 0, other: 0, count: 0 };
             if (t.feeType === 'Tuition') fyMap[fy].tuition += t.amount;
             else if (t.feeType === 'University') fyMap[fy].university += t.amount;
@@ -228,10 +273,10 @@ export const Dashboard: React.FC = () => {
     });
     return Object.entries(fyMap)
       .map(([fy, data]) => ({ fy, ...data, total: data.tuition + data.university + data.other }))
-      .sort((a, b) => a.fy.localeCompare(b.fy));
+      .sort((a, b) => compareFinancialYears(a.fy, b.fy));
   }, [students, filteredStudents, yearFilter]);
 
-  const allFYs = useMemo(() => fyCollectionData.map(d => d.fy), [fyCollectionData]);
+  const allFYs = useMemo(() => fyCollectionData.map(d => d.fy).filter(fy => fy !== 'Unknown'), [fyCollectionData]);
 
   const filteredFYData = useMemo(() => {
     if (fyFilter === 'all') return fyCollectionData;
