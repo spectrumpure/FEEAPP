@@ -4,6 +4,16 @@ import { useApp } from '../store';
 import { Search, ChevronDown, ChevronRight, CheckCircle2, XCircle, Clock, FileText, IndianRupee, Printer, Download, Share2, Calendar, User, StickyNote, Pencil, X, Save } from 'lucide-react';
 import { Student, YearLocker, StudentRemark, FeeTransaction } from '../types';
 
+const getStudentDuration = (student: Pick<Student, 'course' | 'department'>) => {
+  if (student.course === 'M.E' || (student.department || '').startsWith('ME-') || (student.department || '').startsWith('M.E-')) {
+    return 2;
+  }
+  return 4;
+};
+
+const isCompletedStudent = (student: Pick<Student, 'course' | 'department' | 'currentYear'>) =>
+  student.currentYear > getStudentDuration(student);
+
 const YearSummaryCard: React.FC<{ locker: YearLocker; currentYear: number; isCurrent: boolean }> = ({ locker, currentYear, isCurrent }) => {
   const isFuture = locker.year > currentYear;
   const approvedTxs = locker.transactions.filter(t => t.status === 'APPROVED');
@@ -225,7 +235,14 @@ export const FeeLedger: React.FC<{ student: Student; canEdit?: boolean; onDataCh
                   CURRENT YEAR: {student.currentYear}
                 </span>
               </div>
-              <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight leading-none">{student.name}</h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight leading-none">{student.name}</h2>
+                {isCompletedStudent(student) && (
+                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                    Completed
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-400 text-sm font-medium">
                 <span className="flex items-center"><FileText size={14} className="mr-1" /> HTN: <span className="font-mono font-bold text-slate-700 ml-1">{student.hallTicketNumber}</span></span>
                 <span>• {student.department}</span>
