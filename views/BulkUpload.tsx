@@ -234,12 +234,34 @@ export const BulkUpload: React.FC = () => {
     return now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
   };
 
+  const getHallTicketCohortYear = (hallTicketNumber: string, course: 'B.E' | 'M.E') => {
+    if (course !== 'B.E') return null;
+    const match = (hallTicketNumber || '').trim().match(/^\d{4}-(\d{2})-/);
+    if (!match) return null;
+    const year = 2000 + parseInt(match[1], 10);
+    return year >= 2000 && year <= 2100 ? year : null;
+  };
+
   const getDerivedCurrentYear = (admissionYear: number, entryType: 'REGULAR' | 'LATERAL', duration: number) => {
     const isLateralBE = entryType === 'LATERAL' && duration >= 3;
     const minYear = isLateralBE ? 2 : 1;
     if (!admissionYear) return minYear;
     const yearOffset = getAcademicStartYear() - admissionYear + 1;
     return Math.max(minYear, isLateralBE ? yearOffset + 1 : yearOffset);
+  };
+
+  const getDerivedAdmissionYear = (hallTicketNumber: string, admissionYear: number, course: 'B.E' | 'M.E', entryType: 'REGULAR' | 'LATERAL') => {
+    const cohortYear = getHallTicketCohortYear(hallTicketNumber, course);
+    if (cohortYear !== null) {
+      return entryType === 'LATERAL' ? cohortYear + 1 : cohortYear;
+    }
+    return admissionYear;
+  };
+
+  const getDerivedBatch = (hallTicketNumber: string, admissionYear: number, duration: number, course: 'B.E' | 'M.E', entryType: 'REGULAR' | 'LATERAL') => {
+    const cohortYear = getHallTicketCohortYear(hallTicketNumber, course);
+    const batchStart = cohortYear ?? (entryType === 'LATERAL' && course === 'B.E' ? admissionYear - 1 : admissionYear);
+    return `${batchStart}-${batchStart + duration}`;
   };
 
   const parseFileToRows = (file: File): Promise<string[][]> => {
@@ -294,13 +316,14 @@ export const BulkUpload: React.FC = () => {
         const deptInfo = departments.find(d => d.code === dept || d.name === dept || d.code.toUpperCase() === dept.toUpperCase());
         const isME = deptInfo?.courseType === 'M.E' || dept.startsWith('ME-');
         const duration = deptInfo?.duration || (isME ? 2 : 4);
-        const admYear = getCol(row, mapping, 'admission_year') || '2025';
-        const admYearNum = parseInt(admYear) || 2025;
+        const rawAdmYear = getCol(row, mapping, 'admission_year') || '2025';
+        const baseAdmYearNum = parseInt(rawAdmYear) || 2025;
         const entryTypeRaw = getCol(row, mapping, 'entry_type').toUpperCase();
         const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw.includes('LATERAL') ? 'LATERAL' : 'REGULAR';
         const isLateralBE = entryType === 'LATERAL' && !isME;
-        const batchEnd = isLateralBE ? admYearNum + 3 : admYearNum + duration;
+        const admYearNum = getDerivedAdmissionYear(htn, baseAdmYearNum, isME ? 'M.E' : 'B.E', entryType);
         const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || getDerivedCurrentYear(admYearNum, entryType, duration);
+        const batch = getDerivedBatch(htn, admYearNum, duration, isME ? 'M.E' : 'B.E', entryType);
 
         let student: Student = {
           hallTicketNumber: htn,
@@ -315,20 +338,20 @@ export const BulkUpload: React.FC = () => {
           motherName: getCol(row, mapping, 'mother_name').toUpperCase(),
           address: getCol(row, mapping, 'address'),
           aadhaarNumber: getCol(row, mapping, 'aadhaar'),
-          admissionYear: admYear,
+          admissionYear: String(admYearNum),
           entryType,
           course: isME ? 'M.E' : 'B.E',
           specialization: 'General',
           section: 'A',
           currentYear: currentYearRaw,
-          batch: `${admYear}-${batchEnd}`,
+          batch,
           feeLockers: []
         };
 
         if (currentYearRaw > 0) {
           const startYear = isLateralBE ? 2 : 1;
           for (let y = startYear; y <= Math.min(currentYearRaw, duration); y++) {
-            const targets = getFeeTargets(dept, y, entryType, admYear);
+            const targets = getFeeTargets(dept, y, entryType, String(admYearNum));
             student.feeLockers.push({
               year: y,
               tuitionTarget: targets.tuition,
@@ -479,16 +502,17 @@ export const BulkUpload: React.FC = () => {
         const deptInfo = departments.find(d => d.code === dept || d.name === dept || d.code.toUpperCase() === dept.toUpperCase());
         const isME = deptInfo?.courseType === 'M.E' || dept.startsWith('ME-');
         const duration = deptInfo?.duration || (isME ? 2 : 4);
-        const admYear = getCol(row, mapping, 'admission_year') || '2025';
-        const admYearNum = parseInt(admYear) || 2025;
+        const rawAdmYear = getCol(row, mapping, 'admission_year') || '2025';
+        const baseAdmYearNum = parseInt(rawAdmYear) || 2025;
         const entryTypeRaw = getCol(row, mapping, 'entry_type').toUpperCase();
         const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw.includes('LATERAL') ? 'LATERAL' : 'REGULAR';
         const isLateralBE = entryType === 'LATERAL' && !isME;
-        const batchEnd = isLateralBE ? admYearNum + 3 : admYearNum + duration;
+        const admYearNum = getDerivedAdmissionYear(htn, baseAdmYearNum, isME ? 'M.E' : 'B.E', entryType);
         const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || getDerivedCurrentYear(admYearNum, entryType, duration);
         const feeYearRaw = getCol(row, mapping, 'fee_year');
         const feeYear = parseInt(feeYearRaw) || currentYearRaw || 1;
         const acYear = `${admYearNum + feeYear - 1}-${(admYearNum + feeYear).toString().slice(-2)}`;
+        const batch = getDerivedBatch(htn, admYearNum, duration, isME ? 'M.E' : 'B.E', entryType);
 
         let student: Student = {
           hallTicketNumber: htn,
@@ -503,17 +527,17 @@ export const BulkUpload: React.FC = () => {
           motherName: getCol(row, mapping, 'mother_name').toUpperCase(),
           address: getCol(row, mapping, 'address'),
           aadhaarNumber: getCol(row, mapping, 'aadhaar'),
-          admissionYear: admYear,
+          admissionYear: String(admYearNum),
           entryType,
           course: isME ? 'M.E' : 'B.E',
           specialization: 'General',
           section: 'A',
           currentYear: currentYearRaw || feeYear,
-          batch: `${admYear}-${batchEnd}`,
+          batch,
           feeLockers: []
         };
 
-        const targets = getFeeTargets(dept, feeYear, entryType, admYear);
+        const targets = getFeeTargets(dept, feeYear, entryType, String(admYearNum));
         const locker: YearLocker = {
           year: feeYear,
           tuitionTarget: targets.tuition,
@@ -568,7 +592,7 @@ export const BulkUpload: React.FC = () => {
           const startYear = isLateralBE ? 2 : 1;
           for (let y = startYear; y <= Math.min(currentYearRaw, duration); y++) {
             if (y === feeYear) continue;
-            const yTargets = getFeeTargets(dept, y, entryType, admYear);
+            const yTargets = getFeeTargets(dept, y, entryType, String(admYearNum));
             student.feeLockers.push({
               year: y,
               tuitionTarget: yTargets.tuition,
@@ -619,12 +643,12 @@ export const BulkUpload: React.FC = () => {
         const deptInfo = departments.find(d => d.code === dept || d.name === dept || d.code.toUpperCase() === dept.toUpperCase());
         const isME = deptInfo?.courseType === 'M.E' || dept.startsWith('ME-');
         const duration = deptInfo?.duration || (isME ? 2 : 4);
-        const admYear = getCol(row, mapping, 'admission_year') || '2025';
-        const admYearNum = parseInt(admYear) || 2025;
+        const rawAdmYear = getCol(row, mapping, 'admission_year') || '2025';
+        const baseAdmYearNum = parseInt(rawAdmYear) || 2025;
         const entryTypeRaw = getCol(row, mapping, 'entry_type').toUpperCase();
         const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw.includes('LATERAL') ? 'LATERAL' : 'REGULAR';
         const isLateralBE = entryType === 'LATERAL' && !isME;
-        const batchEnd = isLateralBE ? admYearNum + 3 : admYearNum + duration;
+        const admYearNum = getDerivedAdmissionYear(htn, baseAdmYearNum, isME ? 'M.E' : 'B.E', entryType);
         const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || getDerivedCurrentYear(admYearNum, entryType, duration);
         const admissionCat = getCol(row, mapping, 'mode_of_admission').toUpperCase() || 'TSMFC';
 
@@ -639,7 +663,7 @@ export const BulkUpload: React.FC = () => {
           const tuiFee = cols.tuitionIdx >= 0 && cols.tuitionIdx < row.length ? (parseFloat(String(row[cols.tuitionIdx]).replace(/,/g, '')) || 0) : 0;
           const uniFee = cols.universityIdx >= 0 && cols.universityIdx < row.length ? (parseFloat(String(row[cols.universityIdx]).replace(/,/g, '')) || 0) : 0;
 
-          const targets = getFeeTargets(dept, yr, entryType, admYear);
+          const targets = getFeeTargets(dept, yr, entryType, String(admYearNum));
           const acYear = `${admYearNum + yr - 1}-${(admYearNum + yr).toString().slice(-2)}`;
 
           const locker: YearLocker = {
@@ -732,7 +756,7 @@ export const BulkUpload: React.FC = () => {
             motherName: getCol(row, mapping, 'mother_name').toUpperCase(),
             address: getCol(row, mapping, 'address'),
             aadhaarNumber: getCol(row, mapping, 'aadhaar'),
-            admissionYear: admYear,
+            admissionYear: String(admYearNum),
             entryType,
             course: isME ? 'M.E' : 'B.E',
             specialization: 'General',
@@ -743,7 +767,7 @@ export const BulkUpload: React.FC = () => {
               const ui = c.universityIdx >= 0 && c.universityIdx < row.length ? (parseFloat(String(row[c.universityIdx]).replace(/,/g, '')) || 0) : 0;
               return ti > 0 || ui > 0;
             }), 1),
-            batch: `${admYear}-${batchEnd}`,
+            batch: getDerivedBatch(htn, admYearNum, duration, isME ? 'M.E' : 'B.E', entryType),
             feeLockers: feeLockers.sort((a, b) => a.year - b.year)
           };
           newStudents.push(student);

@@ -188,36 +188,99 @@ export async function initDB() {
         SELECT
           hall_ticket_number,
           CASE
+            WHEN course != 'M.E' AND hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-'
+              THEN 2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT)
+            ELSE NULL
+          END AS cohort_start_year,
+          CASE
             WHEN course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS') THEN 2
             ELSE 4
           END AS duration,
           CASE
+            WHEN course != 'M.E' AND entry_type = 'LATERAL' AND hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-'
+              THEN CAST((2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT) + 1) AS TEXT)
+            WHEN course != 'M.E' AND hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-'
+              THEN CAST((2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT)) AS TEXT)
+            ELSE admission_year
+          END AS derived_admission_year,
+          CASE
             WHEN entry_type = 'LATERAL'
                  AND NOT (course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS'))
-              THEN GREATEST(2, (SELECT academic_start_year FROM academic_context) - CAST(admission_year AS INT) + 2)
-            ELSE GREATEST(1, (SELECT academic_start_year FROM academic_context) - CAST(admission_year AS INT) + 1)
+              THEN GREATEST(2, (SELECT academic_start_year FROM academic_context) - (
+                CASE
+                  WHEN hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-' THEN 2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT) + 1
+                  ELSE CAST(admission_year AS INT)
+                END
+              ) + 2)
+            ELSE GREATEST(1, (SELECT academic_start_year FROM academic_context) - (
+                CASE
+                  WHEN course != 'M.E' AND hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-' AND entry_type != 'LATERAL'
+                    THEN 2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT)
+                  ELSE CAST(admission_year AS INT)
+                END
+              ) + 1)
           END AS derived_current_year,
           CASE
             WHEN entry_type = 'LATERAL'
-              THEN CONCAT(admission_year, '-', CAST(CAST(admission_year AS INT) + CASE
-                WHEN course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS') THEN 2
-                ELSE 3
-              END AS TEXT))
-            ELSE CONCAT(admission_year, '-', CAST(CAST(admission_year AS INT) + CASE
-                WHEN course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS') THEN 2
-                ELSE 4
-              END AS TEXT))
+              THEN CONCAT(
+                COALESCE(
+                  CAST(
+                    CASE
+                      WHEN course != 'M.E' AND hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-' THEN 2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT)
+                      ELSE CAST(admission_year AS INT) - 1
+                    END AS TEXT
+                  ),
+                  admission_year
+                ),
+                '-',
+                CAST(
+                  CASE
+                    WHEN course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS') THEN
+                      CASE
+                        WHEN hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-' THEN (2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT)) + 2
+                        ELSE CAST(admission_year AS INT) + 2
+                      END
+                    ELSE
+                      CASE
+                        WHEN hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-' THEN (2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT)) + 4
+                        ELSE CAST(admission_year AS INT) + 3
+                      END
+                  END AS TEXT
+                )
+              )
+            ELSE CONCAT(
+                CASE
+                  WHEN course != 'M.E' AND hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-' THEN 2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT)
+                  ELSE CAST(admission_year AS INT)
+                END,
+                '-',
+                CAST(
+                  CASE
+                    WHEN course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS') THEN
+                      CASE
+                        WHEN hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-' AND course != 'M.E' THEN (2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT)) + 2
+                        ELSE CAST(admission_year AS INT) + 2
+                      END
+                    ELSE
+                      CASE
+                        WHEN hall_ticket_number ~ '^[0-9]{4}-[0-9]{2}-' THEN (2000 + CAST(SPLIT_PART(hall_ticket_number, '-', 2) AS INT)) + 4
+                        ELSE CAST(admission_year AS INT) + 4
+                      END
+                  END AS TEXT
+                )
+              )
           END AS derived_batch
         FROM students
         WHERE admission_year ~ '^\\d{4}$'
       )
       UPDATE students s
-      SET current_year = ns.derived_current_year,
+      SET admission_year = ns.derived_admission_year,
+          current_year = ns.derived_current_year,
           batch = ns.derived_batch,
           updated_at = NOW()
       FROM normalized_students ns
       WHERE s.hall_ticket_number = ns.hall_ticket_number
-        AND (s.current_year IS DISTINCT FROM ns.derived_current_year OR s.batch IS DISTINCT FROM ns.derived_batch);
+        AND (s.admission_year IS DISTINCT FROM ns.derived_admission_year OR s.current_year IS DISTINCT FROM ns.derived_current_year OR s.batch IS DISTINCT FROM ns.derived_batch);
       DELETE FROM year_lockers
         WHERE year = 1 AND student_htn IN (
           SELECT hall_ticket_number FROM students

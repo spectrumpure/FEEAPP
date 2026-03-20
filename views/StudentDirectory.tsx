@@ -142,14 +142,32 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     return deptMeta?.duration || (course === 'M.E' ? 2 : 4);
   };
 
+  const getHallTicketCohortYear = (hallTicketNumber: string, course: CourseType) => {
+    if (course !== 'B.E') return null;
+    const match = (hallTicketNumber || '').trim().match(/^\d{4}-(\d{2})-/);
+    if (!match) return null;
+    const year = 2000 + parseInt(match[1], 10);
+    return year >= 2000 && year <= 2100 ? year : null;
+  };
+
   const isCompletedStudent = (student: Pick<Student, 'department' | 'course' | 'currentYear'>) =>
     student.currentYear > getProgramDuration(student.department, student.course);
 
-  const getDerivedBatch = (admissionYear: string, duration: number, entryType: 'REGULAR' | 'LATERAL') => {
+  const getDerivedAdmissionYear = (hallTicketNumber: string, admissionYear: string, course: CourseType, entryType: 'REGULAR' | 'LATERAL') => {
+    const cohortYear = getHallTicketCohortYear(hallTicketNumber, course);
+    if (cohortYear !== null) {
+      if (entryType === 'LATERAL') return String(cohortYear + 1);
+      return String(cohortYear);
+    }
+    return admissionYear;
+  };
+
+  const getDerivedBatch = (hallTicketNumber: string, admissionYear: string, duration: number, course: CourseType, entryType: 'REGULAR' | 'LATERAL') => {
+    const cohortYear = getHallTicketCohortYear(hallTicketNumber, course);
     const admYear = parseInt(admissionYear, 10);
-    if (Number.isNaN(admYear)) return '';
-    const effectiveDuration = entryType === 'LATERAL' && duration >= 3 ? duration - 1 : duration;
-    return `${admYear}-${admYear + effectiveDuration}`;
+    const batchStart = cohortYear ?? (Number.isNaN(admYear) ? null : (entryType === 'LATERAL' && course === 'B.E' ? admYear - 1 : admYear));
+    if (batchStart === null) return '';
+    return `${batchStart}-${batchStart + duration}`;
   };
 
   const getDerivedCurrentYear = (admissionYear: string, duration: number, entryType: 'REGULAR' | 'LATERAL') => {
@@ -168,20 +186,22 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     const deptMeta = getSelectedDeptMeta(formData.department);
     const nextCourse = (deptMeta?.courseType as CourseType | undefined) || formData.course;
     const duration = getProgramDuration(formData.department, nextCourse);
-    const nextBatch = getDerivedBatch(formData.admissionYear, duration, formData.entryType);
-    const nextCurrentYear = getDerivedCurrentYear(formData.admissionYear, duration, formData.entryType);
+    const nextAdmissionYear = getDerivedAdmissionYear(formData.hallTicketNumber, formData.admissionYear, nextCourse, formData.entryType);
+    const nextBatch = getDerivedBatch(formData.hallTicketNumber, nextAdmissionYear, duration, nextCourse, formData.entryType);
+    const nextCurrentYear = getDerivedCurrentYear(nextAdmissionYear, duration, formData.entryType);
     setFormData(prev => {
-      if (prev.course === nextCourse && prev.batch === nextBatch && prev.currentYear === nextCurrentYear) {
+      if (prev.course === nextCourse && prev.admissionYear === nextAdmissionYear && prev.batch === nextBatch && prev.currentYear === nextCurrentYear) {
         return prev;
       }
       return {
         ...prev,
         course: nextCourse,
+        admissionYear: nextAdmissionYear,
         batch: nextBatch,
         currentYear: nextCurrentYear,
       };
     });
-  }, [formData.admissionYear, formData.department, formData.entryType, departments]);
+  }, [formData.hallTicketNumber, formData.admissionYear, formData.department, formData.entryType, departments]);
 
 
   const filteredStudents = students.filter(s => {
