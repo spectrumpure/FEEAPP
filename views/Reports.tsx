@@ -121,6 +121,41 @@ const parsePaymentDate = (dateStr: string | null | undefined): Date | null => {
   return isNaN(d.getTime()) ? null : d;
 };
 
+const isValidFinancialYearLabel = (fy: string | null | undefined): fy is string => {
+  if (!fy) return false;
+  const match = fy.trim().match(/^(\d{4})-(\d{2})$/);
+  if (!match) return false;
+  const start = parseInt(match[1], 10);
+  const end = parseInt(match[2], 10);
+  return start >= 2000 && start <= 2100 && ((start + 1) % 100) === end;
+};
+
+const getFinancialYearFromDate = (dateStr: string | null | undefined): string | null => {
+  const d = parsePaymentDate(dateStr);
+  if (!d) return null;
+  const y = d.getFullYear();
+  if (y < 2000 || y > 2100) return null;
+  const fyStart = d.getMonth() + 1 >= 4 ? y : y - 1;
+  if (fyStart < 2000 || fyStart > 2100) return null;
+  return `${fyStart}-${(fyStart + 1).toString().slice(-2)}`;
+};
+
+const getNormalizedFinancialYear = (tx: { financialYear?: string; paymentDate?: string; academicYear?: string }): string => {
+  const raw = (tx.financialYear || '').trim();
+  if (isValidFinancialYearLabel(raw)) return raw;
+  const derived = getFinancialYearFromDate(tx.paymentDate);
+  if (derived) return derived;
+  const academic = (tx.academicYear || '').trim();
+  if (isValidFinancialYearLabel(academic)) return academic;
+  return 'Unknown';
+};
+
+const compareFinancialYears = (a: string, b: string) => {
+  if (a === 'Unknown') return 1;
+  if (b === 'Unknown') return -1;
+  return a.localeCompare(b);
+};
+
 const matchesDept = (studentDept: string, dept: { name: string; code: string }) =>
   !!studentDept && normalizeDepartment(studentDept) === normalizeDepartment(dept.code);
 
@@ -257,7 +292,7 @@ export const Reports: React.FC<ReportsProps> = ({
     value: batch,
     count: students.filter(s => getDisplayBatch(s) === batch).length,
   }));
-  const allFinYears = Array.from(new Set(transactions.map(t => t.financialYear))).filter(Boolean).sort();
+  const allFinYears = Array.from(new Set(transactions.map(t => getNormalizedFinancialYear(t)))).filter(fy => fy && fy !== 'Unknown').sort(compareFinancialYears);
   const allCategories = Array.from(new Set(
     students
       .map(s => normalizeAdmissionCategory(s.admissionCategory))
@@ -493,7 +528,7 @@ export const Reports: React.FC<ReportsProps> = ({
       const bucket = getAdmissionCategoryBucket(s.admissionCategory);
       s.feeLockers.forEach(l => {
         l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
-          const fy = t.financialYear || 'Unknown';
+          const fy = getNormalizedFinancialYear(t);
           if (!grouped[fy]) {
             grouped[fy] = {
               tuition: 0, university: 0, other: 0, count: 0,
@@ -537,14 +572,14 @@ export const Reports: React.FC<ReportsProps> = ({
       mgmtAmount: data.mgmtAmount,
       tsmfcAmount: data.tsmfcAmount,
       otherAmount: data.otherAmount,
-    })).sort((a, b) => a.financialYear.localeCompare(b.financialYear));
+    })).sort((a, b) => compareFinancialYears(a.financialYear, b.financialYear));
   };
 
   const getStudentsForFY = (fy: string) => {
     const studentMap: Record<string, { htn: string; name: string; department: string; batch: string; tuition: number; university: number; other: number; total: number; txCount: number }> = {};
     students.forEach(s => {
       s.feeLockers.forEach(l => {
-        l.transactions.filter(t => t.status === 'APPROVED' && (t.financialYear || 'Unknown') === fy).forEach(t => {
+        l.transactions.filter(t => t.status === 'APPROVED' && getNormalizedFinancialYear(t) === fy).forEach(t => {
           const key = s.hallTicketNumber;
           if (!studentMap[key]) {
             studentMap[key] = {

@@ -192,6 +192,17 @@ export const BulkUpload: React.FC = () => {
   const normalizeDate = (raw: string): string => {
     if (!raw) return '';
     const cleaned = String(raw).trim();
+    if (/^\d{5,6}$/.test(cleaned)) {
+      const serial = parseInt(cleaned, 10);
+      if (!Number.isNaN(serial) && serial > 30000 && serial < 80000) {
+        const excelEpoch = Date.UTC(1899, 11, 30);
+        const d = new Date(excelEpoch + serial * 86400000);
+        const y = d.getUTCFullYear();
+        if (y >= 2000 && y <= 2100) {
+          return d.toISOString().split('T')[0];
+        }
+      }
+    }
     const formats = [
       /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/,
       /^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/,
@@ -200,11 +211,13 @@ export const BulkUpload: React.FC = () => {
       const m = cleaned.match(fmt);
       if (m) {
         const d = new Date(cleaned);
-        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+        const y = d.getFullYear();
+        if (!isNaN(d.getTime()) && y >= 2000 && y <= 2100) return d.toISOString().split('T')[0];
       }
     }
     const d = new Date(cleaned);
-    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    const y = d.getFullYear();
+    if (!isNaN(d.getTime()) && y >= 2000 && y <= 2100) return d.toISOString().split('T')[0];
     return '';
   };
 
