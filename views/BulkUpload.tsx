@@ -298,7 +298,8 @@ export const BulkUpload: React.FC = () => {
         const admYearNum = parseInt(admYear) || 2025;
         const entryTypeRaw = getCol(row, mapping, 'entry_type').toUpperCase();
         const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw.includes('LATERAL') ? 'LATERAL' : 'REGULAR';
-        const batchEnd = entryType === 'LATERAL' ? admYearNum + 3 : admYearNum + duration;
+        const isLateralBE = entryType === 'LATERAL' && !isME;
+        const batchEnd = isLateralBE ? admYearNum + 3 : admYearNum + duration;
         const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || getDerivedCurrentYear(admYearNum, entryType, duration);
 
         let student: Student = {
@@ -325,7 +326,7 @@ export const BulkUpload: React.FC = () => {
         };
 
         if (currentYearRaw > 0) {
-          const startYear = entryType === 'LATERAL' ? 2 : 1;
+          const startYear = isLateralBE ? 2 : 1;
           for (let y = startYear; y <= Math.min(currentYearRaw, duration); y++) {
             const targets = getFeeTargets(dept, y, entryType, admYear);
             student.feeLockers.push({
@@ -482,7 +483,8 @@ export const BulkUpload: React.FC = () => {
         const admYearNum = parseInt(admYear) || 2025;
         const entryTypeRaw = getCol(row, mapping, 'entry_type').toUpperCase();
         const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw.includes('LATERAL') ? 'LATERAL' : 'REGULAR';
-        const batchEnd = entryType === 'LATERAL' ? admYearNum + 3 : admYearNum + duration;
+        const isLateralBE = entryType === 'LATERAL' && !isME;
+        const batchEnd = isLateralBE ? admYearNum + 3 : admYearNum + duration;
         const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || getDerivedCurrentYear(admYearNum, entryType, duration);
         const feeYearRaw = getCol(row, mapping, 'fee_year');
         const feeYear = parseInt(feeYearRaw) || currentYearRaw || 1;
@@ -563,7 +565,7 @@ export const BulkUpload: React.FC = () => {
         }
 
         if (currentYearRaw > 0) {
-          const startYear = entryType === 'LATERAL' ? 2 : 1;
+          const startYear = isLateralBE ? 2 : 1;
           for (let y = startYear; y <= Math.min(currentYearRaw, duration); y++) {
             if (y === feeYear) continue;
             const yTargets = getFeeTargets(dept, y, entryType, admYear);
@@ -621,7 +623,8 @@ export const BulkUpload: React.FC = () => {
         const admYearNum = parseInt(admYear) || 2025;
         const entryTypeRaw = getCol(row, mapping, 'entry_type').toUpperCase();
         const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw.includes('LATERAL') ? 'LATERAL' : 'REGULAR';
-        const batchEnd = entryType === 'LATERAL' ? admYearNum + 3 : admYearNum + duration;
+        const isLateralBE = entryType === 'LATERAL' && !isME;
+        const batchEnd = isLateralBE ? admYearNum + 3 : admYearNum + duration;
         const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || getDerivedCurrentYear(admYearNum, entryType, duration);
         const admissionCat = getCol(row, mapping, 'mode_of_admission').toUpperCase() || 'TSMFC';
 

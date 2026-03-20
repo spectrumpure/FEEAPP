@@ -176,7 +176,8 @@ export async function initDB() {
         AND admission_year ~ '^\d{4}$'
         AND batch != CONCAT(admission_year, '-', CAST(CAST(admission_year AS INT) + 2 AS TEXT));
       UPDATE students SET current_year = 2
-        WHERE entry_type = 'LATERAL' AND current_year = 1;
+        WHERE entry_type = 'LATERAL' AND current_year = 1
+          AND NOT (course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS'));
       WITH academic_context AS (
         SELECT CASE
           WHEN EXTRACT(MONTH FROM CURRENT_DATE) >= 6 THEN EXTRACT(YEAR FROM CURRENT_DATE)::INT
@@ -218,7 +219,11 @@ export async function initDB() {
       WHERE s.hall_ticket_number = ns.hall_ticket_number
         AND (s.current_year IS DISTINCT FROM ns.derived_current_year OR s.batch IS DISTINCT FROM ns.derived_batch);
       DELETE FROM year_lockers
-        WHERE year = 1 AND student_htn IN (SELECT hall_ticket_number FROM students WHERE entry_type = 'LATERAL');
+        WHERE year = 1 AND student_htn IN (
+          SELECT hall_ticket_number FROM students
+          WHERE entry_type = 'LATERAL'
+            AND NOT (course = 'M.E' OR department IN ('ME-CADCAM', 'ME-CSE', 'ME-STRUCT', 'ME-VLSI', 'M.E-PES', 'M.E-DS'))
+        );
       SELECT setval('year_lockers_id_seq', COALESCE((SELECT MAX(id) FROM year_lockers), 0) + 1, false);
     `);
 

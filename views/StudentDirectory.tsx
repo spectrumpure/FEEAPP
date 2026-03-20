@@ -235,7 +235,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         return;
       }
       const duration = getProgramDuration(formData.department, formData.course);
-      const startYear = formData.entryType === 'LATERAL' ? 2 : 1;
+      const isLateralBE = formData.entryType === 'LATERAL' && formData.course === 'B.E';
+      const startYear = isLateralBE ? 2 : 1;
       const endYear = Math.min(formData.currentYear, duration);
       const feeLockers: YearLocker[] = [];
       for (let year = startYear; year <= endYear; year++) {
