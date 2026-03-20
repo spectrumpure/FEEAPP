@@ -229,6 +229,18 @@ export const BulkUpload: React.FC = () => {
     return month >= 4 ? `${year}-${(year + 1).toString().slice(-2)}` : `${year - 1}-${year.toString().slice(-2)}`;
   };
 
+  const getAcademicStartYear = () => {
+    const now = new Date();
+    return now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
+  };
+
+  const getDerivedCurrentYear = (admissionYear: number, entryType: 'REGULAR' | 'LATERAL', duration: number) => {
+    const minYear = entryType === 'LATERAL' ? 2 : 1;
+    if (!admissionYear) return minYear;
+    const yearOffset = getAcademicStartYear() - admissionYear + 1;
+    return Math.max(minYear, entryType === 'LATERAL' ? yearOffset + 1 : yearOffset);
+  };
+
   const parseFileToRows = (file: File): Promise<string[][]> => {
     return new Promise((resolve, reject) => {
       const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
@@ -286,7 +298,7 @@ export const BulkUpload: React.FC = () => {
         const entryTypeRaw = getCol(row, mapping, 'entry_type').toUpperCase();
         const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw.includes('LATERAL') ? 'LATERAL' : 'REGULAR';
         const batchEnd = entryType === 'LATERAL' ? admYearNum + 3 : admYearNum + duration;
-        const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || 0;
+        const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || getDerivedCurrentYear(admYearNum, entryType, duration);
 
         let student: Student = {
           hallTicketNumber: htn,
@@ -306,7 +318,7 @@ export const BulkUpload: React.FC = () => {
           course: isME ? 'M.E' : 'B.E',
           specialization: 'General',
           section: 'A',
-          currentYear: currentYearRaw || 1,
+          currentYear: currentYearRaw,
           batch: `${admYear}-${batchEnd}`,
           feeLockers: []
         };
@@ -470,7 +482,7 @@ export const BulkUpload: React.FC = () => {
         const entryTypeRaw = getCol(row, mapping, 'entry_type').toUpperCase();
         const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw.includes('LATERAL') ? 'LATERAL' : 'REGULAR';
         const batchEnd = entryType === 'LATERAL' ? admYearNum + 3 : admYearNum + duration;
-        const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || 0;
+        const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || getDerivedCurrentYear(admYearNum, entryType, duration);
         const feeYearRaw = getCol(row, mapping, 'fee_year');
         const feeYear = parseInt(feeYearRaw) || currentYearRaw || 1;
         const acYear = `${admYearNum + feeYear - 1}-${(admYearNum + feeYear).toString().slice(-2)}`;
@@ -609,7 +621,7 @@ export const BulkUpload: React.FC = () => {
         const entryTypeRaw = getCol(row, mapping, 'entry_type').toUpperCase();
         const entryType: 'REGULAR' | 'LATERAL' = entryTypeRaw.includes('LATERAL') ? 'LATERAL' : 'REGULAR';
         const batchEnd = entryType === 'LATERAL' ? admYearNum + 3 : admYearNum + duration;
-        const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || 0;
+        const currentYearRaw = parseInt(getCol(row, mapping, 'current_year')) || getDerivedCurrentYear(admYearNum, entryType, duration);
         const admissionCat = getCol(row, mapping, 'mode_of_admission').toUpperCase() || 'TSMFC';
 
         const existingStudent = students.find(s => (s.hallTicketNumber || '').toLowerCase() === htn.toLowerCase());

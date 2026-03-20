@@ -129,8 +129,55 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
     entryType: 'REGULAR' as 'REGULAR' | 'LATERAL'
   });
 
+  const getAcademicStartYear = () => {
+    const now = new Date();
+    return now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
+  };
+
+  const getSelectedDeptMeta = (department: string) =>
+    departments.find(d => d.name === department || d.code === department);
+
+  const getProgramDuration = (department: string, course: CourseType) => {
+    const deptMeta = getSelectedDeptMeta(department);
+    return deptMeta?.duration || (course === 'M.E' ? 2 : 4);
+  };
+
+  const getDerivedBatch = (admissionYear: string, duration: number, entryType: 'REGULAR' | 'LATERAL') => {
+    const admYear = parseInt(admissionYear, 10);
+    if (Number.isNaN(admYear)) return '';
+    const effectiveDuration = entryType === 'LATERAL' && duration >= 3 ? duration - 1 : duration;
+    return `${admYear}-${admYear + effectiveDuration}`;
+  };
+
+  const getDerivedCurrentYear = (admissionYear: string, duration: number, entryType: 'REGULAR' | 'LATERAL') => {
+    const admYear = parseInt(admissionYear, 10);
+    const minYear = entryType === 'LATERAL' ? 2 : 1;
+    if (Number.isNaN(admYear)) return minYear;
+    const yearOffset = getAcademicStartYear() - admYear + 1;
+    return Math.max(minYear, entryType === 'LATERAL' ? yearOffset + 1 : yearOffset);
+  };
+
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [yearFilter, setYearFilter] = useState('');
+
+  useEffect(() => {
+    const deptMeta = getSelectedDeptMeta(formData.department);
+    const nextCourse = (deptMeta?.courseType as CourseType | undefined) || formData.course;
+    const duration = getProgramDuration(formData.department, nextCourse);
+    const nextBatch = getDerivedBatch(formData.admissionYear, duration, formData.entryType);
+    const nextCurrentYear = getDerivedCurrentYear(formData.admissionYear, duration, formData.entryType);
+    setFormData(prev => {
+      if (prev.course === nextCourse && prev.batch === nextBatch && prev.currentYear === nextCurrentYear) {
+        return prev;
+      }
+      return {
+        ...prev,
+        course: nextCourse,
+        batch: nextBatch,
+        currentYear: nextCurrentYear,
+      };
+    });
+  }, [formData.admissionYear, formData.department, formData.entryType, departments]);
 
 
   const filteredStudents = students.filter(s => {
@@ -186,16 +233,21 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
         alert("Error: Roll Number already exists!");
         return;
       }
+      const duration = getProgramDuration(formData.department, formData.course);
       const startYear = formData.entryType === 'LATERAL' ? 2 : 1;
-      const manualTargets = getFeeTargets(formData.department, startYear, formData.entryType, formData.admissionYear);
-      const locker: YearLocker = {
-        year: startYear,
-        tuitionTarget: manualTargets.tuition,
-        universityTarget: manualTargets.university,
-        otherTarget: 0,
-        transactions: []
-      };
-      addStudent({ ...formData, feeLockers: [locker] });
+      const endYear = Math.min(formData.currentYear, duration);
+      const feeLockers: YearLocker[] = [];
+      for (let year = startYear; year <= endYear; year++) {
+        const manualTargets = getFeeTargets(formData.department, year, formData.entryType, formData.admissionYear);
+        feeLockers.push({
+          year,
+          tuitionTarget: manualTargets.tuition,
+          universityTarget: manualTargets.university,
+          otherTarget: 0,
+          transactions: []
+        });
+      }
+      addStudent({ ...formData, feeLockers });
       alert(`Success: Student ${formData.name} registered successfully.`);
     }
     
@@ -1047,7 +1099,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onFeeEntry, 
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Batch</label>
-                    <input type="text" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" value={formData.batch} onChange={(e) => setFormData({...formData, batch: e.target.value})} />
+                    <input type="text" readOnly className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none" value={formData.batch} />
                   </div>
                 </div>
               </div>
