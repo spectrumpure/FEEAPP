@@ -528,6 +528,8 @@ export const Reports: React.FC<ReportsProps> = ({
   };
 
   const getFinancialYearData = () => {
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
     const grouped: Record<string, {
       tuition: number; university: number; other: number; count: number;
       convAmount: number; mgmtAmount: number; tsmfcAmount: number; otherAmount: number;
@@ -536,7 +538,13 @@ export const Reports: React.FC<ReportsProps> = ({
     students.forEach(s => {
       const bucket = getAdmissionCategoryBucket(s.admissionCategory);
       s.feeLockers.forEach(l => {
-        l.transactions.filter(t => t.status === 'APPROVED').forEach(t => {
+        l.transactions.filter(t => {
+          if (t.status !== 'APPROVED') return false;
+          const pd = parsePaymentDate(t.paymentDate);
+          if (from && (!pd || pd < from)) return false;
+          if (to && (!pd || pd > to)) return false;
+          return true;
+        }).forEach(t => {
           const fy = getNormalizedFinancialYear(t);
           if (!grouped[fy]) {
             grouped[fy] = {
@@ -585,10 +593,19 @@ export const Reports: React.FC<ReportsProps> = ({
   };
 
   const getStudentsForFY = (fy: string) => {
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
     const studentMap: Record<string, { htn: string; name: string; department: string; batch: string; tuition: number; university: number; other: number; total: number; txCount: number }> = {};
     students.forEach(s => {
       s.feeLockers.forEach(l => {
-        l.transactions.filter(t => t.status === 'APPROVED' && getNormalizedFinancialYear(t) === fy).forEach(t => {
+        l.transactions.filter(t => {
+          if (t.status !== 'APPROVED') return false;
+          if (getNormalizedFinancialYear(t) !== fy) return false;
+          const pd = parsePaymentDate(t.paymentDate);
+          if (from && (!pd || pd < from)) return false;
+          if (to && (!pd || pd > to)) return false;
+          return true;
+        }).forEach(t => {
           const key = s.hallTicketNumber;
           if (!studentMap[key]) {
             studentMap[key] = {
@@ -2949,8 +2966,13 @@ export const Reports: React.FC<ReportsProps> = ({
     });
 
     return (
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="w-full text-left border-collapse">
+      <div>
+        <FilterBar count={data.length} countLabel="financial years">
+          <DateFilter />
+        </FilterBar>
+        <DateRangeBanner />
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80">
               <th className={thClass}>Financial Year</th>
@@ -3067,6 +3089,7 @@ export const Reports: React.FC<ReportsProps> = ({
             )}
           </tbody>
         </table>
+        </div>
       </div>
     );
   };
