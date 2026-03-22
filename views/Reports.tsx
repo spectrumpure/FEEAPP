@@ -184,7 +184,7 @@ const SyncedHorizontalScroll: React.FC<{ className?: string; children: React.Rea
       >
         <div style={{ width: `${scrollWidth}px`, height: '12px' }} />
       </div>
-      <div ref={bottomRef} className={`report-scrollbar ${normalizedClassName}`.trim()}>
+      <div ref={bottomRef} className={`report-scrollbar bg-white ${normalizedClassName}`.trim()}>
         <div ref={measureRef}>
           {children}
         </div>
@@ -4003,6 +4003,8 @@ export const Reports: React.FC<ReportsProps> = ({
         .report-scrollbar {
           scrollbar-width: auto;
           scrollbar-color: #075985 #bfdbfe;
+          scrollbar-gutter: stable both-edges;
+          box-sizing: border-box;
         }
         .report-scrollbar::-webkit-scrollbar {
           width: 16px;
