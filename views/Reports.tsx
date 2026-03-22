@@ -117,6 +117,10 @@ const SyncedHorizontalScroll: React.FC<{ className?: string; children: React.Rea
   const measureRef = useRef<HTMLDivElement>(null);
   const syncSourceRef = useRef<'top' | 'bottom' | null>(null);
   const [scrollWidth, setScrollWidth] = useState(1);
+  const normalizedClassName = className
+    .replace(/\boverflow-x-auto\b/g, 'overflow-x-scroll')
+    .replace(/\boverflow-y-auto\b/g, 'overflow-y-scroll')
+    .replace(/\boverflow-auto\b/g, 'overflow-scroll');
 
   useEffect(() => {
     const updateWidth = () => {
@@ -176,11 +180,11 @@ const SyncedHorizontalScroll: React.FC<{ className?: string; children: React.Rea
     <div className="space-y-1">
       <div
         ref={topRef}
-        className="report-scrollbar overflow-x-auto overflow-y-hidden rounded-t-lg border border-slate-200 bg-sky-100/70"
+        className="report-scrollbar h-4 overflow-x-scroll overflow-y-hidden rounded-t-lg border border-slate-200 bg-sky-100/70"
       >
-        <div style={{ width: `${scrollWidth}px`, height: '1px' }} />
+        <div style={{ width: `${scrollWidth}px`, height: '12px' }} />
       </div>
-      <div ref={bottomRef} className={`report-scrollbar ${className}`.trim()}>
+      <div ref={bottomRef} className={`report-scrollbar ${normalizedClassName}`.trim()}>
         <div ref={measureRef}>
           {children}
         </div>
@@ -2507,7 +2511,7 @@ export const Reports: React.FC<ReportsProps> = ({
                   </button>
                 </div>
               </div>
-              <div className="report-scrollbar overflow-auto max-h-[calc(90vh-72px)]">
+              <div className="report-scrollbar overflow-scroll max-h-[calc(90vh-72px)]">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-50 border-b border-slate-200">
@@ -2945,7 +2949,7 @@ export const Reports: React.FC<ReportsProps> = ({
                   </button>
                 </div>
               </div>
-              <div className="report-scrollbar overflow-auto max-h-[calc(90vh-72px)]">
+              <div className="report-scrollbar overflow-scroll max-h-[calc(90vh-72px)]">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-50 border-b border-slate-200">
@@ -3882,7 +3886,7 @@ export const Reports: React.FC<ReportsProps> = ({
                   </button>
                 </div>
               </div>
-              <div className="report-scrollbar overflow-auto max-h-[calc(90vh-72px)]">
+              <div className="report-scrollbar overflow-scroll max-h-[calc(90vh-72px)]">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-50 border-b border-slate-200">
