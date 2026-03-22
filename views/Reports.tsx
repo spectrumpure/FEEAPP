@@ -4002,26 +4002,26 @@ export const Reports: React.FC<ReportsProps> = ({
       <style>{`
         .report-scrollbar {
           scrollbar-width: auto;
-          scrollbar-color: #0284c7 #dbeafe;
+          scrollbar-color: #075985 #bfdbfe;
         }
         .report-scrollbar::-webkit-scrollbar {
-          width: 12px;
-          height: 12px;
+          width: 16px;
+          height: 16px;
         }
         .report-scrollbar::-webkit-scrollbar-track {
-          background: #dbeafe;
+          background: #bfdbfe;
           border-radius: 9999px;
         }
         .report-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, #38bdf8, #0284c7);
+          background: linear-gradient(180deg, #0c4a6e, #075985);
           border-radius: 9999px;
-          border: 2px solid #dbeafe;
+          border: 3px solid #bfdbfe;
         }
         .report-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(180deg, #0ea5e9, #0369a1);
+          background: linear-gradient(180deg, #082f49, #0c4a6e);
         }
         .report-scrollbar::-webkit-scrollbar-corner {
-          background: #dbeafe;
+          background: #bfdbfe;
         }
       `}</style>
       <div className="bg-gradient-to-r from-[#1a365d] to-[#2c5282] rounded-xl p-5 text-white shadow-lg">
