@@ -176,11 +176,11 @@ const SyncedHorizontalScroll: React.FC<{ className?: string; children: React.Rea
     <div className="space-y-1">
       <div
         ref={topRef}
-        className="overflow-x-auto overflow-y-hidden rounded-t-lg border border-slate-200 bg-sky-100/70 scrollbar-thin"
+        className="report-scrollbar overflow-x-auto overflow-y-hidden rounded-t-lg border border-slate-200 bg-sky-100/70"
       >
         <div style={{ width: `${scrollWidth}px`, height: '1px' }} />
       </div>
-      <div ref={bottomRef} className={className}>
+      <div ref={bottomRef} className={`report-scrollbar ${className}`.trim()}>
         <div ref={measureRef}>
           {children}
         </div>
@@ -2507,7 +2507,7 @@ export const Reports: React.FC<ReportsProps> = ({
                   </button>
                 </div>
               </div>
-              <div className="overflow-auto max-h-[calc(90vh-72px)]">
+              <div className="report-scrollbar overflow-auto max-h-[calc(90vh-72px)]">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-50 border-b border-slate-200">
@@ -2945,7 +2945,7 @@ export const Reports: React.FC<ReportsProps> = ({
                   </button>
                 </div>
               </div>
-              <div className="overflow-auto max-h-[calc(90vh-72px)]">
+              <div className="report-scrollbar overflow-auto max-h-[calc(90vh-72px)]">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-50 border-b border-slate-200">
@@ -3882,7 +3882,7 @@ export const Reports: React.FC<ReportsProps> = ({
                   </button>
                 </div>
               </div>
-              <div className="overflow-auto max-h-[calc(90vh-72px)]">
+              <div className="report-scrollbar overflow-auto max-h-[calc(90vh-72px)]">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-50 border-b border-slate-200">
@@ -3995,6 +3995,31 @@ export const Reports: React.FC<ReportsProps> = ({
 
   return (
     <div className="space-y-5">
+      <style>{`
+        .report-scrollbar {
+          scrollbar-width: auto;
+          scrollbar-color: #0284c7 #dbeafe;
+        }
+        .report-scrollbar::-webkit-scrollbar {
+          width: 12px;
+          height: 12px;
+        }
+        .report-scrollbar::-webkit-scrollbar-track {
+          background: #dbeafe;
+          border-radius: 9999px;
+        }
+        .report-scrollbar::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, #38bdf8, #0284c7);
+          border-radius: 9999px;
+          border: 2px solid #dbeafe;
+        }
+        .report-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(180deg, #0ea5e9, #0369a1);
+        }
+        .report-scrollbar::-webkit-scrollbar-corner {
+          background: #dbeafe;
+        }
+      `}</style>
       <div className="bg-gradient-to-r from-[#1a365d] to-[#2c5282] rounded-xl p-5 text-white shadow-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
