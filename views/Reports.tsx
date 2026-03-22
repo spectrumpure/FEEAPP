@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import {
   FileText,
@@ -110,6 +110,84 @@ ${tableHtml}
 const thClass = "px-4 py-3.5 text-[10px] font-semibold text-white uppercase tracking-wider bg-sky-600";
 const tdClass = "px-4 py-3 text-sm";
 const selectClass = "bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all cursor-pointer";
+
+const SyncedHorizontalScroll: React.FC<{ className?: string; children: React.ReactNode }> = ({ className = '', children }) => {
+  const topRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const syncSourceRef = useRef<'top' | 'bottom' | null>(null);
+  const [scrollWidth, setScrollWidth] = useState(1);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      setScrollWidth(Math.max(measureRef.current?.scrollWidth || 1, 1));
+    };
+
+    updateWidth();
+
+    const measuredNode = measureRef.current;
+    const observer = typeof ResizeObserver !== 'undefined' && measuredNode
+      ? new ResizeObserver(updateWidth)
+      : null;
+
+    if (observer && measuredNode) observer.observe(measuredNode);
+    window.addEventListener('resize', updateWidth);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, [children]);
+
+  useEffect(() => {
+    const topEl = topRef.current;
+    const bottomEl = bottomRef.current;
+    if (!topEl || !bottomEl) return;
+
+    const syncFromTop = () => {
+      if (syncSourceRef.current === 'bottom') return;
+      syncSourceRef.current = 'top';
+      bottomEl.scrollLeft = topEl.scrollLeft;
+      requestAnimationFrame(() => {
+        if (syncSourceRef.current === 'top') syncSourceRef.current = null;
+      });
+    };
+
+    const syncFromBottom = () => {
+      if (syncSourceRef.current === 'top') return;
+      syncSourceRef.current = 'bottom';
+      topEl.scrollLeft = bottomEl.scrollLeft;
+      requestAnimationFrame(() => {
+        if (syncSourceRef.current === 'bottom') syncSourceRef.current = null;
+      });
+    };
+
+    topEl.addEventListener('scroll', syncFromTop, { passive: true });
+    bottomEl.addEventListener('scroll', syncFromBottom, { passive: true });
+    topEl.scrollLeft = bottomEl.scrollLeft;
+
+    return () => {
+      topEl.removeEventListener('scroll', syncFromTop);
+      bottomEl.removeEventListener('scroll', syncFromBottom);
+    };
+  }, [scrollWidth]);
+
+  return (
+    <div className="space-y-1">
+      <div
+        ref={topRef}
+        className="overflow-x-auto overflow-y-hidden rounded-t-lg border border-slate-200 bg-sky-100/70 scrollbar-thin"
+      >
+        <div style={{ width: `${scrollWidth}px`, height: '1px' }} />
+      </div>
+      <div ref={bottomRef} className={className}>
+        <div ref={measureRef}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const parsePaymentDate = (dateStr: string | null | undefined): Date | null => {
   if (!dateStr) return null;
@@ -1425,7 +1503,7 @@ export const Reports: React.FC<ReportsProps> = ({
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
+        <SyncedHorizontalScroll className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50">
@@ -1466,7 +1544,7 @@ export const Reports: React.FC<ReportsProps> = ({
                         <tr>
                           <td colSpan={7} className="p-0">
                             <div className="bg-blue-50/30 p-3">
-                              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                              <SyncedHorizontalScroll className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
                                 <table className="w-full">
                                   <thead>
                                     <tr className="bg-slate-100">
@@ -1504,7 +1582,7 @@ export const Reports: React.FC<ReportsProps> = ({
                                     ))}
                                   </tbody>
                                 </table>
-                              </div>
+                              </SyncedHorizontalScroll>
                             </div>
                           </td>
                         </tr>
@@ -1524,7 +1602,7 @@ export const Reports: React.FC<ReportsProps> = ({
               )}
             </tbody>
           </table>
-        </div>
+        </SyncedHorizontalScroll>
       </div>
     );
   };
@@ -2042,7 +2120,7 @@ export const Reports: React.FC<ReportsProps> = ({
           <div className="px-4 py-2 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100">
             <span className="text-xs font-bold text-indigo-700">{sectionLabel}</span>
           </div>
-          <div className="overflow-x-auto">
+          <SyncedHorizontalScroll className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
@@ -2217,7 +2295,7 @@ export const Reports: React.FC<ReportsProps> = ({
                 </tr>
               </tbody>
             </table>
-          </div>
+          </SyncedHorizontalScroll>
         </div>
       );
     };
@@ -2252,7 +2330,7 @@ export const Reports: React.FC<ReportsProps> = ({
           <div className="px-4 py-2 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100">
             <span className="text-xs font-bold text-amber-700">Historical / Completed Batches</span>
           </div>
-          <div className="overflow-x-auto">
+          <SyncedHorizontalScroll className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
@@ -2363,7 +2441,7 @@ export const Reports: React.FC<ReportsProps> = ({
                 </tr>
               </tbody>
             </table>
-          </div>
+          </SyncedHorizontalScroll>
         </div>
       );
     };
@@ -2745,7 +2823,7 @@ export const Reports: React.FC<ReportsProps> = ({
           <DateFilter />
         </FilterBar>
         <DateRangeBanner />
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <SyncedHorizontalScroll className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[12px]">
             <thead>
               <tr className="bg-slate-50/80">
@@ -2830,7 +2908,7 @@ export const Reports: React.FC<ReportsProps> = ({
               </tr>
             </tbody>
           </table>
-        </div>
+        </SyncedHorizontalScroll>
         {selectedDeptRow && selectedDeptDetail && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button
@@ -2971,7 +3049,7 @@ export const Reports: React.FC<ReportsProps> = ({
           <DateFilter />
         </FilterBar>
         <DateRangeBanner />
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <SyncedHorizontalScroll className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80">
@@ -3030,7 +3108,7 @@ export const Reports: React.FC<ReportsProps> = ({
                             <Users size={14} />
                             Student Details for FY {d.financialYear} ({fyStudents.length} students)
                           </div>
-                          <div className="overflow-x-auto rounded border border-slate-200 max-h-[400px] overflow-y-auto">
+                          <SyncedHorizontalScroll className="overflow-x-auto rounded border border-slate-200 max-h-[400px] overflow-y-auto">
                             <table className="w-full text-left border-collapse text-[12px]">
                               <thead className="sticky top-0 z-10">
                                 <tr className="bg-slate-100">
@@ -3061,7 +3139,7 @@ export const Reports: React.FC<ReportsProps> = ({
                                 ))}
                               </tbody>
                             </table>
-                          </div>
+                          </SyncedHorizontalScroll>
                         </div>
                       </td>
                     </tr>
@@ -3089,7 +3167,7 @@ export const Reports: React.FC<ReportsProps> = ({
             )}
           </tbody>
         </table>
-        </div>
+        </SyncedHorizontalScroll>
       </div>
     );
   };
@@ -3117,7 +3195,7 @@ export const Reports: React.FC<ReportsProps> = ({
           <DateFilter />
         </FilterBar>
         <DateRangeBanner />
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <SyncedHorizontalScroll className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80">
@@ -3193,7 +3271,7 @@ export const Reports: React.FC<ReportsProps> = ({
                           <Users size={14} />
                           Student Details for Batch {d.batch} ({batchStudents.length} students)
                         </div>
-                        <div className="overflow-x-auto rounded border border-slate-200 max-h-[400px] overflow-y-auto">
+                        <SyncedHorizontalScroll className="overflow-x-auto rounded border border-slate-200 max-h-[400px] overflow-y-auto">
                           <table className="w-full text-left border-collapse text-[12px]">
                             <thead className="sticky top-0 z-10">
                               <tr className="bg-slate-100">
@@ -3220,7 +3298,7 @@ export const Reports: React.FC<ReportsProps> = ({
                               ))}
                             </tbody>
                           </table>
-                        </div>
+                        </SyncedHorizontalScroll>
                       </div>
                     </td>
                   </tr>
@@ -3256,7 +3334,7 @@ export const Reports: React.FC<ReportsProps> = ({
             )}
           </tbody>
         </table>
-      </div>
+      </SyncedHorizontalScroll>
       </div>
     );
   };
@@ -3279,7 +3357,7 @@ export const Reports: React.FC<ReportsProps> = ({
           <div className="px-4 py-2 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100">
             <span className="text-xs font-bold text-indigo-700">{sectionLabel}</span>
           </div>
-          <div className="overflow-x-auto">
+          <SyncedHorizontalScroll className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
@@ -3345,7 +3423,7 @@ export const Reports: React.FC<ReportsProps> = ({
                 </tr>
               </tbody>
             </table>
-          </div>
+          </SyncedHorizontalScroll>
         </div>
       );
     };
@@ -3410,7 +3488,7 @@ export const Reports: React.FC<ReportsProps> = ({
             {allCategories.map(category => <option key={category} value={category}>{category}</option>)}
           </SelectFilter>
         </FilterBar>
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <SyncedHorizontalScroll className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
               <tr className="bg-slate-50/80">
@@ -3477,7 +3555,7 @@ export const Reports: React.FC<ReportsProps> = ({
               )}
             </tbody>
           </table>
-        </div>
+        </SyncedHorizontalScroll>
       </div>
     );
   };
@@ -3496,7 +3574,7 @@ export const Reports: React.FC<ReportsProps> = ({
             {batchOptions.map(b => <option key={b.value} value={b.value}>{b.value} ({b.count})</option>)}
           </SelectFilter>
         </FilterBar>
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <SyncedHorizontalScroll className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
               <tr className="bg-slate-50/80">
@@ -3547,7 +3625,7 @@ export const Reports: React.FC<ReportsProps> = ({
               ))}
             </tbody>
           </table>
-        </div>
+        </SyncedHorizontalScroll>
       </div>
     );
   };
@@ -3586,7 +3664,7 @@ export const Reports: React.FC<ReportsProps> = ({
           )}
         </FilterBar>
         <DateRangeBanner />
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <SyncedHorizontalScroll className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/80">
@@ -3638,7 +3716,7 @@ export const Reports: React.FC<ReportsProps> = ({
               )}
             </tbody>
           </table>
-        </div>
+        </SyncedHorizontalScroll>
       </div>
     );
   };
@@ -3686,7 +3764,7 @@ export const Reports: React.FC<ReportsProps> = ({
           <DateFilter />
         </FilterBar>
         <DateRangeBanner />
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <SyncedHorizontalScroll className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
               <tr className="bg-slate-50/80">
@@ -3766,7 +3844,7 @@ export const Reports: React.FC<ReportsProps> = ({
               )}
             </tbody>
           </table>
-        </div>
+        </SyncedHorizontalScroll>
 
         {selectedCategoryRow && selectedCategoryDetail && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
